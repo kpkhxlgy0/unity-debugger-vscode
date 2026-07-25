@@ -1,0 +1,95 @@
+{
+  "name": "unity-debugger-vscode",
+  "displayName": "Community Debugger for Unity 2022 & Tuanjie",
+  "description": "Community managed-code debugger for local Unity 2022 and Tuanjie Editors.",
+  "publisher": "unity-debugger-community",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "vscode": "^1.95.0",
+    "node": ">=26.5.0"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "os": [
+    "win32"
+  ],
+  "categories": [
+    "Debuggers"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onDebugResolve:unity-community"
+  ],
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "csharp"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "unity-community",
+        "label": "Community Debugger for Unity 2022 & Tuanjie",
+        "languages": [
+          "csharp"
+        ],
+        "configurationAttributes": {
+          "attach": {
+            "required": [
+              "name",
+              "type",
+              "request"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "unity-community"
+                ]
+              },
+              "request": {
+                "enum": [
+                  "attach"
+                ]
+              }
+            }
+          }
+        },
+        "configurationSnippets": [
+          {
+            "label": "Attach Tuanjie / Unity 2022 Editor",
+            "body": {
+              "name": "Attach Tuanjie / Unity 2022 Editor",
+              "type": "unity-community",
+              "request": "attach"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "build:extension": "node esbuild.mjs",
+    "build:adapter": "dotnet restore UnityDebugger.sln --locked-mode && dotnet build UnityDebugger.sln -c Release --no-restore",
+    "build": "npm run build:extension && npm run build:adapter",
+    "test:build": "node --test tests/build/*.test.mjs",
+    "test:extension": "vitest run tests/extension",
+    "test:adapter": "dotnet test UnityDebugger.sln -c Release --no-restore",
+    "test": "npm run test:build && npm run test:extension && npm run test:adapter",
+    "package": "npm run build && vsce package --out dist/unity-debugger-vscode-0.1.0.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.1",
+    "@types/vscode": "1.95.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.1",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

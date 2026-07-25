@@ -215,7 +215,7 @@ Use these exact manifest constraints in `package.json`; keep `publisher` as the 
   },
   "scripts": {
     "build:extension": "node esbuild.mjs",
-    "build:adapter": "dotnet build UnityDebugger.sln -c Release --locked-mode",
+    "build:adapter": "dotnet restore UnityDebugger.sln --locked-mode && dotnet build UnityDebugger.sln -c Release --no-restore",
     "build": "npm run build:extension && npm run build:adapter",
     "test:build": "node --test tests/build/*.test.mjs",
     "test:extension": "vitest run tests/extension",
@@ -660,7 +660,7 @@ Run:
 ```powershell
 npm run verify:third-party
 dotnet restore UnityDebugger.sln --force-evaluate
-dotnet build UnityDebugger.sln -c Release --locked-mode
+dotnet build UnityDebugger.sln -c Release --no-restore
 node --test tests/build/third-party.test.mjs
 ```
 
@@ -1490,7 +1490,8 @@ Run:
 
 ```powershell
 dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --filter "AttachArguments|UnityDebugSessionLifecycle"
-dotnet build UnityDebugger.sln -c Release --locked-mode
+dotnet restore UnityDebugger.sln --locked-mode
+dotnet build UnityDebugger.sln -c Release --no-restore
 ```
 
 Expected: parsing/lifecycle tests PASS; the built process writes no startup text to DAP stdout.
@@ -1696,7 +1697,8 @@ Run:
 
 ```powershell
 dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --filter "MonoDebuggerBackendLifecycle|MonoDebuggerLogger"
-dotnet build UnityDebugger.sln -c Release --locked-mode
+dotnet restore UnityDebugger.sln --locked-mode
+dotnet build UnityDebugger.sln -c Release --no-restore
 npm run verify:third-party
 ```
 

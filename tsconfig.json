@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "verbatimModuleSyntax": true,
+    "types": [
+      "node",
+      "vscode",
+      "vitest/globals"
+    ]
+  },
+  "include": [
+    "extension/src/**/*.ts",
+    "tests/extension/**/*.ts",
+    "tests/integration/**/*.ts",
+    "vitest.config.ts",
+    "esbuild.mjs"
+  ]
+}
