@@ -12,7 +12,9 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         public event EventHandler? ReloadStarted;
+        public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;
+        public event EventHandler? ReconnectFailed;
         public event EventHandler? Terminated;
 
         public List<BackendThread> Threads { get; } =
@@ -209,6 +211,12 @@ namespace UnityDebugger.Adapter.Tests.Fakes
 
         public void RaiseReloadCompleted() =>
             ReloadCompleted?.Invoke(this, EventArgs.Empty);
+
+        public void RaiseReloadProgress() =>
+            ReloadProgress?.Invoke(this, EventArgs.Empty);
+
+        public void RaiseReconnectFailed() =>
+            ReconnectFailed?.Invoke(this, EventArgs.Empty);
 
         public void RaiseBreakpointChanged(
             BackendBreakpointChangedEventArgs arguments) =>

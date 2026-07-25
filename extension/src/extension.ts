@@ -7,9 +7,12 @@ import {
 } from "./debugConfigurationProvider.js";
 import {
   COPY_DIAGNOSTICS_COMMAND,
+  getLogDirectory,
   NO_SANITIZED_DIAGNOSTICS,
   OPEN_LOGS_COMMAND,
+  readLatestSanitizedReport,
   REFRESH_TARGETS_COMMAND,
+  terminationMessageFromLog,
 } from "./diagnostics.js";
 import { EditorDiscovery } from "./editorDiscovery.js";
 
@@ -75,20 +78,42 @@ export function activate(context: vscode.ExtensionContext): void {
   const openLogsRegistration = vscode.commands.registerCommand(
     OPEN_LOGS_COMMAND,
     async () => {
-      await vscode.window.showInformationMessage(
-        NO_SANITIZED_DIAGNOSTICS,
-      );
+      const directory = getLogDirectory();
+      if (!directory) {
+        await vscode.window.showInformationMessage(
+          NO_SANITIZED_DIAGNOSTICS,
+        );
+        return;
+      }
+      await vscode.env.openExternal(vscode.Uri.file(directory));
     },
   );
   const copyDiagnosticsRegistration = vscode.commands.registerCommand(
     COPY_DIAGNOSTICS_COMMAND,
     async () => {
-      await vscode.env.clipboard.writeText(NO_SANITIZED_DIAGNOSTICS);
+      const report = await readLatestSanitizedReport();
+      await vscode.env.clipboard.writeText(
+        report ?? NO_SANITIZED_DIAGNOSTICS,
+      );
       await vscode.window.showInformationMessage(
-        "Sanitized diagnostics status copied.",
+        report
+          ? "Latest sanitized diagnostics copied."
+          : "Sanitized diagnostics status copied.",
       );
     },
   );
+  const terminationRegistration =
+    vscode.debug.onDidTerminateDebugSession(async (session) => {
+      if (session.type !== "unity-community") {
+        return;
+      }
+      const message = terminationMessageFromLog(
+        await readLatestSanitizedReport(),
+      );
+      if (message) {
+        await vscode.window.showErrorMessage(message);
+      }
+    });
 
   context.subscriptions.push(
     discovery,
@@ -97,6 +122,7 @@ export function activate(context: vscode.ExtensionContext): void {
     refreshRegistration,
     openLogsRegistration,
     copyDiagnosticsRegistration,
+    terminationRegistration,
   );
 }
 

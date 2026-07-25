@@ -7,6 +7,7 @@ namespace UnityDebugger.Adapter.State
         Disconnected,
         Running,
         Stopped,
+        Reloading,
     }
 
     internal sealed class ExecutionState
@@ -32,6 +33,28 @@ namespace UnityDebugger.Adapter.State
         public void Disconnected()
         {
             Status = ExecutionStatus.Disconnected;
+        }
+
+        public bool ReloadStarted()
+        {
+            if (Status == ExecutionStatus.Reloading)
+                return false;
+            if (Status == ExecutionStatus.Disconnected)
+            {
+                throw new InvalidOperationException(
+                    "Domain Reload requires an attached target.");
+            }
+            var wasStopped = Status == ExecutionStatus.Stopped;
+            Status = ExecutionStatus.Reloading;
+            return wasStopped;
+        }
+
+        public bool ReloadCompleted()
+        {
+            if (Status != ExecutionStatus.Reloading)
+                return false;
+            Status = ExecutionStatus.Running;
+            return true;
         }
 
         public void RequireStopped(string operation)

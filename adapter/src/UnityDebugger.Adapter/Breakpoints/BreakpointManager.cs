@@ -83,6 +83,12 @@ namespace UnityDebugger.Adapter.Breakpoints
         public event EventHandler<ManagedBreakpointChangedEventArgs>?
             Changed;
 
+        public int VerifiedCount =>
+            entries.Values.Count(item => item.Verified);
+
+        public int PendingCount =>
+            entries.Count - VerifiedCount;
+
         public IReadOnlyList<ManagedBreakpoint> ReplaceForSource(
             string sourcePath,
             IEnumerable<RequestedBreakpoint> requested)
@@ -142,6 +148,18 @@ namespace UnityDebugger.Adapter.Breakpoints
             backendEntries.Clear();
             foreach (var entry in entries.Values)
             {
+                if (entry.BackendId.HasValue)
+                {
+                    try
+                    {
+                        backend.RemoveBreakpoint(
+                            entry.BackendId.Value);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // A transport-triggered reload has no live binding.
+                    }
+                }
                 entry.BackendId = null;
                 entry.Verified = false;
                 entry.Message = reason;
@@ -156,6 +174,7 @@ namespace UnityDebugger.Adapter.Breakpoints
             {
                 RemoveBackendBinding(entry);
                 Bind(entry);
+                RaiseChanged(entry);
             }
         }
 
@@ -168,6 +187,7 @@ namespace UnityDebugger.Adapter.Breakpoints
             {
                 RemoveBackendBinding(entry);
                 Bind(entry);
+                RaiseChanged(entry);
             }
         }
 

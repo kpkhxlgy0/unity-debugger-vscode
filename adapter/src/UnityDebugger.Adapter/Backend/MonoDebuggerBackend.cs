@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using Mono.Debugger.Soft;
 
 namespace UnityDebugger.Adapter.Backend
@@ -11,15 +13,57 @@ namespace UnityDebugger.Adapter.Backend
         private const int MaxConnectionAttempts = 10;
         private const int ConnectionAttemptIntervalMilliseconds = 500;
         private readonly Func<ISoftDebuggerSessionFacade> facadeFactory;
+        private readonly AssemblyReloadCoordinator reloadCoordinator;
+        private readonly ReconnectController reconnectController;
+        private readonly Func<int, bool> processIsAlive;
+        private readonly Func<TimeSpan, CancellationToken, Task> retryDelay;
         private ISoftDebuggerSessionFacade? facade;
+        private AttachTarget? target;
+        private CancellationTokenSource? reconnectCancellation;
+        private ExceptionBreakMode exceptionMode;
+        private bool disconnectRequested;
         private bool disposed;
         private bool terminatedRaised;
 
         public MonoDebuggerBackend(
             Func<ISoftDebuggerSessionFacade> facadeFactory)
+            : this(
+                facadeFactory,
+                new AssemblyReloadCoordinator(
+                    (duration, cancellationToken) =>
+                        Task.Delay(duration, cancellationToken)),
+                new ReconnectController(),
+                DefaultProcessIsAlive,
+                (duration, cancellationToken) =>
+                    Task.Delay(duration, cancellationToken))
+        {
+        }
+
+        internal MonoDebuggerBackend(
+            Func<ISoftDebuggerSessionFacade> facadeFactory,
+            AssemblyReloadCoordinator reloadCoordinator,
+            ReconnectController reconnectController,
+            Func<int, bool> processIsAlive,
+            Func<TimeSpan, CancellationToken, Task> retryDelay)
         {
             this.facadeFactory = facadeFactory ??
                 throw new ArgumentNullException(nameof(facadeFactory));
+            this.reloadCoordinator = reloadCoordinator ??
+                throw new ArgumentNullException(
+                    nameof(reloadCoordinator));
+            this.reconnectController = reconnectController ??
+                throw new ArgumentNullException(
+                    nameof(reconnectController));
+            this.processIsAlive = processIsAlive ??
+                throw new ArgumentNullException(nameof(processIsAlive));
+            this.retryDelay = retryDelay ??
+                throw new ArgumentNullException(nameof(retryDelay));
+            this.reloadCoordinator.ReloadStarted +=
+                OnCoordinatedReloadStarted;
+            this.reloadCoordinator.AssemblyLoaded +=
+                OnCoordinatedAssemblyLoaded;
+            this.reloadCoordinator.ReloadCompleted +=
+                OnCoordinatedReloadCompleted;
         }
 
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
@@ -28,7 +72,9 @@ namespace UnityDebugger.Adapter.Backend
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         public event EventHandler? ReloadStarted;
+        public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;
+        public event EventHandler? ReconnectFailed;
         public event EventHandler? Terminated;
 
         public bool IsAttached { get; private set; }
@@ -43,6 +89,8 @@ namespace UnityDebugger.Adapter.Backend
                 throw new DebuggerBackendException(
                     "Only loopback Editor targets are allowed.");
 
+            disconnectRequested = false;
+            this.target = target;
             var createdFacade = facadeFactory();
             facade = createdFacade;
             Subscribe(createdFacade);
@@ -78,6 +126,9 @@ namespace UnityDebugger.Adapter.Backend
 
         public void Disconnect()
         {
+            disconnectRequested = true;
+            reconnectCancellation?.Cancel();
+            reloadCoordinator.Disconnect();
             ReleaseFacade();
         }
 
@@ -167,6 +218,7 @@ namespace UnityDebugger.Adapter.Backend
         {
             RequireAttached();
             facade!.ConfigureExceptions(mode);
+            exceptionMode = mode;
         }
 
         public void Dispose()
@@ -174,7 +226,16 @@ namespace UnityDebugger.Adapter.Backend
             if (disposed)
                 return;
             disposed = true;
+            disconnectRequested = true;
+            reconnectCancellation?.Cancel();
             ReleaseFacade();
+            reloadCoordinator.ReloadStarted -=
+                OnCoordinatedReloadStarted;
+            reloadCoordinator.AssemblyLoaded -=
+                OnCoordinatedAssemblyLoaded;
+            reloadCoordinator.ReloadCompleted -=
+                OnCoordinatedReloadCompleted;
+            reloadCoordinator.Dispose();
         }
 
         private void Subscribe(ISoftDebuggerSessionFacade value)
@@ -220,11 +281,32 @@ namespace UnityDebugger.Adapter.Backend
 
         private void OnTargetExited(object? sender, EventArgs arguments)
         {
-            IsAttached = false;
-            if (terminatedRaised)
+            if (!IsAttached)
                 return;
-            terminatedRaised = true;
-            Terminated?.Invoke(this, EventArgs.Empty);
+            IsAttached = false;
+            var value = facade;
+            facade = null;
+            if (value != null)
+                ReleaseSpecificFacade(value);
+            if (disposed || disconnectRequested)
+                return;
+
+            var reconnectTarget = target;
+            if (
+                reconnectTarget == null ||
+                !processIsAlive(reconnectTarget.ProcessId))
+            {
+                RaiseTerminatedOnce();
+                return;
+            }
+
+            reloadCoordinator.OnAssemblyUnloaded();
+            reconnectCancellation?.Cancel();
+            reconnectCancellation?.Dispose();
+            reconnectCancellation = new CancellationTokenSource();
+            _ = ReconnectAsync(
+                reconnectTarget,
+                reconnectCancellation.Token);
         }
 
         private void OnTargetStopped(
@@ -245,9 +327,24 @@ namespace UnityDebugger.Adapter.Backend
         private void OnAssemblyUnloaded(
             object? sender,
             EventArgs arguments) =>
-            ReloadStarted?.Invoke(this, EventArgs.Empty);
+            reloadCoordinator.OnAssemblyUnloaded();
 
         private void OnAssemblyLoaded(
+            object? sender,
+            EventArgs arguments) =>
+            reloadCoordinator.OnAssemblyLoaded();
+
+        private void OnCoordinatedReloadStarted(
+            object? sender,
+            EventArgs arguments) =>
+            ReloadStarted?.Invoke(this, EventArgs.Empty);
+
+        private void OnCoordinatedAssemblyLoaded(
+            object? sender,
+            EventArgs arguments) =>
+            ReloadProgress?.Invoke(this, EventArgs.Empty);
+
+        private void OnCoordinatedReloadCompleted(
             object? sender,
             EventArgs arguments) =>
             ReloadCompleted?.Invoke(this, EventArgs.Empty);
@@ -270,6 +367,108 @@ namespace UnityDebugger.Adapter.Backend
             if (disposed)
                 throw new ObjectDisposedException(
                     nameof(MonoDebuggerBackend));
+        }
+
+        private async Task ReconnectAsync(
+            AttachTarget reconnectTarget,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var reconnected = await reconnectController.TryReconnect(
+                    () =>
+                        processIsAlive(reconnectTarget.ProcessId),
+                    () => TryCreateReplacement(
+                        reconnectTarget,
+                        cancellationToken),
+                    retryDelay,
+                    cancellationToken)
+                    .ConfigureAwait(false);
+                if (!reconnected && !disconnectRequested && !disposed)
+                {
+                    ReconnectFailed?.Invoke(this, EventArgs.Empty);
+                    RaiseTerminatedOnce();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Explicit disconnect owns cancellation.
+            }
+        }
+
+        private bool TryCreateReplacement(
+            AttachTarget reconnectTarget,
+            CancellationToken cancellationToken)
+        {
+            if (disconnectRequested || disposed)
+                return false;
+            var replacement = facadeFactory();
+            Subscribe(replacement);
+            try
+            {
+                replacement.ConnectAsync(
+                    reconnectTarget.Address,
+                    reconnectTarget.Port,
+                    1,
+                    0,
+                    cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+                if (disconnectRequested || disposed)
+                {
+                    ReleaseSpecificFacade(replacement);
+                    return false;
+                }
+                replacement.ConfigureExceptions(exceptionMode);
+                facade = replacement;
+                IsAttached = true;
+                reloadCoordinator.OnAssemblyLoaded();
+                return true;
+            }
+            catch (Exception)
+            {
+                ReleaseSpecificFacade(replacement);
+                return false;
+            }
+        }
+
+        private void ReleaseSpecificFacade(
+            ISoftDebuggerSessionFacade value)
+        {
+            Unsubscribe(value);
+            try
+            {
+                value.Detach();
+            }
+            finally
+            {
+                value.Dispose();
+            }
+        }
+
+        private void RaiseTerminatedOnce()
+        {
+            if (terminatedRaised)
+                return;
+            terminatedRaised = true;
+            Terminated?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static bool DefaultProcessIsAlive(int processId)
+        {
+            try
+            {
+                using (var process = Process.GetProcessById(processId))
+                    return !process.HasExited;
+            }
+            catch (
+                Exception exception
+                ) when (
+                    exception is ArgumentException ||
+                    exception is InvalidOperationException)
+            {
+                return false;
+            }
         }
 
     }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Mono.Debugging.Client;
 
 namespace UnityDebugger.Adapter.Diagnostics
@@ -12,6 +13,18 @@ namespace UnityDebugger.Adapter.Diagnostics
         {
             this.sink = sink ??
                 throw new ArgumentNullException(nameof(sink));
+        }
+
+        public MonoDebuggerLogger(IDiagnosticLog log)
+            : this(
+                (eventName, exceptionType) =>
+                {
+                    var fields = new Dictionary<string, object>();
+                    if (exceptionType != null)
+                        fields["exceptionType"] = exceptionType;
+                    log.Write(eventName, fields);
+                })
+        {
         }
 
         public void LogError(string message, Exception ex)

@@ -2213,7 +2213,7 @@ git commit -m "feat: control execution and exceptions"
 - Consumes: backend reload/termination events, `BreakpointManager`, workspace and user-profile paths.
 - Produces: `PathRedactor.Redact(string)`; `IDiagnosticLog.Write(eventName, fields)`; `ReconnectController.TryReconnect`; `AssemblyReloadCoordinator`; pending/rebound DAP breakpoint events; sanitized log commands.
 
-- [ ] **Step 1: Write failing redaction and reload tests**
+- [x] **Step 1: Write failing redaction and reload tests**
 
 Required redaction test:
 
@@ -2265,7 +2265,7 @@ events and use an injected delay to assert completion occurs once after a
 500 ms quiet window; a later load while waiting restarts the window. Explicit
 disconnect cancels completion.
 
-- [ ] **Step 2: Run focused tests and verify recovery/diagnostics fail**
+- [x] **Step 2: Run focused tests and verify recovery/diagnostics fail**
 
 Run:
 
@@ -2275,7 +2275,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because diagnostics and reload recovery are absent.
 
-- [ ] **Step 3: Implement structured, allowlisted diagnostics**
+- [x] **Step 3: Implement structured, allowlisted diagnostics**
 
 `IDiagnosticLog.Write` accepts an event name plus a dictionary but rejects
 sensitive field names. Allowed production fields are:
@@ -2317,7 +2317,7 @@ upstream message or arguments.
 records only `exceptionType`; it must not print an unsanitized exception or
 stack trace to stdout/stderr.
 
-- [ ] **Step 4: Implement condition-based reconnect**
+- [x] **Step 4: Implement condition-based reconnect**
 
 `ReconnectController.TryReconnect` signature:
 
@@ -2341,7 +2341,7 @@ asynchronous 500 ms quiet-window delay. Completion fires once after the quiet
 window. Use cancellation tokens and an injected delay; never use
 `Thread.Sleep`.
 
-- [ ] **Step 5: Wire reload and reconnect events**
+- [x] **Step 5: Wire reload and reconnect events**
 
 On reload start:
 
@@ -2372,7 +2372,7 @@ session; retain logical breakpoints and exception mode. Feed assembly-load
 events from the replacement session into the coordinator. If reconnect fails,
 send one terminated event and a sanitized actionable error.
 
-- [ ] **Step 6: Wire extension log commands**
+- [x] **Step 6: Wire extension log commands**
 
 `extension/src/diagnostics.ts` must derive the same fixed log directory, expose
 the latest sanitized report, open the directory through
@@ -2381,7 +2381,7 @@ sanitized file contents. It must not scan outside that directory. Register
 `vscode.debug.onDidTerminateDebugSession`; for `unity-community`, read the
 latest matching log and show the tested non-zero-exit message.
 
-- [ ] **Step 7: Verify recovery and privacy**
+- [x] **Step 7: Verify recovery and privacy**
 
 Run:
 
@@ -2393,7 +2393,7 @@ npm test
 
 Expected: all tests PASS; test logs contain none of the seeded secret values.
 
-- [ ] **Step 8: Commit recovery and diagnostics**
+- [x] **Step 8: Commit recovery and diagnostics**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter extension/src/diagnostics.ts tests/adapter/UnityDebugger.Adapter.Tests tests/extension/diagnostics.test.ts

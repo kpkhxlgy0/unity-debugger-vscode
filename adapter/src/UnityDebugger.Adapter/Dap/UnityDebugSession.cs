@@ -166,7 +166,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
             var filters = (request?["filters"] as JArray)?
@@ -358,7 +358,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
             var dapThreadId = request?["threadId"]?.Value<int>() ?? 0;
@@ -414,7 +414,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
@@ -450,7 +450,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
             var reference =
@@ -506,7 +506,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             try
             {
@@ -531,7 +531,7 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (!TryGetBackend(response, out var value))
+            if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
             var context = request?["context"]?.Value<string>();
@@ -606,7 +606,9 @@ namespace UnityDebugger.Adapter.Dap
             value.ThreadChanged += OnThreadChanged;
             value.BreakpointChanged += OnBreakpointChanged;
             value.ReloadStarted += OnReloadStarted;
+            value.ReloadProgress += OnReloadProgress;
             value.ReloadCompleted += OnReloadCompleted;
+            value.ReconnectFailed += OnReconnectFailed;
             value.Terminated += OnTerminated;
         }
 
@@ -617,7 +619,9 @@ namespace UnityDebugger.Adapter.Dap
             value.ThreadChanged -= OnThreadChanged;
             value.BreakpointChanged -= OnBreakpointChanged;
             value.ReloadStarted -= OnReloadStarted;
+            value.ReloadProgress -= OnReloadProgress;
             value.ReloadCompleted -= OnReloadCompleted;
+            value.ReconnectFailed -= OnReconnectFailed;
             value.Terminated -= OnTerminated;
         }
 
@@ -761,17 +765,78 @@ namespace UnityDebugger.Adapter.Dap
 
         private void OnReloadStarted(object sender, EventArgs arguments)
         {
+            bool wasStopped;
+            try
+            {
+                wasStopped = executionState.ReloadStarted();
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+            awaitingContinuedEvent = false;
             ResetInspectionState(resetThreads: true);
+            if (wasStopped)
+            {
+                SendEvent(
+                    new Event(
+                        "continued",
+                        new
+                        {
+                            threadId = activeDapThreadId,
+                            allThreadsContinued = true,
+                        }));
+            }
+            breakpointManager?.MarkAllPending(
+                "Waiting for assemblies after Domain Reload.");
+            SendEvent(
+                new OutputEvent(
+                    "console",
+                    "Domain Reload detected; waiting for assemblies." +
+                    Environment.NewLine));
+        }
+
+        private void OnReloadProgress(
+            object sender,
+            EventArgs arguments)
+        {
+            if (executionState.Status != ExecutionStatus.Reloading)
+                return;
+            breakpointManager?.RebindPending();
         }
 
         private void OnReloadCompleted(object sender, EventArgs arguments)
         {
+            if (!executionState.ReloadCompleted())
+                return;
+            breakpointManager?.RebindAll();
+            var rebound = breakpointManager?.VerifiedCount ?? 0;
+            var pending = breakpointManager?.PendingCount ?? 0;
+            SendEvent(
+                new OutputEvent(
+                    "console",
+                    $"Domain Reload complete; {rebound} rebound, " +
+                    $"{pending} pending." +
+                    Environment.NewLine));
         }
 
         private void OnTerminated(object sender, EventArgs arguments)
         {
             ReleaseBackend();
             SendTerminatedOnce();
+        }
+
+        private void OnReconnectFailed(
+            object sender,
+            EventArgs arguments)
+        {
+            SendEvent(
+                new OutputEvent(
+                    "console",
+                    "Lost connection to the local Editor and could not " +
+                    "reconnect within 10 seconds. Check Code " +
+                    "Optimization and the local firewall." +
+                    Environment.NewLine));
         }
 
         private bool TryGetBackend(
@@ -785,6 +850,21 @@ namespace UnityDebugger.Adapter.Dap
                 response,
                 2020,
                 "Attach to an Editor before inspecting execution state.");
+            return false;
+        }
+
+        private bool TryGetInspectionBackend(
+            Response response,
+            out IDebuggerBackend value)
+        {
+            if (!TryGetBackend(response, out value))
+                return false;
+            if (executionState.Status != ExecutionStatus.Reloading)
+                return true;
+            SendErrorResponse(
+                response,
+                2027,
+                "Managed inspection is unavailable during Domain Reload.");
             return false;
         }
 

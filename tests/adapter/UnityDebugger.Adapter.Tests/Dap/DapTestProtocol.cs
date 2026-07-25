@@ -63,7 +63,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             }
         }
 
-        private static IReadOnlyList<JObject> ParseMessages(byte[] bytes)
+        internal static IReadOnlyList<JObject> ParseMessages(byte[] bytes)
         {
             var messages = new List<JObject>();
             var offset = 0;
@@ -86,6 +86,57 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 offset = bodyStart + length;
             }
             return messages;
+        }
+
+        internal sealed class Recorder : System.IDisposable
+        {
+            private readonly UnityDebugSession session;
+            private readonly MemoryStream output = new MemoryStream();
+            private int capturedLength;
+
+            public Recorder(UnityDebugSession session)
+            {
+                this.session = session;
+            }
+
+            public IReadOnlyList<JObject> Send(
+                params JObject[] requests)
+            {
+                using (var input = new MemoryStream())
+                {
+                    foreach (var request in requests)
+                    {
+                        var json = request.ToString(Formatting.None);
+                        var body = Encoding.UTF8.GetBytes(json);
+                        var header = Encoding.ASCII.GetBytes(
+                            $"Content-Length: {body.Length}\r\n\r\n");
+                        input.Write(header, 0, header.Length);
+                        input.Write(body, 0, body.Length);
+                    }
+                    input.Position = 0;
+                    session.Start(input, output).GetAwaiter().GetResult();
+                }
+                return Capture();
+            }
+
+            public IReadOnlyList<JObject> Capture()
+            {
+                var all = output.ToArray();
+                var added = new byte[all.Length - capturedLength];
+                System.Buffer.BlockCopy(
+                    all,
+                    capturedLength,
+                    added,
+                    0,
+                    added.Length);
+                capturedLength = all.Length;
+                return ParseMessages(added);
+            }
+
+            public void Dispose()
+            {
+                output.Dispose();
+            }
         }
 
         private static int FindHeaderEnd(byte[] bytes, int start)

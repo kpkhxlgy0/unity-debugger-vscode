@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Reflection;
 using Mono.Debugging.Client;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Diagnostics;
+using VSCodeDebug;
 
 namespace UnityDebugger.Adapter
 {
@@ -10,10 +14,34 @@ namespace UnityDebugger.Adapter
     {
         private static int Main(string[] args)
         {
-            DebuggerLoggingService.CustomLogger =
-                new MonoDebuggerLogger((_, __) => { });
+            DiagnosticLog? log = null;
+            var exitCode = 1;
             try
             {
+                log = DiagnosticLog.CreateDefault();
+                SafeWrite(
+                    log,
+                    "adapter.start",
+                    new Dictionary<string, object>
+                    {
+                        ["adapterVersion"] =
+                            Assembly.GetExecutingAssembly()
+                                .GetName()
+                                .Version?
+                                .ToString() ?? "0.0.0.0",
+                        ["processId"] =
+                            Process.GetCurrentProcess().Id,
+                    });
+                ProtocolTrace.Sink = command =>
+                    SafeWrite(
+                        log,
+                        "dap.command",
+                        new Dictionary<string, object>
+                        {
+                            ["event"] = command,
+                        });
+                DebuggerLoggingService.CustomLogger =
+                    new MonoDebuggerLogger(log);
                 var session = new UnityDebugSession(
                     () => new MonoDebuggerBackend(
                         () => new SoftDebuggerSessionFacade()));
@@ -22,16 +50,53 @@ namespace UnityDebugger.Adapter
                     Console.OpenStandardOutput())
                     .GetAwaiter()
                     .GetResult();
-                return 0;
+                exitCode = 0;
             }
             catch (Exception exception)
             {
-                Console.Error.WriteLine(exception.GetType().Name);
-                return 1;
+                if (log != null)
+                {
+                    SafeWrite(
+                        log,
+                        "adapter.error",
+                        new Dictionary<string, object>
+                        {
+                            ["exceptionType"] =
+                                exception.GetType().Name,
+                        });
+                }
             }
             finally
             {
+                ProtocolTrace.Sink = _ => { };
                 DebuggerLoggingService.CustomLogger = null;
+                if (log != null)
+                {
+                    SafeWrite(
+                        log,
+                        "adapter.exit",
+                        new Dictionary<string, object>
+                        {
+                            ["exitCode"] = exitCode,
+                        });
+                    log.Dispose();
+                }
+            }
+            return exitCode;
+        }
+
+        private static void SafeWrite(
+            IDiagnosticLog log,
+            string eventName,
+            IReadOnlyDictionary<string, object> fields)
+        {
+            try
+            {
+                log.Write(eventName, fields);
+            }
+            catch
+            {
+                // Diagnostics must never corrupt stdout DAP transport.
             }
         }
     }

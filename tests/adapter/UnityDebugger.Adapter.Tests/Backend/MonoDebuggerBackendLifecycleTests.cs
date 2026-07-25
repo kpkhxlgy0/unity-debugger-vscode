@@ -1,5 +1,7 @@
 using System;
 using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Mono.Debugger.Soft;
 using UnityDebugger.Adapter.Backend;
 using Xunit;
@@ -227,6 +229,44 @@ namespace UnityDebugger.Adapter.Tests.Backend
                     ExceptionBreakMode.All,
                     facade.ExceptionMode);
                 Assert.Equal(1, continued);
+            }
+        }
+
+        [Fact]
+        public void Live_editor_transport_exit_recreates_only_the_facade()
+        {
+            var first = new FakeSoftDebuggerSessionFacade();
+            var second = new FakeSoftDebuggerSessionFacade();
+            var factoryCalls = 0;
+            using (var coordinator = new AssemblyReloadCoordinator(
+                (_, __) => Task.CompletedTask))
+            using (var backend = new MonoDebuggerBackend(
+                () => factoryCalls++ == 0 ? first : second,
+                coordinator,
+                new ReconnectController(),
+                _ => true,
+                (_, __) => Task.CompletedTask))
+            {
+                var reloads = 0;
+                var terminated = 0;
+                backend.ReloadStarted += (_, __) => reloads++;
+                backend.Terminated += (_, __) => terminated++;
+                backend.Attach(Target());
+                backend.ConfigureExceptions(ExceptionBreakMode.All);
+
+                first.RaiseTargetExited();
+
+                Assert.True(
+                    SpinWait.SpinUntil(
+                        () => second.ConnectCount == 1,
+                        TimeSpan.FromSeconds(2)));
+                Assert.True(backend.IsAttached);
+                Assert.Equal(1, reloads);
+                Assert.Equal(0, terminated);
+                Assert.Equal(
+                    ExceptionBreakMode.All,
+                    second.ExceptionMode);
+                Assert.Equal(1, first.DisposeCount);
             }
         }
 

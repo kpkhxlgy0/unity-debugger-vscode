@@ -11,7 +11,9 @@ namespace UnityDebugger.Adapter.Backend
         event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         event EventHandler? ReloadStarted;
+        event EventHandler? ReloadProgress;
         event EventHandler? ReloadCompleted;
+        event EventHandler? ReconnectFailed;
         event EventHandler? Terminated;
 
         bool IsAttached { get; }

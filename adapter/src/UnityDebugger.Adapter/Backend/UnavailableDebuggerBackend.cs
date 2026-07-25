@@ -12,7 +12,9 @@ namespace UnityDebugger.Adapter.Backend
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         public event EventHandler? ReloadStarted;
+        public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;
+        public event EventHandler? ReconnectFailed;
         public event EventHandler? Terminated;
 #pragma warning restore CS0067
 
