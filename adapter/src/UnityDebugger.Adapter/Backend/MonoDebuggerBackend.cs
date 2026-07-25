@@ -23,9 +23,7 @@ namespace UnityDebugger.Adapter.Backend
         }
 
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
-#pragma warning disable CS0067
         public event EventHandler? Continued;
-#pragma warning restore CS0067
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
@@ -141,13 +139,35 @@ namespace UnityDebugger.Adapter.Backend
             facade!.Continue();
         }
 
-        public void Pause(long threadId) => throw NotImplemented();
-        public void StepIn(long threadId) => throw NotImplemented();
-        public void StepOver(long threadId) => throw NotImplemented();
-        public void StepOut(long threadId) => throw NotImplemented();
+        public void Pause(long threadId)
+        {
+            RequireAttached();
+            facade!.Pause();
+        }
 
-        public void ConfigureExceptions(ExceptionBreakMode mode) =>
-            throw NotImplemented();
+        public void StepIn(long threadId)
+        {
+            RequireAttached();
+            facade!.StepIn();
+        }
+
+        public void StepOver(long threadId)
+        {
+            RequireAttached();
+            facade!.StepOver();
+        }
+
+        public void StepOut(long threadId)
+        {
+            RequireAttached();
+            facade!.StepOut();
+        }
+
+        public void ConfigureExceptions(ExceptionBreakMode mode)
+        {
+            RequireAttached();
+            facade!.ConfigureExceptions(mode);
+        }
 
         public void Dispose()
         {
@@ -160,6 +180,7 @@ namespace UnityDebugger.Adapter.Backend
         private void Subscribe(ISoftDebuggerSessionFacade value)
         {
             value.TargetExited += OnTargetExited;
+            value.TargetStarted += OnTargetStarted;
             value.TargetStopped += OnTargetStopped;
             value.ThreadChanged += OnThreadChanged;
             value.AssemblyUnloaded += OnAssemblyUnloaded;
@@ -170,6 +191,7 @@ namespace UnityDebugger.Adapter.Backend
         private void Unsubscribe(ISoftDebuggerSessionFacade value)
         {
             value.TargetExited -= OnTargetExited;
+            value.TargetStarted -= OnTargetStarted;
             value.TargetStopped -= OnTargetStopped;
             value.ThreadChanged -= OnThreadChanged;
             value.AssemblyUnloaded -= OnAssemblyUnloaded;
@@ -210,6 +232,11 @@ namespace UnityDebugger.Adapter.Backend
             BackendStoppedEventArgs arguments) =>
             Stopped?.Invoke(this, arguments);
 
+        private void OnTargetStarted(
+            object? sender,
+            EventArgs arguments) =>
+            Continued?.Invoke(this, EventArgs.Empty);
+
         private void OnThreadChanged(
             object? sender,
             BackendThreadEventArgs arguments) =>
@@ -245,8 +272,5 @@ namespace UnityDebugger.Adapter.Backend
                     nameof(MonoDebuggerBackend));
         }
 
-        private static InvalidOperationException NotImplemented() =>
-            new InvalidOperationException(
-                "The debugger operation is not implemented yet.");
     }
 }

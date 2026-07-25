@@ -2064,7 +2064,7 @@ git commit -m "feat: inspect managed execution state"
 - Consumes: `IDebuggerBackend` control methods and stop events.
 - Produces: `ExecutionState` transitions; DAP `continue`, `pause`, `next`, `stepIn`, `stepOut`, and `setExceptionBreakpoints`; exception filter IDs `all` and `uncaught`.
 
-- [ ] **Step 1: Write failing state, control, and exception tests**
+- [x] **Step 1: Write failing state, control, and exception tests**
 
 State tests must allow:
 
@@ -2091,7 +2091,7 @@ Assert.Equal(ExceptionBreakMode.None, backend.ExceptionBreakMode);
 Unknown filter IDs must produce a failed response rather than silently enabling
 all exceptions.
 
-- [ ] **Step 2: Run focused tests and verify missing control support fails**
+- [x] **Step 2: Run focused tests and verify missing control support fails**
 
 Run:
 
@@ -2101,7 +2101,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because state/control handlers are absent.
 
-- [ ] **Step 3: Implement explicit execution state transitions**
+- [x] **Step 3: Implement explicit execution state transitions**
 
 `ExecutionState` exposes:
 
@@ -2126,7 +2126,7 @@ internal sealed class ExecutionState
 Duplicate backend events must not emit duplicate DAP stopped/continued events;
 log only the event type, not stack or variable data.
 
-- [ ] **Step 4: Wrap Mono control and exception behavior**
+- [x] **Step 4: Wrap Mono control and exception behavior**
 
 Extend the facade with:
 
@@ -2144,7 +2144,7 @@ thrown/unhandled events. For `Uncaught`, remove the catchpoint and forward only
 the backend's unhandled exception event. For `None`, remove catchpoints and do
 not generate an exception stop.
 
-- [ ] **Step 5: Implement DAP control and advertised capabilities**
+- [x] **Step 5: Implement DAP control and advertised capabilities**
 
 Require stopped state for `next`, `stepIn`, and `stepOut`; require running state
 for `pause`; accept `continue` only from stopped. Send the DAP response before
@@ -2170,7 +2170,7 @@ exceptionBreakpointFilters = new[]
 
 Keep function breakpoints, logpoints, and set-variable unsupported.
 
-- [ ] **Step 6: Verify execution control**
+- [x] **Step 6: Verify execution control**
 
 Run:
 
@@ -2181,7 +2181,7 @@ dotnet test UnityDebugger.sln -c Release --no-restore
 
 Expected: tests PASS; invalid state requests fail without calling the backend.
 
-- [ ] **Step 7: Commit control and exception support**
+- [x] **Step 7: Commit control and exception support**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests

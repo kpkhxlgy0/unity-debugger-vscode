@@ -30,6 +30,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new List<LogicalBreakpoint>();
         public List<long> RemovedBreakpointIds { get; } =
             new List<long>();
+        public List<ExceptionBreakMode> ExceptionModes { get; } =
+            new List<ExceptionBreakMode>();
 
         public bool IsAttached { get; private set; }
         public bool BindAsPending { get; set; }
@@ -53,6 +55,10 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public int StepOutCount { get; private set; }
         public int RemoveBreakpointCount { get; private set; }
         public int ConfigureExceptionsCount { get; private set; }
+        public long? LastControlThreadId { get; private set; }
+        public bool RaiseContinuedSynchronously { get; set; }
+        public int SynchronousStoppedEventCount { get; set; }
+        public Exception? ControlException { get; set; }
 
         public void Attach(AttachTarget target)
         {
@@ -126,32 +132,67 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public void Continue(long threadId)
         {
             ContinueCount++;
+            LastControlThreadId = threadId;
+            if (ControlException != null)
+                throw ControlException;
+            if (RaiseContinuedSynchronously)
+                RaiseContinued();
         }
 
         public void Pause(long threadId)
         {
             PauseCount++;
+            LastControlThreadId = threadId;
+            if (ControlException != null)
+                throw ControlException;
+            for (
+                var index = 0;
+                index < SynchronousStoppedEventCount;
+                index++)
+            {
+                RaiseStopped(
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Pause,
+                        threadId,
+                        null));
+            }
         }
 
         public void StepIn(long threadId)
         {
             StepInCount++;
+            LastControlThreadId = threadId;
+            if (ControlException != null)
+                throw ControlException;
+            if (RaiseContinuedSynchronously)
+                RaiseContinued();
         }
 
         public void StepOver(long threadId)
         {
             StepOverCount++;
+            LastControlThreadId = threadId;
+            if (ControlException != null)
+                throw ControlException;
+            if (RaiseContinuedSynchronously)
+                RaiseContinued();
         }
 
         public void StepOut(long threadId)
         {
             StepOutCount++;
+            LastControlThreadId = threadId;
+            if (ControlException != null)
+                throw ControlException;
+            if (RaiseContinuedSynchronously)
+                RaiseContinued();
         }
 
         public void ConfigureExceptions(ExceptionBreakMode mode)
         {
             ConfigureExceptionsCount++;
             LastExceptionMode = mode;
+            ExceptionModes.Add(mode);
         }
 
         public void Dispose()

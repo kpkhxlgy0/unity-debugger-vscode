@@ -202,6 +202,34 @@ namespace UnityDebugger.Adapter.Tests.Backend
             }
         }
 
+        [Fact]
+        public void Control_exception_mode_and_continued_event_are_forwarded()
+        {
+            var facade = new FakeSoftDebuggerSessionFacade();
+            using (var backend = new MonoDebuggerBackend(() => facade))
+            {
+                var continued = 0;
+                backend.Continued += (_, __) => continued++;
+                backend.Attach(Target());
+
+                backend.Pause(42);
+                backend.StepIn(42);
+                backend.StepOver(42);
+                backend.StepOut(42);
+                backend.ConfigureExceptions(ExceptionBreakMode.All);
+                facade.RaiseTargetStarted();
+
+                Assert.Equal(1, facade.PauseCount);
+                Assert.Equal(1, facade.StepInCount);
+                Assert.Equal(1, facade.StepOverCount);
+                Assert.Equal(1, facade.StepOutCount);
+                Assert.Equal(
+                    ExceptionBreakMode.All,
+                    facade.ExceptionMode);
+                Assert.Equal(1, continued);
+            }
+        }
+
         private static AttachTarget Target(int port = 56234) =>
             new AttachTarget(
                 1234,

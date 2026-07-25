@@ -20,10 +20,16 @@ namespace UnityDebugger.Adapter.Dap
             new HandleTable<BackendStackFrame>();
         private readonly HandleTable<BackendVariable[]> variableHandles =
             new HandleTable<BackendVariable[]>();
+        private readonly ExecutionState executionState =
+            new ExecutionState();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
         private SourceMapper? sourceMapper;
         private bool terminatedSent;
+        private bool controlResponsePending;
+        private bool awaitingContinuedEvent;
+        private int activeDapThreadId;
+        private Event? bufferedControlEvent;
 
         public UnityDebugSession(Func<IDebuggerBackend> backendFactory)
         {
@@ -39,7 +45,18 @@ namespace UnityDebugger.Adapter.Dap
                 supportsFunctionBreakpoints = false,
                 supportsConditionalBreakpoints = true,
                 supportsEvaluateForHovers = false,
-                supportsExceptionOptions = false,
+                supportsExceptionOptions = true,
+                exceptionBreakpointFilters = new[]
+                {
+                    new ExceptionBreakpointsFilter(
+                        "all",
+                        "All Exceptions",
+                        false),
+                    new ExceptionBreakpointsFilter(
+                        "uncaught",
+                        "Uncaught Exceptions",
+                        true),
+                },
                 supportsSetVariable = false,
             });
             SendEvent(new InitializedEvent());
@@ -75,6 +92,7 @@ namespace UnityDebugger.Adapter.Dap
                 backend = createdBackend;
                 Subscribe(createdBackend);
                 createdBackend.Attach(target);
+                executionState.Attached();
                 breakpointManager = new BreakpointManager(createdBackend);
                 breakpointManager.Changed += OnManagedBreakpointChanged;
                 sourceMapper = new SourceMapper(
@@ -146,7 +164,53 @@ namespace UnityDebugger.Adapter.Dap
 
         public override void SetExceptionBreakpoints(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var filters = (request?["filters"] as JArray)?
+                .Values<string>()
+                .Where(item => item != null)
+                .ToArray() ?? Array.Empty<string>();
+            var unknown = filters.FirstOrDefault(
+                filter =>
+                    !string.Equals(
+                        filter,
+                        "all",
+                        StringComparison.Ordinal) &&
+                    !string.Equals(
+                        filter,
+                        "uncaught",
+                        StringComparison.Ordinal));
+            if (unknown != null)
+            {
+                SendErrorResponse(
+                    response,
+                    2030,
+                    "Unknown exception breakpoint filter.");
+                return;
+            }
+
+            var mode = filters.Contains("all")
+                ? ExceptionBreakMode.All
+                : filters.Contains("uncaught")
+                    ? ExceptionBreakMode.Uncaught
+                    : ExceptionBreakMode.None;
+            try
+            {
+                value.ConfigureExceptions(mode);
+                SendResponse(response);
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendErrorResponse(
+                    response,
+                    2031,
+                    "Could not configure exception breakpoints.");
+            }
+        }
 
         public override void SetBreakpoints(
             Response response,
@@ -216,23 +280,79 @@ namespace UnityDebugger.Adapter.Dap
 
         public override void Continue(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments) =>
+            Resume(
+                response,
+                (object)arguments,
+                "Continue",
+                (value, threadId) => value.Continue(threadId),
+                new ContinueResponseBody());
 
         public override void Next(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments) =>
+            Resume(
+                response,
+                (object)arguments,
+                "Step over",
+                (value, threadId) => value.StepOver(threadId));
 
         public override void StepIn(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments) =>
+            Resume(
+                response,
+                (object)arguments,
+                "Step in",
+                (value, threadId) => value.StepIn(threadId));
 
         public override void StepOut(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments) =>
+            Resume(
+                response,
+                (object)arguments,
+                "Step out",
+                (value, threadId) => value.StepOut(threadId));
 
         public override void Pause(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryResolveControlTarget(
+                response,
+                (object)arguments,
+                out IDebuggerBackend value,
+                out long threadId))
+            {
+                return;
+            }
+            try
+            {
+                executionState.RequireRunning("Pause");
+            }
+            catch (InvalidOperationException exception)
+            {
+                SendErrorResponse(response, 2032, exception.Message);
+                return;
+            }
+            try
+            {
+                BeginControlResponse();
+                value.Pause(threadId);
+                SendResponse(response);
+                EndControlResponse();
+            }
+            catch (Exception exception)
+                when (IsControlFailure(exception))
+            {
+                CancelControlResponse();
+                SendErrorResponse(
+                    response,
+                    2032,
+                    "Pause request failed.");
+            }
+        }
 
         public override void StackTrace(
             Response response,
@@ -504,6 +624,9 @@ namespace UnityDebugger.Adapter.Dap
         private void ReleaseBackend()
         {
             ResetInspectionState(resetThreads: true);
+            executionState.Disconnected();
+            CancelControlResponse();
+            activeDapThreadId = 0;
             if (breakpointManager != null)
             {
                 breakpointManager.Changed -=
@@ -542,10 +665,16 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
+            if (executionState.Status != ExecutionStatus.Running)
+                return;
+            executionState.Stopped();
+            awaitingContinuedEvent = false;
             ResetInspectionState(resetThreads: false);
-            SendEvent(
+            activeDapThreadId =
+                threadIds.GetOrCreate(arguments.ThreadId);
+            SendOrBufferControlEvent(
                 new StoppedEvent(
-                    threadIds.GetOrCreate(arguments.ThreadId),
+                    activeDapThreadId,
                     ToDapStopReason(arguments.Reason),
                     arguments.Description));
         }
@@ -553,6 +682,25 @@ namespace UnityDebugger.Adapter.Dap
         private void OnContinued(object sender, EventArgs arguments)
         {
             ResetInspectionState(resetThreads: false);
+            if (executionState.Status == ExecutionStatus.Stopped)
+            {
+                executionState.Continued();
+            }
+            else if (
+                executionState.Status != ExecutionStatus.Running ||
+                !awaitingContinuedEvent)
+            {
+                return;
+            }
+            awaitingContinuedEvent = false;
+            SendOrBufferControlEvent(
+                new Event(
+                    "continued",
+                    new
+                    {
+                        threadId = activeDapThreadId,
+                        allThreadsContinued = true,
+                    }));
         }
 
         private void OnThreadChanged(
@@ -707,6 +855,110 @@ namespace UnityDebugger.Adapter.Dap
                 default:
                     return "pause";
             }
+        }
+
+        private void Resume(
+            Response response,
+            object arguments,
+            string operation,
+            Action<IDebuggerBackend, long> action,
+            ResponseBody? body = null)
+        {
+            if (!TryResolveControlTarget(
+                response,
+                arguments,
+                out IDebuggerBackend value,
+                out long threadId))
+            {
+                return;
+            }
+            try
+            {
+                executionState.RequireStopped(operation);
+            }
+            catch (InvalidOperationException exception)
+            {
+                SendErrorResponse(response, 2033, exception.Message);
+                return;
+            }
+            try
+            {
+                threadIds.TryGetDapId(
+                    threadId,
+                    out activeDapThreadId);
+                executionState.Continued();
+                awaitingContinuedEvent = true;
+                BeginControlResponse();
+                action(value, threadId);
+                SendResponse(response, body);
+                EndControlResponse();
+            }
+            catch (Exception exception)
+                when (IsControlFailure(exception))
+            {
+                CancelControlResponse();
+                awaitingContinuedEvent = false;
+                if (executionState.Status == ExecutionStatus.Running)
+                    executionState.Stopped();
+                SendErrorResponse(
+                    response,
+                    2033,
+                    "Execution control request failed.");
+            }
+        }
+
+        private bool TryResolveControlTarget(
+            Response response,
+            object arguments,
+            out IDebuggerBackend value,
+            out long threadId)
+        {
+            threadId = 0;
+            if (!TryGetBackend(response, out value))
+                return false;
+            var request = arguments as JObject;
+            var dapThreadId = request?["threadId"]?.Value<int>() ?? 0;
+            if (!threadIds.TryGetBackendId(dapThreadId, out threadId))
+            {
+                SendUnavailable(response, "Thread");
+                return false;
+            }
+            return true;
+        }
+
+        private static bool IsControlFailure(Exception exception) =>
+            exception is InvalidOperationException ||
+            exception is DebuggerBackendException;
+
+        private void BeginControlResponse()
+        {
+            controlResponsePending = true;
+            bufferedControlEvent = null;
+        }
+
+        private void EndControlResponse()
+        {
+            controlResponsePending = false;
+            var value = bufferedControlEvent;
+            bufferedControlEvent = null;
+            if (value != null)
+                SendEvent(value);
+        }
+
+        private void CancelControlResponse()
+        {
+            controlResponsePending = false;
+            bufferedControlEvent = null;
+        }
+
+        private void SendOrBufferControlEvent(Event value)
+        {
+            if (controlResponsePending)
+            {
+                bufferedControlEvent = value;
+                return;
+            }
+            SendEvent(value);
         }
     }
 }

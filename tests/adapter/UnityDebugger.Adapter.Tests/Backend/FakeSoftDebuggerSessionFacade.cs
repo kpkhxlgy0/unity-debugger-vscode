@@ -11,6 +11,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
         ISoftDebuggerSessionFacade
     {
         public event EventHandler? TargetReady;
+        public event EventHandler? TargetStarted;
         public event EventHandler? TargetExited;
         public event EventHandler<BackendStoppedEventArgs>? TargetStopped;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
@@ -33,6 +34,11 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public int DetachCount { get; private set; }
         public int DisposeCount { get; private set; }
         public int ContinueCount { get; private set; }
+        public int PauseCount { get; private set; }
+        public int StepInCount { get; private set; }
+        public int StepOverCount { get; private set; }
+        public int StepOutCount { get; private set; }
+        public ExceptionBreakMode? ExceptionMode { get; private set; }
         public int RemoveBreakpointCount { get; private set; }
         public List<LogicalBreakpoint> Bound { get; } =
             new List<LogicalBreakpoint>();
@@ -77,6 +83,32 @@ namespace UnityDebugger.Adapter.Tests.Backend
             IsRunning = true;
         }
 
+        public void Pause()
+        {
+            PauseCount++;
+            IsRunning = false;
+        }
+
+        public void StepIn()
+        {
+            StepInCount++;
+        }
+
+        public void StepOver()
+        {
+            StepOverCount++;
+        }
+
+        public void StepOut()
+        {
+            StepOutCount++;
+        }
+
+        public void ConfigureExceptions(ExceptionBreakMode mode)
+        {
+            ExceptionMode = mode;
+        }
+
         public IReadOnlyList<BackendThread> GetThreads() => Threads;
 
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
@@ -119,6 +151,12 @@ namespace UnityDebugger.Adapter.Tests.Backend
         {
             HasExited = true;
             TargetExited?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RaiseTargetStarted()
+        {
+            IsRunning = true;
+            TargetStarted?.Invoke(this, EventArgs.Empty);
         }
 
         public void RaiseTargetStopped(

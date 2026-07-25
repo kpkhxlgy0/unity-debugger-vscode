@@ -27,6 +27,7 @@ namespace UnityDebugger.Adapter.Backend
         private long nextBreakpointId = 1;
         private long nextFrameId = 1;
         private long nextVariablesReference = 1;
+        private ExceptionBreakMode exceptionMode;
         private bool detachCompleted;
         private bool disposed;
 
@@ -40,7 +41,11 @@ namespace UnityDebugger.Adapter.Backend
                 ClearInspectionState();
                 TargetExited?.Invoke(this, EventArgs.Empty);
             };
-            session.TargetStarted += (_, __) => ClearInspectionState();
+            session.TargetStarted += (_, __) =>
+            {
+                ClearInspectionState();
+                TargetStarted?.Invoke(this, EventArgs.Empty);
+            };
             session.TargetStopped += (_, arguments) =>
                 HandleStopped(arguments, BackendStopReason.Pause);
             session.TargetInterrupted += (_, arguments) =>
@@ -48,9 +53,23 @@ namespace UnityDebugger.Adapter.Backend
             session.TargetHitBreakpoint += (_, arguments) =>
                 HandleStopped(arguments, BackendStopReason.Breakpoint);
             session.TargetExceptionThrown += (_, arguments) =>
-                HandleStopped(arguments, BackendStopReason.Exception);
+            {
+                if (exceptionMode == ExceptionBreakMode.All)
+                {
+                    HandleStopped(
+                        arguments,
+                        BackendStopReason.Exception);
+                }
+            };
             session.TargetUnhandledException += (_, arguments) =>
-                HandleStopped(arguments, BackendStopReason.Exception);
+            {
+                if (exceptionMode != ExceptionBreakMode.None)
+                {
+                    HandleStopped(
+                        arguments,
+                        BackendStopReason.Exception);
+                }
+            };
             session.TargetThreadStarted += (_, arguments) =>
                 RaiseThread(arguments, true);
             session.TargetThreadStopped += (_, arguments) =>
@@ -64,6 +83,7 @@ namespace UnityDebugger.Adapter.Backend
         }
 
         public event EventHandler? TargetReady;
+        public event EventHandler? TargetStarted;
         public event EventHandler? TargetExited;
         public event EventHandler<BackendStoppedEventArgs>? TargetStopped;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
@@ -147,6 +167,43 @@ namespace UnityDebugger.Adapter.Backend
                 throw new ObjectDisposedException(
                     nameof(SoftDebuggerSessionFacade));
             session.Continue();
+        }
+
+        public void Pause()
+        {
+            ThrowIfDisposed();
+            session.Stop();
+        }
+
+        public void StepIn()
+        {
+            ThrowIfDisposed();
+            session.StepLine();
+        }
+
+        public void StepOver()
+        {
+            ThrowIfDisposed();
+            session.NextLine();
+        }
+
+        public void StepOut()
+        {
+            ThrowIfDisposed();
+            session.Finish();
+        }
+
+        public void ConfigureExceptions(ExceptionBreakMode mode)
+        {
+            ThrowIfDisposed();
+            session.Breakpoints.RemoveCatchpoint("System.Exception");
+            if (mode == ExceptionBreakMode.All)
+            {
+                session.Breakpoints.AddCatchpoint(
+                    "System.Exception",
+                    true);
+            }
+            exceptionMode = mode;
         }
 
         public IReadOnlyList<BackendThread> GetThreads()

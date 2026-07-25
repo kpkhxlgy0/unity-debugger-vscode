@@ -194,12 +194,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [InlineData("setFunctionBreakpoints", true)]
         [InlineData("setVariable", true)]
         [InlineData("source", true)]
-        [InlineData("setExceptionBreakpoints", false)]
-        [InlineData("continue", false)]
-        [InlineData("next", false)]
-        [InlineData("stepIn", false)]
-        [InlineData("stepOut", false)]
-        [InlineData("pause", false)]
         public void Temporary_handlers_send_exactly_one_response(
             string command,
             bool expectedSuccess)

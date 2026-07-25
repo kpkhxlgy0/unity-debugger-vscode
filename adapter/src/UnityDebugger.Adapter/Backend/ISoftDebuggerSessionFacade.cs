@@ -9,6 +9,7 @@ namespace UnityDebugger.Adapter.Backend
     internal interface ISoftDebuggerSessionFacade : IDisposable
     {
         event EventHandler? TargetReady;
+        event EventHandler? TargetStarted;
         event EventHandler? TargetExited;
         event EventHandler<BackendStoppedEventArgs>? TargetStopped;
         event EventHandler<BackendThreadEventArgs>? ThreadChanged;
@@ -27,6 +28,11 @@ namespace UnityDebugger.Adapter.Backend
             CancellationToken cancellationToken);
         void Detach();
         void Continue();
+        void Pause();
+        void StepIn();
+        void StepOver();
+        void StepOut();
+        void ConfigureExceptions(ExceptionBreakMode mode);
         IReadOnlyList<BackendThread> GetThreads();
         IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
