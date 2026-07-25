@@ -1892,7 +1892,7 @@ git commit -m "feat: bind managed source breakpoints"
 - Consumes: backend models from Task 6 and `SourceMapper`.
 - Produces: `HandleTable<T>.Create`, `TryGet`, and `Reset`; `ThreadIdMap.GetOrCreate`, `TryGetBackendId`, `Remove`, and `Reset`; backend inspection methods; DAP `threads`, `stackTrace`, `scopes`, `variables`, and `evaluate`.
 
-- [ ] **Step 1: Write failing handle and inspection tests**
+- [x] **Step 1: Write failing handle and inspection tests**
 
 `HandleTableTests.cs`:
 
@@ -1929,7 +1929,7 @@ return the same DAP ID for repeated backend IDs, reverse-map controls, remove a
 thread on exit, reset on reconnect/disconnect, and throw before integer
 overflow.
 
-- [ ] **Step 2: Run focused tests and verify missing inspection support fails**
+- [x] **Step 2: Run focused tests and verify missing inspection support fails**
 
 Run:
 
@@ -1939,7 +1939,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because the handle table and DAP handlers are absent.
 
-- [ ] **Step 3: Implement stop-scoped handle tables**
+- [x] **Step 3: Implement stop-scoped handle tables**
 
 `HandleTable<T>` must start at handle `1`, use a dictionary, throw on integer
 overflow, and clear/reset the counter on every stopped event, continued event,
@@ -1986,7 +1986,7 @@ overflow-checked counter. It is session-scoped rather than stop-scoped:
 preserve mappings across ordinary stops, remove them on backend thread-exit
 events, and reset on disconnect, transport replacement, or Domain Reload.
 
-- [ ] **Step 4: Extend the facade and backend inspection methods**
+- [x] **Step 4: Extend the facade and backend inspection methods**
 
 Add exact facade methods matching `IDebuggerBackend` inspection signatures.
 `SoftDebuggerSessionFacade` must:
@@ -2004,7 +2004,7 @@ Add exact facade methods matching `IDebuggerBackend` inspection signatures.
 Use `MaxChildren = 100`. The 101st client item is a synthetic marker and does
 not receive a child reference.
 
-- [ ] **Step 5: Implement DAP inspection handlers**
+- [x] **Step 5: Implement DAP inspection handlers**
 
 `UnityDebugSession` must keep:
 
@@ -2030,7 +2030,7 @@ and reject an evaluate request whose `context` is not `watch` or `repl`.
 Return evaluation errors as failed responses without logging the expression or
 result.
 
-- [ ] **Step 6: Verify all inspection requests**
+- [x] **Step 6: Verify all inspection requests**
 
 Run:
 
@@ -2041,7 +2041,7 @@ dotnet test UnityDebugger.sln -c Release --no-restore
 
 Expected: tests PASS and stale handles fail after resume/reload.
 
-- [ ] **Step 7: Commit inspection support**
+- [x] **Step 7: Commit inspection support**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests

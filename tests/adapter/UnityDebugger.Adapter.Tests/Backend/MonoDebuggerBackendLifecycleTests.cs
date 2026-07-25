@@ -165,6 +165,43 @@ namespace UnityDebugger.Adapter.Tests.Backend
             }
         }
 
+        [Fact]
+        public void Inspection_operations_are_forwarded_to_the_facade()
+        {
+            var facade = new FakeSoftDebuggerSessionFacade();
+            facade.Threads.Add(new BackendThread(42, "Main"));
+            facade.Frames.Add(
+                new BackendStackFrame(
+                    5,
+                    42,
+                    "Update",
+                    @"H:\fixture\Assets\Player.cs",
+                    12,
+                    1));
+            facade.Scopes.Add(new BackendScope("Locals", 8, false));
+            facade.Variables.Add(
+                new BackendVariable("health", "42", "System.Int32", 0));
+            facade.EvaluationResult =
+                new BackendEvaluationResult("42", "System.Int32", 0);
+
+            using (var backend = new MonoDebuggerBackend(() => facade))
+            {
+                backend.Attach(Target());
+
+                Assert.Same(facade.Threads, backend.GetThreads());
+                Assert.Same(
+                    facade.Frames,
+                    backend.GetStackTrace(42, 0, 20));
+                Assert.Same(facade.Scopes, backend.GetScopes(5));
+                Assert.Same(
+                    facade.Variables,
+                    backend.GetVariables(8));
+                Assert.Same(
+                    facade.EvaluationResult,
+                    backend.Evaluate(5, "health"));
+            }
+        }
+
         private static AttachTarget Target(int port = 56234) =>
             new AttachTarget(
                 1234,

@@ -200,11 +200,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [InlineData("stepIn", false)]
         [InlineData("stepOut", false)]
         [InlineData("pause", false)]
-        [InlineData("stackTrace", false)]
-        [InlineData("scopes", false)]
-        [InlineData("variables", false)]
-        [InlineData("threads", false)]
-        [InlineData("evaluate", false)]
         public void Temporary_handlers_send_exactly_one_response(
             string command,
             bool expectedSuccess)

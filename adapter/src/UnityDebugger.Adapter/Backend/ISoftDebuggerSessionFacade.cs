@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,17 @@ namespace UnityDebugger.Adapter.Backend
             CancellationToken cancellationToken);
         void Detach();
         void Continue();
+        IReadOnlyList<BackendThread> GetThreads();
+        IReadOnlyList<BackendStackFrame> GetStackTrace(
+            long threadId,
+            int startFrame,
+            int levels);
+        IReadOnlyList<BackendScope> GetScopes(long frameId);
+        IReadOnlyList<BackendVariable> GetVariables(
+            long variablesReference);
+        BackendEvaluationResult Evaluate(
+            long frameId,
+            string expression);
         BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint);
         void RemoveBreakpoint(long backendBreakpointId);

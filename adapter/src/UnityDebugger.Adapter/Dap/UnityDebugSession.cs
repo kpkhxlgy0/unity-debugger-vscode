@@ -6,6 +6,7 @@ using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Breakpoints;
 using UnityDebugger.Adapter.Source;
+using UnityDebugger.Adapter.State;
 using VSCodeDebug;
 
 namespace UnityDebugger.Adapter.Dap
@@ -14,6 +15,11 @@ namespace UnityDebugger.Adapter.Dap
     {
         private const string SupportedVersion = "2022.3.62t11";
         private readonly Func<IDebuggerBackend> backendFactory;
+        private readonly ThreadIdMap threadIds = new ThreadIdMap();
+        private readonly HandleTable<BackendStackFrame> frameHandles =
+            new HandleTable<BackendStackFrame>();
+        private readonly HandleTable<BackendVariable[]> variableHandles =
+            new HandleTable<BackendVariable[]>();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
         private SourceMapper? sourceMapper;
@@ -230,23 +236,243 @@ namespace UnityDebugger.Adapter.Dap
 
         public override void StackTrace(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var dapThreadId = request?["threadId"]?.Value<int>() ?? 0;
+            if (!threadIds.TryGetBackendId(
+                dapThreadId,
+                out var backendThreadId))
+            {
+                SendUnavailable(response, "Thread");
+                return;
+            }
+
+            var startFrame = Math.Max(
+                0,
+                request?["startFrame"]?.Value<int>() ?? 0);
+            var levels = request?["levels"]?.Value<int>() ?? 0;
+            if (levels <= 0)
+                levels = int.MaxValue;
+            try
+            {
+                var frames = value.GetStackTrace(
+                    backendThreadId,
+                    startFrame,
+                    levels);
+                var dapFrames = new List<VSCodeDebug.StackFrame>();
+                foreach (var frame in frames)
+                {
+                    var mapped = sourceMapper?.ToClientPath(
+                        frame.SourcePath);
+                    var source = ToDapSource(mapped);
+                    dapFrames.Add(
+                        new VSCodeDebug.StackFrame(
+                            frameHandles.Create(frame),
+                            frame.Name,
+                            source,
+                            frame.Line,
+                            Math.Max(1, frame.Column),
+                            "normal"));
+                }
+                SendResponse(
+                    response,
+                    new StackTraceResponseBody(
+                        dapFrames,
+                        dapFrames.Count));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendInspectionFailure(response);
+            }
+        }
 
         public override void Scopes(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
+            if (!frameHandles.TryGet(frameHandle, out var frame))
+            {
+                SendUnavailable(response, "Stack frame");
+                return;
+            }
+
+            try
+            {
+                var scopes = new List<Scope>();
+                foreach (var scope in value.GetScopes(frame.Id))
+                {
+                    var variables = value.GetVariables(
+                        scope.VariablesReference);
+                    scopes.Add(
+                        new Scope(
+                            scope.Name,
+                            variableHandles.Create(variables.ToArray()),
+                            scope.Expensive));
+                }
+                SendResponse(response, new ScopesResponseBody(scopes));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendInspectionFailure(response);
+            }
+        }
 
         public override void Variables(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var reference =
+                request?["variablesReference"]?.Value<int>() ?? 0;
+            if (!variableHandles.TryGet(reference, out var variables))
+            {
+                SendUnavailable(response, "Variable collection");
+                return;
+            }
+
+            try
+            {
+                const int MaximumVariables = 100;
+                var dapVariables = new List<Variable>();
+                foreach (var variable in variables.Take(MaximumVariables))
+                {
+                    var childReference = 0;
+                    if (variable.VariablesReference > 0)
+                    {
+                        var children = value.GetVariables(
+                            variable.VariablesReference);
+                        childReference = variableHandles.Create(
+                            children.ToArray());
+                    }
+                    dapVariables.Add(
+                        new Variable(
+                            variable.Name,
+                            variable.DisplayValue,
+                            variable.TypeName,
+                            childReference));
+                }
+                if (variables.Length > MaximumVariables)
+                {
+                    dapVariables.Add(
+                        new Variable(
+                            "...",
+                            "More variables are not shown.",
+                            "",
+                            0));
+                }
+                SendResponse(
+                    response,
+                    new VariablesResponseBody(dapVariables));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendInspectionFailure(response);
+            }
+        }
 
         public override void Threads(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            try
+            {
+                var threads = value.GetThreads()
+                    .Select(
+                        item => new VSCodeDebug.Thread(
+                            threadIds.GetOrCreate(item.Id),
+                            item.Name))
+                    .ToList();
+                SendResponse(
+                    response,
+                    new ThreadsResponseBody(threads));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendInspectionFailure(response);
+            }
+        }
 
         public override void Evaluate(
             Response response,
-            dynamic arguments) => NotImplemented(response);
+            dynamic arguments)
+        {
+            if (!TryGetBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var context = request?["context"]?.Value<string>();
+            if (
+                !string.Equals(
+                    context,
+                    "watch",
+                    StringComparison.Ordinal) &&
+                !string.Equals(
+                    context,
+                    "repl",
+                    StringComparison.Ordinal))
+            {
+                SendErrorResponse(
+                    response,
+                    2024,
+                    "Evaluation is available only for watch or repl.");
+                return;
+            }
+
+            var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
+            if (!frameHandles.TryGet(frameHandle, out var frame))
+            {
+                SendUnavailable(response, "Stack frame");
+                return;
+            }
+            var expression = request?["expression"]?.Value<string>();
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                SendErrorResponse(
+                    response,
+                    2025,
+                    "An evaluation expression is required.");
+                return;
+            }
+
+            try
+            {
+                var result = value.Evaluate(frame.Id, expression!);
+                var childReference = 0;
+                if (result.VariablesReference > 0)
+                {
+                    childReference = variableHandles.Create(
+                        value.GetVariables(
+                            result.VariablesReference).ToArray());
+                }
+                SendResponse(
+                    response,
+                    new EvaluateResponseBody(
+                        result.DisplayValue,
+                        childReference));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendErrorResponse(
+                    response,
+                    2026,
+                    "Expression evaluation failed.");
+            }
+        }
 
         private void NotImplemented(Response response)
         {
@@ -277,6 +503,7 @@ namespace UnityDebugger.Adapter.Dap
 
         private void ReleaseBackend()
         {
+            ResetInspectionState(resetThreads: true);
             if (breakpointManager != null)
             {
                 breakpointManager.Changed -=
@@ -315,16 +542,35 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
+            ResetInspectionState(resetThreads: false);
+            SendEvent(
+                new StoppedEvent(
+                    threadIds.GetOrCreate(arguments.ThreadId),
+                    ToDapStopReason(arguments.Reason),
+                    arguments.Description));
         }
 
         private void OnContinued(object sender, EventArgs arguments)
         {
+            ResetInspectionState(resetThreads: false);
         }
 
         private void OnThreadChanged(
             object sender,
             BackendThreadEventArgs arguments)
         {
+            if (arguments.Started)
+            {
+                SendEvent(
+                    new ThreadEvent(
+                        "started",
+                        threadIds.GetOrCreate(arguments.ThreadId)));
+                return;
+            }
+
+            if (TryGetDapThreadId(arguments.ThreadId, out var dapId))
+                SendEvent(new ThreadEvent("exited", dapId));
+            threadIds.Remove(arguments.ThreadId);
         }
 
         private void OnBreakpointChanged(
@@ -367,6 +613,7 @@ namespace UnityDebugger.Adapter.Dap
 
         private void OnReloadStarted(object sender, EventArgs arguments)
         {
+            ResetInspectionState(resetThreads: true);
         }
 
         private void OnReloadCompleted(object sender, EventArgs arguments)
@@ -377,6 +624,89 @@ namespace UnityDebugger.Adapter.Dap
         {
             ReleaseBackend();
             SendTerminatedOnce();
+        }
+
+        private bool TryGetBackend(
+            Response response,
+            out IDebuggerBackend value)
+        {
+            value = backend!;
+            if (value != null)
+                return true;
+            SendErrorResponse(
+                response,
+                2020,
+                "Attach to an Editor before inspecting execution state.");
+            return false;
+        }
+
+        private static bool IsInspectionFailure(Exception exception) =>
+            exception is InvalidOperationException ||
+            exception is DebuggerBackendException;
+
+        private void SendUnavailable(Response response, string kind)
+        {
+            SendErrorResponse(
+                response,
+                2021,
+                $"{kind} is no longer available. Refresh the debug view.");
+        }
+
+        private void SendInspectionFailure(Response response)
+        {
+            SendErrorResponse(
+                response,
+                2022,
+                "Managed inspection failed. Pause again and retry.");
+        }
+
+        private VSCodeDebug.Source ToDapSource(
+            MappedSource? mapped)
+        {
+            if (mapped == null || !mapped.Available)
+            {
+                return new VSCodeDebug.Source(
+                    "Unavailable source",
+                    null,
+                    0,
+                    "deemphasize");
+            }
+            return new VSCodeDebug.Source(
+                mapped.Name,
+                ConvertDebuggerPathToClient(mapped.Path) ?? mapped.Path,
+                mapped.SourceReference,
+                "normal");
+        }
+
+        private void ResetInspectionState(bool resetThreads)
+        {
+            frameHandles.Reset();
+            variableHandles.Reset();
+            if (resetThreads)
+                threadIds.Reset();
+        }
+
+        private bool TryGetDapThreadId(
+            long backendThreadId,
+            out int dapThreadId) =>
+            threadIds.TryGetDapId(backendThreadId, out dapThreadId);
+
+        private static string ToDapStopReason(
+            BackendStopReason reason)
+        {
+            switch (reason)
+            {
+                case BackendStopReason.Breakpoint:
+                    return "breakpoint";
+                case BackendStopReason.Step:
+                    return "step";
+                case BackendStopReason.Exception:
+                    return "exception";
+                case BackendStopReason.Entry:
+                    return "entry";
+                default:
+                    return "pause";
+            }
         }
     }
 }

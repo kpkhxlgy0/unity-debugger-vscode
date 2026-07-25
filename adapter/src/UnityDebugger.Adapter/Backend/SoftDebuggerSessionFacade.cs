@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +18,15 @@ namespace UnityDebugger.Adapter.Backend
             new Dictionary<long, Breakpoint>();
         private readonly Dictionary<BreakEvent, long> breakpointIds =
             new Dictionary<BreakEvent, long>();
+        private readonly object inspectionLock = new object();
+        private readonly Dictionary<long, Mono.Debugging.Client.StackFrame>
+            frames =
+                new Dictionary<long, Mono.Debugging.Client.StackFrame>();
+        private readonly Dictionary<long, ObjectValue[]> variables =
+            new Dictionary<long, ObjectValue[]>();
         private long nextBreakpointId = 1;
+        private long nextFrameId = 1;
+        private long nextVariablesReference = 1;
         private bool detachCompleted;
         private bool disposed;
 
@@ -27,17 +36,21 @@ namespace UnityDebugger.Adapter.Backend
             session.TargetReady += (_, __) =>
                 TargetReady?.Invoke(this, EventArgs.Empty);
             session.TargetExited += (_, __) =>
+            {
+                ClearInspectionState();
                 TargetExited?.Invoke(this, EventArgs.Empty);
+            };
+            session.TargetStarted += (_, __) => ClearInspectionState();
             session.TargetStopped += (_, arguments) =>
-                RaiseStopped(arguments, BackendStopReason.Pause);
+                HandleStopped(arguments, BackendStopReason.Pause);
             session.TargetInterrupted += (_, arguments) =>
-                RaiseStopped(arguments, BackendStopReason.Pause);
+                HandleStopped(arguments, BackendStopReason.Pause);
             session.TargetHitBreakpoint += (_, arguments) =>
-                RaiseStopped(arguments, BackendStopReason.Breakpoint);
+                HandleStopped(arguments, BackendStopReason.Breakpoint);
             session.TargetExceptionThrown += (_, arguments) =>
-                RaiseStopped(arguments, BackendStopReason.Exception);
+                HandleStopped(arguments, BackendStopReason.Exception);
             session.TargetUnhandledException += (_, arguments) =>
-                RaiseStopped(arguments, BackendStopReason.Exception);
+                HandleStopped(arguments, BackendStopReason.Exception);
             session.TargetThreadStarted += (_, arguments) =>
                 RaiseThread(arguments, true);
             session.TargetThreadStopped += (_, arguments) =>
@@ -136,6 +149,150 @@ namespace UnityDebugger.Adapter.Backend
             session.Continue();
         }
 
+        public IReadOnlyList<BackendThread> GetThreads()
+        {
+            ThrowIfDisposed();
+            return session.GetProcesses()
+                .SelectMany(process => process.GetThreads())
+                .Select(thread => new BackendThread(
+                    thread.Id,
+                    thread.Name ?? string.Empty))
+                .ToArray();
+        }
+
+        public IReadOnlyList<BackendStackFrame> GetStackTrace(
+            long threadId,
+            int startFrame,
+            int levels)
+        {
+            ThrowIfDisposed();
+            var thread = session.GetProcesses()
+                .SelectMany(process => process.GetThreads())
+                .FirstOrDefault(item => item.Id == threadId);
+            if (thread == null)
+                throw new InvalidOperationException(
+                    "The requested debugger thread is unavailable.");
+
+            var backtrace = thread.Backtrace;
+            if (backtrace == null || startFrame >= backtrace.FrameCount)
+                return Array.Empty<BackendStackFrame>();
+            var first = Math.Max(0, startFrame);
+            var count = Math.Min(
+                Math.Max(0, levels),
+                backtrace.FrameCount - first);
+            var result = new List<BackendStackFrame>(count);
+            for (var index = first; index < first + count; index++)
+            {
+                var value = backtrace.GetFrame(index);
+                if (value == null)
+                    continue;
+                var location = value.SourceLocation;
+                var id = RegisterFrame(value);
+                result.Add(
+                    new BackendStackFrame(
+                        id,
+                        threadId,
+                        location?.MethodName ?? "Managed frame",
+                        location?.FileName ?? string.Empty,
+                        Math.Max(0, location?.Line ?? 0),
+                        Math.Max(1, location?.Column ?? 1)));
+            }
+            return result;
+        }
+
+        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        {
+            ThrowIfDisposed();
+            Mono.Debugging.Client.StackFrame frame;
+            lock (inspectionLock)
+            {
+                if (!frames.TryGetValue(frameId, out frame!))
+                {
+                    throw new InvalidOperationException(
+                        "The requested stack frame is unavailable.");
+                }
+            }
+
+            var options = SafeEvaluationOptions();
+            var values = new List<ObjectValue>();
+            var thisReference = frame.GetThisReference(options);
+            if (thisReference != null)
+                values.Add(thisReference);
+            values.AddRange(frame.GetParameters(options));
+            values.AddRange(frame.GetLocalVariables(options));
+            foreach (var value in values)
+                WaitForValue(value, options);
+            return new[]
+            {
+                new BackendScope(
+                    "Locals",
+                    RegisterVariables(values.ToArray()),
+                    false),
+            };
+        }
+
+        public IReadOnlyList<BackendVariable> GetVariables(
+            long variablesReference)
+        {
+            ThrowIfDisposed();
+            ObjectValue[] values;
+            lock (inspectionLock)
+            {
+                if (!variables.TryGetValue(
+                    variablesReference,
+                    out values!))
+                {
+                    throw new InvalidOperationException(
+                        "The requested variables are unavailable.");
+                }
+            }
+            return ConvertVariables(values, SafeEvaluationOptions());
+        }
+
+        public BackendEvaluationResult Evaluate(
+            long frameId,
+            string expression)
+        {
+            ThrowIfDisposed();
+            Mono.Debugging.Client.StackFrame frame;
+            lock (inspectionLock)
+            {
+                if (!frames.TryGetValue(frameId, out frame!))
+                {
+                    throw new InvalidOperationException(
+                        "The requested stack frame is unavailable.");
+                }
+            }
+
+            var options = ExplicitEvaluationOptions();
+            try
+            {
+                var value = frame.GetExpressionValue(
+                    expression,
+                    options);
+                WaitForValue(value, options);
+                var reference = value.HasChildren
+                    ? RegisterVariables(
+                        value.GetRangeOfChildren(
+                            0,
+                            101,
+                            options))
+                    : 0;
+                return new BackendEvaluationResult(
+                    value.DisplayValue ?? string.Empty,
+                    value.TypeName ?? string.Empty,
+                    reference);
+            }
+            catch (Exception exception)
+                when (
+                    !(exception is ObjectDisposedException) &&
+                    !(exception is InvalidOperationException))
+            {
+                throw new DebuggerBackendException(
+                    "Expression evaluation failed.");
+            }
+        }
+
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)
         {
@@ -212,6 +369,114 @@ namespace UnityDebugger.Adapter.Backend
                 return;
             disposed = true;
             Detach();
+        }
+
+        private void HandleStopped(
+            TargetEventArgs arguments,
+            BackendStopReason reason)
+        {
+            ClearInspectionState();
+            RaiseStopped(arguments, reason);
+        }
+
+        private long RegisterFrame(
+            Mono.Debugging.Client.StackFrame frame)
+        {
+            lock (inspectionLock)
+            {
+                if (nextFrameId == long.MaxValue)
+                    throw new InvalidOperationException(
+                        "Debugger frame handle space is exhausted.");
+                var id = nextFrameId++;
+                frames.Add(id, frame);
+                return id;
+            }
+        }
+
+        private long RegisterVariables(ObjectValue[] values)
+        {
+            lock (inspectionLock)
+            {
+                if (nextVariablesReference == long.MaxValue)
+                    throw new InvalidOperationException(
+                        "Debugger variable handle space is exhausted.");
+                var id = nextVariablesReference++;
+                variables.Add(id, values);
+                return id;
+            }
+        }
+
+        private IReadOnlyList<BackendVariable> ConvertVariables(
+            IEnumerable<ObjectValue> values,
+            EvaluationOptions options)
+        {
+            const int MaximumChildren = 100;
+            var result = new List<BackendVariable>();
+            foreach (var value in values.Take(MaximumChildren + 1))
+            {
+                WaitForValue(value, options);
+                var reference = value.HasChildren
+                    ? RegisterVariables(
+                        value.GetRangeOfChildren(
+                            0,
+                            MaximumChildren + 1,
+                            options))
+                    : 0;
+                result.Add(
+                    new BackendVariable(
+                        value.Name ?? string.Empty,
+                        value.DisplayValue ?? string.Empty,
+                        value.TypeName ?? string.Empty,
+                        reference));
+            }
+            return result;
+        }
+
+        private EvaluationOptions SafeEvaluationOptions()
+        {
+            var options = session.EvaluationOptions.Clone();
+            options.AllowTargetInvoke = false;
+            options.AllowMethodEvaluation = false;
+            options.AllowToStringCalls = false;
+            return options;
+        }
+
+        private EvaluationOptions ExplicitEvaluationOptions()
+        {
+            var options = session.EvaluationOptions.Clone();
+            options.AllowTargetInvoke = true;
+            options.AllowMethodEvaluation = true;
+            options.AllowToStringCalls = true;
+            return options;
+        }
+
+        private static void WaitForValue(
+            ObjectValue value,
+            EvaluationOptions options)
+        {
+            if (!value.WaitHandle.WaitOne(options.EvaluationTimeout))
+            {
+                throw new DebuggerBackendException(
+                    "Timed out while reading a managed value.");
+            }
+        }
+
+        private void ClearInspectionState()
+        {
+            lock (inspectionLock)
+            {
+                frames.Clear();
+                variables.Clear();
+                nextFrameId = 1;
+                nextVariablesReference = 1;
+            }
+        }
+
+        private void ThrowIfDisposed()
+        {
+            if (disposed)
+                throw new ObjectDisposedException(
+                    nameof(SoftDebuggerSessionFacade));
         }
 
         private void OnBreakEventStatusChanged(

@@ -36,6 +36,16 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public int RemoveBreakpointCount { get; private set; }
         public List<LogicalBreakpoint> Bound { get; } =
             new List<LogicalBreakpoint>();
+        public List<BackendThread> Threads { get; } =
+            new List<BackendThread>();
+        public List<BackendStackFrame> Frames { get; } =
+            new List<BackendStackFrame>();
+        public List<BackendScope> Scopes { get; } =
+            new List<BackendScope>();
+        public List<BackendVariable> Variables { get; } =
+            new List<BackendVariable>();
+        public BackendEvaluationResult EvaluationResult { get; set; } =
+            new BackendEvaluationResult("", "", 0);
 
         public Task ConnectAsync(
             IPAddress address,
@@ -66,6 +76,23 @@ namespace UnityDebugger.Adapter.Tests.Backend
             ContinueCount++;
             IsRunning = true;
         }
+
+        public IReadOnlyList<BackendThread> GetThreads() => Threads;
+
+        public IReadOnlyList<BackendStackFrame> GetStackTrace(
+            long threadId,
+            int startFrame,
+            int levels) => Frames;
+
+        public IReadOnlyList<BackendScope> GetScopes(long frameId) =>
+            Scopes;
+
+        public IReadOnlyList<BackendVariable> GetVariables(
+            long variablesReference) => Variables;
+
+        public BackendEvaluationResult Evaluate(
+            long frameId,
+            string expression) => EvaluationResult;
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

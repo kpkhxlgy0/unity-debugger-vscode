@@ -83,23 +83,44 @@ namespace UnityDebugger.Adapter.Backend
             ReleaseFacade();
         }
 
-        public IReadOnlyList<BackendThread> GetThreads() =>
-            throw NotImplemented();
+        public IReadOnlyList<BackendThread> GetThreads()
+        {
+            RequireAttached();
+            return facade!.GetThreads();
+        }
 
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels) => throw NotImplemented();
+            int levels)
+        {
+            RequireAttached();
+            return facade!.GetStackTrace(
+                threadId,
+                startFrame,
+                levels);
+        }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId) =>
-            throw NotImplemented();
+        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        {
+            RequireAttached();
+            return facade!.GetScopes(frameId);
+        }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference) => throw NotImplemented();
+            long variablesReference)
+        {
+            RequireAttached();
+            return facade!.GetVariables(variablesReference);
+        }
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression) => throw NotImplemented();
+            string expression)
+        {
+            RequireAttached();
+            return facade!.Evaluate(frameId, expression);
+        }
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

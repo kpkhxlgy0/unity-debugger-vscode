@@ -23,6 +23,9 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new List<BackendScope>();
         public List<BackendVariable> Variables { get; } =
             new List<BackendVariable>();
+        public Dictionary<long, IReadOnlyList<BackendVariable>>
+            VariablesByReference { get; } =
+                new Dictionary<long, IReadOnlyList<BackendVariable>>();
         public List<LogicalBreakpoint> Bound { get; } =
             new List<LogicalBreakpoint>();
         public List<long> RemovedBreakpointIds { get; } =
@@ -31,6 +34,13 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public bool IsAttached { get; private set; }
         public bool BindAsPending { get; set; }
         public Exception? AttachException { get; set; }
+        public BackendEvaluationResult EvaluationResult { get; set; } =
+            new BackendEvaluationResult("", "", 0);
+        public string? LastExpression { get; private set; }
+        public int StackTraceCount { get; private set; }
+        public int ScopesCount { get; private set; }
+        public int VariablesCount { get; private set; }
+        public int EvaluateCount { get; private set; }
         public AttachTarget? LastTarget { get; private set; }
         public ExceptionBreakMode? LastExceptionMode { get; private set; }
         public int AttachCount { get; private set; }
@@ -64,18 +74,37 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels) => Frames;
+            int levels)
+        {
+            StackTraceCount++;
+            return Frames;
+        }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId) =>
-            Scopes;
+        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        {
+            ScopesCount++;
+            return Scopes;
+        }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference) => Variables;
+            long variablesReference)
+        {
+            VariablesCount++;
+            return VariablesByReference.TryGetValue(
+                variablesReference,
+                out var values)
+                    ? values
+                    : Variables;
+        }
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression) =>
-            new BackendEvaluationResult("", "", 0);
+            string expression)
+        {
+            EvaluateCount++;
+            LastExpression = expression;
+            return EvaluationResult;
+        }
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)
