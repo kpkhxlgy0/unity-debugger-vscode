@@ -358,7 +358,7 @@ in ordinary hosted CI.
 - Each GitHub Release contains the `.vsix` and its SHA-256 checksum.
 - The Marketplace page includes the support matrix, known limitations, privacy
   statement, issue/security routes, and non-affiliation statement.
-- `main` remains buildable; release artifacts are produced from tagged commits.
+- `master` remains buildable; release artifacts are produced from tagged commits.
 
 ## 14. Maintenance
 
