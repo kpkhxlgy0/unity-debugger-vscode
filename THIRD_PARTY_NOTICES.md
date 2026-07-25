@@ -23,3 +23,10 @@ the release inventory added before packaging records every shipped assembly.
 
 No precompiled binary from the three source repositories is copied into the
 extension package.
+
+The release pipeline records the exact shipped runtime assemblies, SHA-256
+digests, origins, versions, and license identifiers in
+`third-party/runtime-assemblies.json`.
+
+All three pinned source repositories above are provided under the MIT License.
+Their exact retained license texts are shipped under `third-party/licenses/`.

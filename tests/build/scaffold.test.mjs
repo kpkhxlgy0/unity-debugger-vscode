@@ -46,3 +46,25 @@ test("adapter project targets net48 x64", () => {
   assert.match(project, /<TargetFramework>net48<\/TargetFramework>/);
   assert.match(project, /<PlatformTarget>x64<\/PlatformTarget>/);
 });
+
+test("Adapter support URL matches the reviewed Marketplace identity", () => {
+  const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+  const source = fs.readFileSync(
+    "adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs",
+    "utf8",
+  );
+  const expected =
+    `https://marketplace.visualstudio.com/items?itemName=` +
+    `${manifest.publisher}.${manifest.name}#support-policy`;
+  const stringLiterals = [
+    ...source.matchAll(/"([^"\r\n]*)"/g),
+  ].map((match) => match[1]);
+  assert.ok(
+    stringLiterals.join("").includes(expected),
+    `Adapter source must contain reviewed support URL ${expected}`,
+  );
+  assert.match(
+    fs.readFileSync("README.md", "utf8"),
+    /<a id="support-policy"><\/a>/,
+  );
+});

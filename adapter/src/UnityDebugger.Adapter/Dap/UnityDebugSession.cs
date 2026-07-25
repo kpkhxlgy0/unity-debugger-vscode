@@ -14,6 +14,10 @@ namespace UnityDebugger.Adapter.Dap
     internal sealed class UnityDebugSession : DebugSession
     {
         private const string SupportedVersion = "2022.3.62t11";
+        private const string SupportPolicyUrl =
+            "https://marketplace.visualstudio.com/items?itemName=" +
+            "unity-debugger-community.unity-debugger-vscode" +
+            "#support-policy";
         private readonly Func<IDebuggerBackend> backendFactory;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
         private readonly HandleTable<BackendStackFrame> frameHandles =
@@ -109,9 +113,7 @@ namespace UnityDebugger.Adapter.Dap
                         "console",
                         $"Editor {target.ProjectVersion} is unverified; " +
                         $"the supported baseline is {SupportedVersion}. " +
-                        "Support policy: https://marketplace.visualstudio.com/" +
-                        "items?itemName=unity-debugger-community." +
-                        "unity-debugger-vscode#support-policy" +
+                        $"Support policy: {SupportPolicyUrl}" +
                         Environment.NewLine));
                 }
             }

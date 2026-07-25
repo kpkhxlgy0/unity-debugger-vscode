@@ -1,0 +1,58 @@
+name: Publish to VS Code Marketplace
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Audited release tag (for example v0.1.0)
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    environment: marketplace
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.5.0
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: npm ci
+      - run: dotnet restore UnityDebugger.sln --locked-mode
+      - name: Confirm publisher ownership and credentials
+        shell: pwsh
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          VSCE_PUBLISHER: ${{ vars.VSCE_PUBLISHER }}
+          OWNERSHIP_CONFIRMED: ${{ vars.MARKETPLACE_OWNERSHIP_CONFIRMED }}
+        run: |
+          $manifest = Get-Content package.json -Raw | ConvertFrom-Json
+          if ($env:VSCE_PUBLISHER -ne $manifest.publisher) {
+            throw "VSCE_PUBLISHER does not match package.json"
+          }
+          if ($env:OWNERSHIP_CONFIRMED -ne "true") {
+            throw "Marketplace publisher ownership is not confirmed"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:VSCE_PAT)) {
+            throw "VSCE_PAT is required"
+          }
+          if ("${{ inputs.tag }}" -ne "v$($manifest.version)") {
+            throw "Selected tag does not match package version"
+          }
+      - run: npm run verify:third-party
+      - run: npm test
+      - run: npm run package
+      - name: Publish audited VSIX
+        shell: pwsh
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          npx vsce publish `
+            --packagePath dist/unity-debugger-vscode-0.1.0.vsix `
+            -p $env:VSCE_PAT

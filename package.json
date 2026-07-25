@@ -100,13 +100,19 @@
     "test:extension": "vitest run tests/extension",
     "test:adapter": "dotnet test UnityDebugger.sln -c Release --no-restore",
     "test:integration": "vitest run tests/integration",
+    "test:package": "node --test tests/package/vsix.test.mjs",
     "test": "npm run test:build && npm run test:extension && npm run test:adapter && npm run test:integration",
-    "package": "npm run build && vsce package --out dist/unity-debugger-vscode-0.1.0.vsix"
+    "stage:adapter": "node scripts/stage-adapter.mjs",
+    "inventory:runtime:write": "node scripts/generate-runtime-inventory.mjs --write",
+    "inventory:runtime": "node scripts/generate-runtime-inventory.mjs --verify",
+    "verify:vsix": "node scripts/verify-vsix.mjs dist/unity-debugger-vscode-0.1.0.vsix",
+    "package": "npm run build && npm run stage:adapter && npm run inventory:runtime && vsce package --allow-missing-repository --out dist/unity-debugger-vscode-0.1.0.vsix && npm run verify:vsix && npm run test:package"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
     "@types/vscode": "1.95.0",
     "@vscode/vsce": "3.9.2",
+    "adm-zip": "0.6.0",
     "esbuild": "0.28.1",
     "typescript": "7.0.2",
     "vitest": "4.1.10"

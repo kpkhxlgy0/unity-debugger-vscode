@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "generatedFrom": "adapter/win32-x64",
+  "assemblies": [
+    {
+      "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.CSharp.dll",
+      "sha256": "da673239e8c49c6d87908d0be6d6fa031367203fee8c277762cc0c7931359f7a",
+      "origin": "source-built:nrefactory",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.dll",
+      "sha256": "05a1d62c64ee0f3695e362893e0a0542da095ff62e37c576fdecf4eb45d4a4a9",
+      "origin": "source-built:nrefactory",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Microsoft.CodeAnalysis.CSharp.dll",
+      "sha256": "75e17c4aa3d0374ecf1d04c2de449f6eee9f13cf5f291bb8c8c0d170b1cea4c8",
+      "origin": "nuget:Microsoft.CodeAnalysis.CSharp/2.10.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Microsoft.CodeAnalysis.dll",
+      "sha256": "85bbfdb35ee97be5dd5722076f7bb2a0ec674b2cdceb15179d72b87c336f5e1b",
+      "origin": "nuget:Microsoft.CodeAnalysis.Common/2.10.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Cecil.dll",
+      "sha256": "4457ef2ba0d3b802cdc5384f044c9cbddab6fc8b25aad794b4bce3249d106054",
+      "origin": "nuget:Mono.Cecil/0.10.1",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Debugger.Soft.dll",
+      "sha256": "35881b5221d8a59598256e3b8168bc7405c01e575cfedba8493d29c3e0551b9e",
+      "origin": "source-built:debugger-libs",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Debugging.dll",
+      "sha256": "df603d17aaf65febeb3f92a05e956fdb77fb83fcf93c23e6091742eb2d9efb29",
+      "origin": "source-built:debugger-libs",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Debugging.Soft.dll",
+      "sha256": "b444761743de7d92402881922cc8c843fbca0018baa4ea33b4d3d8363a41769a",
+      "origin": "source-built:debugger-libs",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Posix.dll",
+      "sha256": "46fdc2c503517caba5e21b5debf6e6774d0636fa1a5ab3be56ebac2ab94870f7",
+      "origin": "nuget:Mono.Posix-4.5/4.5.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Newtonsoft.Json.dll",
+      "sha256": "f0c07af0e84d4dd4da4bd7823ba4535bc0481b3bf623ed40b659b68147a6bb75",
+      "origin": "nuget:Newtonsoft.Json/13.0.4",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/System.Buffers.dll",
+      "sha256": "72b10a7d404778fed460f3ff0204cf7e81a8a5a79c99132821928b63f6ae99cb",
+      "origin": "nuget:System.Buffers/4.5.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/System.Collections.Immutable.dll",
+      "sha256": "2f05a2c489c2d30a6cca346d4ce184323d70eb4f5afa6bed34d5800274444e57",
+      "origin": "nuget:System.Collections.Immutable/1.5.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/System.Reflection.Metadata.dll",
+      "sha256": "2e180767f1415cb5bbed14450e1d4003cf56a9da6aeaf91ce969a4b9d2a54314",
+      "origin": "nuget:System.Reflection.Metadata/1.6.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/System.Text.Encoding.CodePages.dll",
+      "sha256": "8e85e80455b362d6fbd549e336ca1f7558df3f6c598291e864ddefbced8ed430",
+      "origin": "nuget:System.Text.Encoding.CodePages/4.3.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/System.Threading.Tasks.Extensions.dll",
+      "sha256": "2804e53913a5f6b8663f27a902ee8e939559c0991ce02399ff10595392f2340a",
+      "origin": "nuget:System.Threading.Tasks.Extensions/4.3.0",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/UnityCommunityDebug.exe",
+      "sha256": "b5445e37fe215d8ed73a14800a0fb132f59c569634512c610fa9d0f5bf2d3092",
+      "origin": "project",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/VSCodeDebug.dll",
+      "sha256": "cd684c284b599f6f957c2f643f264145330f8957d5c9564869346f7e7308b3f0",
+      "origin": "source-built:vscode-mono-debug",
+      "license": "MIT"
+    }
+  ]
+}

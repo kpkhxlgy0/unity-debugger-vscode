@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26.5.0
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: npm ci
+      - run: dotnet restore UnityDebugger.sln --locked-mode
+      - name: Verify tag and manifest version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content package.json -Raw | ConvertFrom-Json
+          $expected = "v$($manifest.version)"
+          if ("${{ github.ref_name }}" -ne $expected) {
+            throw "Tag must equal $expected"
+          }
+      - run: npm run verify:third-party
+      - run: npm test
+      - run: npm run package
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            dist/unity-debugger-vscode-0.1.0.vsix `
+            dist/unity-debugger-vscode-0.1.0.vsix.sha256 `
+            --verify-tag `
+            --generate-notes

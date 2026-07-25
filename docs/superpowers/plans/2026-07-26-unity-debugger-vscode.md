@@ -2568,14 +2568,14 @@ git commit -m "test: exercise debug adapter protocol"
 - Consumes: release Adapter build, bundled extension, third-party provenance, all tests.
 - Produces: `dist/unity-debugger-vscode-0.1.0.vsix`; SHA-256 file; audited runtime inventory; Windows CI artifact; tagged GitHub release candidate; manually approved Marketplace workflow.
 
-- [ ] **Step 1: Write the failing VSIX contract test**
+- [x] **Step 1: Write the failing VSIX contract test**
 
 `tests/package/vsix.test.mjs` must invoke the verifier against the packaged
 artifact and assert:
 
 - `extension/dist/extension.js` exists;
 - `extension/adapter/win32-x64/UnityCommunityDebug.exe` exists;
-- `extension/LICENSE`, `extension/README.md`, and
+- `extension/LICENSE.txt`, `extension/README.md`, and
   `extension/THIRD_PARTY_NOTICES.md` exist;
 - no path contains `tests/`, `adapter/vendor/`, `.git/`, `src/`, or a test
   Adapter;
@@ -2584,7 +2584,7 @@ artifact and assert:
   `third-party/runtime-assemblies.json`;
 - no file is outside the allowlisted extension root.
 
-- [ ] **Step 2: Run the VSIX contract and verify no package exists**
+- [x] **Step 2: Run the VSIX contract and verify no package exists**
 
 Run:
 
@@ -2594,7 +2594,7 @@ node --test tests/package/vsix.test.mjs
 
 Expected: FAIL because the VSIX and verifier do not exist.
 
-- [ ] **Step 3: Implement Adapter staging and runtime inventory**
+- [x] **Step 3: Implement Adapter staging and runtime inventory**
 
 `scripts/stage-adapter.mjs` must:
 
@@ -2635,9 +2635,9 @@ node scripts/generate-runtime-inventory.mjs --verify
 git diff -- third-party/runtime-assemblies.json
 ```
 
-- [ ] **Step 4: Implement VSIX verification and packaging**
+- [x] **Step 4: Implement VSIX verification and packaging**
 
-Add `adm-zip` version `0.5.16` as a dev dependency. `verify-vsix.mjs` opens the
+Add `adm-zip` version `0.6.0` as a dev dependency. `verify-vsix.mjs` opens the
 VSIX as ZIP, normalizes `/` paths, rejects `..` segments and absolute paths,
 enforces the contract above, compares runtime hashes with the committed
 inventory, and confirms the Adapter PE architecture is AMD64.
@@ -2666,7 +2666,7 @@ adapter/**
 and make the VSIX contract fail if the production Adapter was accidentally
 excluded or any other adapter subtree was included.
 
-- [ ] **Step 5: Write public documentation and issue routes**
+- [x] **Step 5: Write public documentation and issue routes**
 
 `README.md` must state:
 
@@ -2691,7 +2691,7 @@ users not to paste raw source/variable data. `CHANGELOG.md` starts with
 `0.1.0` scope. Issue forms request Editor version, OS, extension version,
 reproduction, and sanitized diagnostics; they must not request project source.
 
-- [ ] **Step 6: Add Windows CI**
+- [x] **Step 6: Add Windows CI**
 
 `.github/workflows/ci.yml` must trigger on pull requests and pushes to
 `master`, use:
@@ -2723,7 +2723,7 @@ steps:
 Generate the SHA-256 file before upload. Do not run real Editor tests in hosted
 CI.
 
-- [ ] **Step 7: Add gated release workflows**
+- [x] **Step 7: Add gated release workflows**
 
 `release.yml` triggers on `v*` tags, repeats locked build/test/package/audit,
 verifies the tag equals `package.json` version, creates the GitHub Release using
@@ -2744,7 +2744,7 @@ verifies the tag equals `package.json` version, creates the GitHub Release using
 
 This preserves manual approval even after a tag.
 
-- [ ] **Step 8: Verify clean packaging and CI contracts**
+- [x] **Step 8: Verify clean packaging and CI contracts**
 
 Run:
 
