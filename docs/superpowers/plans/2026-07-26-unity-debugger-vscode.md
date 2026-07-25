@@ -856,7 +856,7 @@ git commit -m "feat: add editor version policy"
 - Consumes: `EditorCandidate`, `readProjectVersion`; injected filesystem/process/socket dependencies.
 - Produces: `parsePlayerAdvertisement(record: string): PlayerAdvertisement`; `parseEditorInstance(json: string): EditorInstance`; `defaultEditorPort(processId: number): number`; class `EditorDiscovery.discover(workspaceRoots: readonly string[], timeoutMs?: number): Promise<readonly EditorCandidate[]>`; `EditorDiscovery.dispose(): void`.
 
-- [ ] **Step 1: Write failing packet, instance, and discovery tests**
+- [x] **Step 1: Write failing packet, instance, and discovery tests**
 
 Use this representative packet from the MIT `PlayerConnection` key/value format:
 
@@ -899,7 +899,7 @@ dead PID, `debug=0`, invalid port, malformed JSON, or failed loopback probe
 produces no candidate. A two-root test must return two candidates with distinct
 workspace roots, and duplicate roots must be de-duplicated.
 
-- [ ] **Step 2: Run the discovery tests and verify missing modules fail**
+- [x] **Step 2: Run the discovery tests and verify missing modules fail**
 
 Run:
 
@@ -909,7 +909,7 @@ npm run test:extension -- playerAdvertisement editorInstance editorDiscovery
 
 Expected: FAIL because the discovery modules do not exist.
 
-- [ ] **Step 3: Implement strict advertisement and EditorInstance parsing**
+- [x] **Step 3: Implement strict advertisement and EditorInstance parsing**
 
 Parse bracketed fields without `eval` or permissive object spreading:
 
@@ -950,7 +950,7 @@ export function defaultEditorPort(processId: number): number {
 }
 ```
 
-- [ ] **Step 4: Implement disposable multicast collection and local discovery**
+- [x] **Step 4: Implement disposable multicast collection and local discovery**
 
 The production collector must:
 
@@ -1013,7 +1013,7 @@ results, and de-duplicate candidates by process ID and port. This allows a
 multi-root VS Code window to offer every running local Editor while preserving
 the same loopback-only boundary.
 
-- [ ] **Step 5: Verify discovery behavior and socket cleanup**
+- [x] **Step 5: Verify discovery behavior and socket cleanup**
 
 Run:
 
@@ -1024,7 +1024,7 @@ npm run test:extension
 
 Expected: malformed packets are ignored, remote IPs are never returned, fallback port calculation works, and all tests PASS.
 
-- [ ] **Step 6: Commit local discovery**
+- [x] **Step 6: Commit local discovery**
 
 ```powershell
 git add -- extension/src/playerAdvertisement.ts extension/src/editorInstance.ts extension/src/editorDiscovery.ts tests/extension/playerAdvertisement.test.ts tests/extension/editorInstance.test.ts tests/extension/editorDiscovery.test.ts
