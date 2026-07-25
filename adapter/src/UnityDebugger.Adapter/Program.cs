@@ -1,6 +1,8 @@
 using System;
+using Mono.Debugging.Client;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
+using UnityDebugger.Adapter.Diagnostics;
 
 namespace UnityDebugger.Adapter
 {
@@ -8,10 +10,13 @@ namespace UnityDebugger.Adapter
     {
         private static int Main(string[] args)
         {
+            DebuggerLoggingService.CustomLogger =
+                new MonoDebuggerLogger((_, __) => { });
             try
             {
                 var session = new UnityDebugSession(
-                    () => new UnavailableDebuggerBackend());
+                    () => new MonoDebuggerBackend(
+                        () => new SoftDebuggerSessionFacade()));
                 session.Start(
                     Console.OpenStandardInput(),
                     Console.OpenStandardOutput())
@@ -23,6 +28,10 @@ namespace UnityDebugger.Adapter
             {
                 Console.Error.WriteLine(exception.GetType().Name);
                 return 1;
+            }
+            finally
+            {
+                DebuggerLoggingService.CustomLogger = null;
             }
         }
     }

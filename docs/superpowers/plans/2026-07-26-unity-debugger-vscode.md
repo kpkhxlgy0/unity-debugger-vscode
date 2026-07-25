@@ -1521,7 +1521,7 @@ git commit -m "feat: add debug adapter lifecycle"
 - Consumes: `AttachTarget`, `IDebuggerBackend`, project-owned `UnitySoftDebuggerSession`, vendored `SoftDebuggerConnectArgs`, `SoftDebuggerStartInfo`, and `DebuggerSessionOptions`.
 - Produces: production `MonoDebuggerBackend`; `ISoftDebuggerSessionFacade` used by Tasks 8–11.
 
-- [ ] **Step 1: Write failing backend lifecycle tests**
+- [x] **Step 1: Write failing backend lifecycle tests**
 
 The fake facade records call order. Test:
 
@@ -1569,7 +1569,7 @@ secret messages, arguments, and exception text. Assert the injected sink
 receives only a fixed event name and exception type, `GetNewDebuggerLogFilename`
 returns `null`, and nothing is written to `Console.Out` or `Console.Error`.
 
-- [ ] **Step 2: Run lifecycle tests and verify missing backend fails**
+- [x] **Step 2: Run lifecycle tests and verify missing backend fails**
 
 Run:
 
@@ -1579,7 +1579,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because the facade and backend do not exist.
 
-- [ ] **Step 3: Define the Soft Debugger facade**
+- [x] **Step 3: Define the Soft Debugger facade**
 
 The initial facade boundary is:
 
@@ -1609,7 +1609,7 @@ internal interface ISoftDebuggerSessionFacade : IDisposable
 Add inspection, breakpoint, stepping, and exception members only in their
 respective tasks, keeping this initial lifecycle small.
 
-- [ ] **Step 4: Wrap the vendored Unity Soft Debugger**
+- [x] **Step 4: Wrap the vendored Unity Soft Debugger**
 
 Create the project-owned Unity-specific session without importing the
 unlicensed `MonoDevelop.Debugger.Soft.Unity` submodule:
@@ -1666,7 +1666,7 @@ before constructing any `SoftDebuggerSession` and clear it in `Program.Main`'s
 upstream fallback writes exceptions to `Console.Out`, which is the DAP channel.
 Task 11 connects the bridge to the structured diagnostic log.
 
-- [ ] **Step 5: Implement `MonoDebuggerBackend` lifecycle**
+- [x] **Step 5: Implement `MonoDebuggerBackend` lifecycle**
 
 Use constants:
 
@@ -1692,7 +1692,7 @@ var session = new UnityDebugSession(
     () => new MonoDebuggerBackend(() => new SoftDebuggerSessionFacade()));
 ```
 
-- [ ] **Step 6: Verify source-built Mono lifecycle**
+- [x] **Step 6: Verify source-built Mono lifecycle**
 
 Run:
 
@@ -1706,7 +1706,7 @@ npm run verify:third-party
 Expected: tests PASS; production Adapter links only restored packages and
 source-built vendored projects.
 
-- [ ] **Step 7: Commit the Mono attach backend**
+- [x] **Step 7: Commit the Mono attach backend**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests
