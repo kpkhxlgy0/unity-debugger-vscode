@@ -1047,7 +1047,7 @@ git commit -m "feat: discover local unity editors"
 - Consumes: `EditorDiscovery.discover`, `classifyVersion`, `EditorCandidate`.
 - Produces: `UnityAttachConfiguration`; `DebugConfigurationProvider.resolveDebugConfiguration(folder, configuration)`; `AdapterLauncher.createDescriptor(extensionPath)`; commands `unity-community.refreshTargets`, `unity-community.openLogs`, and `unity-community.copyDiagnostics`.
 
-- [ ] **Step 1: Write failing configuration and launcher tests**
+- [x] **Step 1: Write failing configuration and launcher tests**
 
 Extend `model.ts` in the test imports with this required shape:
 
@@ -1103,7 +1103,7 @@ For `AdapterLauncher`, assert the descriptor points to:
 
 and fails with an actionable error when the executable is absent.
 
-- [ ] **Step 2: Run focused tests and verify missing implementations fail**
+- [x] **Step 2: Run focused tests and verify missing implementations fail**
 
 Run:
 
@@ -1113,7 +1113,7 @@ npm run test:extension -- debugConfigurationProvider adapterLauncher
 
 Expected: FAIL because both modules and `UnityAttachConfiguration` are absent.
 
-- [ ] **Step 3: Implement pure configuration resolution**
+- [x] **Step 3: Implement pure configuration resolution**
 
 Keep VS Code UI behind an injected boundary so Vitest does not need an Extension Host:
 
@@ -1199,7 +1199,7 @@ case-insensitively on Windows. Do not copy unknown user fields into the
 resolved object. Implement `showNoEditor` with a VS Code message action labelled
 `Refresh`; do not retry more than once in a single configuration resolution.
 
-- [ ] **Step 4: Implement descriptor resolution and extension registration**
+- [x] **Step 4: Implement descriptor resolution and extension registration**
 
 `AdapterLauncher` must validate `process.platform === "win32"` and
 `process.arch === "x64"`, verify the executable exists, and return a descriptor
@@ -1248,7 +1248,7 @@ The Quick Pick label must include project name, PID, version, and port. Register
 refresh/open-log/copy-diagnostic commands without activating on C# files or
 calling ReSharper.
 
-- [ ] **Step 5: Verify extension behavior**
+- [x] **Step 5: Verify extension behavior**
 
 Run:
 
@@ -1260,7 +1260,7 @@ npm run test:extension
 
 Expected: all tests PASS and `dist/extension.js` builds without a runtime dependency on C# Dev Kit.
 
-- [ ] **Step 6: Commit configuration and launcher**
+- [x] **Step 6: Commit configuration and launcher**
 
 ```powershell
 git add -- extension/src extension/src/model.ts tests/extension/debugConfigurationProvider.test.ts tests/extension/adapterLauncher.test.ts package.json package-lock.json

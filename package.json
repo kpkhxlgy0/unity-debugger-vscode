@@ -22,9 +22,26 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onDebugResolve:unity-community"
+    "onDebugResolve:unity-community",
+    "onCommand:unity-community.refreshTargets",
+    "onCommand:unity-community.openLogs",
+    "onCommand:unity-community.copyDiagnostics"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "unity-community.refreshTargets",
+        "title": "Unity Community Debugger: Refresh Local Editors"
+      },
+      {
+        "command": "unity-community.openLogs",
+        "title": "Unity Community Debugger: Open Sanitized Diagnostics"
+      },
+      {
+        "command": "unity-community.copyDiagnostics",
+        "title": "Unity Community Debugger: Copy Sanitized Diagnostics"
+      }
+    ],
     "breakpoints": [
       {
         "language": "csharp"
