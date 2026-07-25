@@ -2761,7 +2761,7 @@ git diff --check
 Expected: tests and audit PASS; the VSIX contains only allowlisted production
 files; the checksum is emitted.
 
-- [ ] **Step 9: Commit release infrastructure**
+- [x] **Step 9: Commit release infrastructure**
 
 ```powershell
 git add -- README.md CHANGELOG.md SECURITY.md .vscodeignore scripts third-party/runtime-assemblies.json tests/package .github THIRD_PARTY_NOTICES.md package.json package-lock.json
@@ -2786,7 +2786,7 @@ git commit -m "build: package audited debugger extension"
 - Consumes: final VSIX, installed `Tuanjie 2022.3.62t11`, VS Code profiles.
 - Produces: reproducible fixture and signed-off acceptance record covering all version 0.1.0 real-Editor criteria.
 
-- [ ] **Step 1: Write the fixture behavior**
+- [x] **Step 1: Write the fixture behavior**
 
 `DebuggerFixture.cs` must run inside the Editor without a scene or user-created
 GameObject:
@@ -2847,7 +2847,7 @@ Use this package manifest so the fixture adds no IDE/debugging package:
 
 Ignore the fixture's `Library`, `Logs`, `Temp`, `obj`, and user settings.
 
-- [ ] **Step 2: Implement read-only environment verification**
+- [x] **Step 2: Implement read-only environment verification**
 
 `verify-real-editor-environment.ps1` must:
 
@@ -2864,7 +2864,7 @@ It must accept `-ProjectPath` and default it to the committed fixture. Do not
 hard-code this machine's `H:\workspace` or installed Editor path into the public
 script.
 
-- [ ] **Step 3: Write the exact manual acceptance procedure**
+- [x] **Step 3: Write the exact manual acceptance procedure**
 
 `docs/testing/tuanjie-2022.3.62t11.md` must include:
 
@@ -2888,7 +2888,7 @@ script.
 The acceptance record captures date, Windows version, Tuanjie full version,
 VS Code version, VSIX SHA-256, commit SHA, and PASS/FAIL for each criterion.
 
-- [ ] **Step 4: Commit the fixture and acceptance procedure**
+- [x] **Step 4: Commit the fixture and acceptance procedure**
 
 Run:
 

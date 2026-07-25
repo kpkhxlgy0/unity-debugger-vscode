@@ -12,6 +12,8 @@ tests/fixtures/**/Library/
 tests/fixtures/**/Logs/
 tests/fixtures/**/Temp/
 tests/fixtures/**/UserSettings/
+tests/fixtures/**/MemoryCaptures/
+tests/fixtures/**/Recordings/
 
 *.user
 *.suo

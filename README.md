@@ -98,6 +98,10 @@ The package pipeline builds the Adapter from audited source, stages production
 assemblies only, verifies the committed runtime inventory, audits VSIX paths
 and hashes, and emits a SHA-256 file.
 
+Real-Editor release acceptance uses the dependency-free fixture and procedure
+under `tests/fixtures/TuanjieProject` and
+`docs/testing/tuanjie-2022.3.62t11.md`.
+
 ## License
 
 Project code is MIT licensed. The bundled `THIRD_PARTY_NOTICES.md` contains
