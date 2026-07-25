@@ -2768,7 +2768,11 @@ git add -- README.md CHANGELOG.md SECURITY.md .vscodeignore scripts third-party/
 git commit -m "build: package audited debugger extension"
 ```
 
-### Task 14: Tuanjie 2022.3.62t11 fixture and real-Editor acceptance
+### Task 14: Tuanjie 2022.3.62t11 fixture and real-Editor acceptance — cancelled
+
+> Cancelled at the user's request. The temporary fixture project, isolated
+> VS Code profile, fixture-only tests, verification script, and acceptance
+> documents were removed.
 
 **Files:**
 - Create: `tests/fixtures/TuanjieProject/Assets/Editor/DebuggerFixture.cs`

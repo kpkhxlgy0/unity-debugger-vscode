@@ -8,5 +8,3 @@
   exception break modes.
 - Domain Reload breakpoint recovery and bounded local reconnect.
 - Allowlisted, path-redacted diagnostics with no telemetry.
-- Reproducible dependency-free Tuanjie fixture and real-Editor release
-  acceptance checklist.
