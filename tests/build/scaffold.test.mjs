@@ -47,6 +47,20 @@ test("adapter project targets net48 x64", () => {
   assert.match(project, /<PlatformTarget>x64<\/PlatformTarget>/);
 });
 
+test("release assemblies do not embed the changing Git revision", () => {
+  for (const propsPath of [
+    "Directory.Build.props",
+    "adapter/vendor/Directory.Build.props",
+  ]) {
+    const buildProps = fs.readFileSync(propsPath, "utf8");
+    assert.match(
+      buildProps,
+      /<IncludeSourceRevisionInInformationalVersion>false<\/IncludeSourceRevisionInInformationalVersion>/,
+      `${propsPath} must produce Git-revision-independent binaries`,
+    );
+  }
+});
+
 test("Adapter support URL matches the reviewed Marketplace identity", () => {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const source = fs.readFileSync(

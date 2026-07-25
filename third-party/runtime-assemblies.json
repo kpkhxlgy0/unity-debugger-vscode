@@ -94,13 +94,13 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityCommunityDebug.exe",
-      "sha256": "300d5cfe3fdd50945ac38802a538e8d375567fa138c4af2be106a5ae1d028116",
+      "sha256": "fb6a1c4f507a423c58b8feba2dcfa439d5567d9fbec31d7196e02b730b8478e0",
       "origin": "project",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/VSCodeDebug.dll",
-      "sha256": "f6591f2b234d28d6be9f0accffc1fc704619a894e9e1b03f516419ac2bfcc014",
+      "sha256": "f050cb866c8edd36e8e7d4dca2a5cb9311c90c04d37d31f34b860acea3462927",
       "origin": "source-built:vscode-mono-debug",
       "license": "MIT"
     }
