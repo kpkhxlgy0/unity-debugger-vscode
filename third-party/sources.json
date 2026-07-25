@@ -1,0 +1,43 @@
+{
+  "sources": [
+    {
+      "name": "vscode-mono-debug",
+      "repository": "https://github.com/Unity-Technologies/vscode-mono-debug",
+      "revision": "d233b366b0c67ae4d61488f7e974e2a5b9da2e3b",
+      "license": "MIT",
+      "notice": "third-party/licenses/vscode-mono-debug-MIT.txt",
+      "paths": [
+        "adapter/vendor/vscode-mono-debug"
+      ],
+      "modifications": [
+        "Only Protocol.cs and DebugSession.cs are imported and built as a source project; payload/path/stack logging is removed, command-name-only ProtocolTrace callbacks and a project-owned error formatter are added, and duplicate outer DAP response emission is removed."
+      ]
+    },
+    {
+      "name": "debugger-libs",
+      "repository": "https://github.com/Unity-Technologies/debugger-libs",
+      "revision": "cd005e941d18c92ddf0c50084c59ddaae6bf4c5d",
+      "license": "MIT",
+      "notice": "third-party/licenses/debugger-libs-MIT.txt",
+      "paths": [
+        "adapter/vendor/debugger-libs"
+      ],
+      "modifications": [
+        "Built from source as dependencies of the net48 x64 Adapter; the three debugger projects use the SDK build entry point with their explicit source lists retained, reference-assembly restore is added through vendor build properties, vulnerable Newtonsoft.Json 10.0.3 is upgraded to 13.0.4, and a payload-free AssemblyUnloaded lifecycle event is exposed for Domain Reload coordination. No upstream binaries are shipped."
+      ]
+    },
+    {
+      "name": "nrefactory",
+      "repository": "https://github.com/icsharpcode/NRefactory",
+      "revision": "0607a4ad96ebdd16817e47dcae85b1cfcb5b5bf5",
+      "license": "MIT",
+      "notice": "third-party/licenses/nrefactory-MIT.txt",
+      "paths": [
+        "adapter/vendor/nrefactory"
+      ],
+      "modifications": [
+        "Only the core and CSharp projects required by Mono.Debugging are imported; reference-assembly restore is added through vendor build properties."
+      ]
+    }
+  ]
+}

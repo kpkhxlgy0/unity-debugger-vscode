@@ -21,6 +21,57 @@
         "type": "Transitive",
         "resolved": "1.0.3",
         "contentHash": "zMk4D+9zyiEWByyQ7oPImPN/Jhpj166Ky0Nlla4eXlNL8hI/BtSJsgR8Inldd4NNpIAH3oh8yym0W2DrhXdSLQ=="
+      },
+      "Mono.Posix-4.5": {
+        "type": "Transitive",
+        "resolved": "4.5.0",
+        "contentHash": "QMynhYKbgqz/FiXUeP3+RL8eSPnYIqD3bZcGJ2oOOZQ0yr+BVRMuw40c2Id6s1dg7l8Ei+mdUD77xOdaXGHlqA=="
+      },
+      "System.Buffers": {
+        "type": "Transitive",
+        "resolved": "4.5.0",
+        "contentHash": "pL2ChpaRRWI/p4LXyy4RgeWlYF2sgfj/pnVMvBqwNFr5cXg7CXNnWZWxrOONLg8VGdFB8oB+EG2Qw4MLgTOe+A=="
+      },
+      "System.Collections.Immutable": {
+        "type": "Transitive",
+        "resolved": "1.5.0",
+        "contentHash": "EXKiDFsChZW0RjrZ4FYHu9aW6+P4MCgEDCklsVseRfhoO0F+dXeMSsMRAlVXIo06kGJ/zv+2w1a2uc2+kxxSaQ=="
+      },
+      "icsharpcode.nrefactory": {
+        "type": "Project"
+      },
+      "icsharpcode.nrefactory.csharp": {
+        "type": "Project",
+        "dependencies": {
+          "ICSharpCode.NRefactory": "[1.0.0, )"
+        }
+      },
+      "mono.debugger.soft": {
+        "type": "Project"
+      },
+      "mono.debugging": {
+        "type": "Project",
+        "dependencies": {
+          "ICSharpCode.NRefactory": "[1.0.0, )",
+          "ICSharpCode.NRefactory.CSharp": "[1.0.0, )",
+          "System.Buffers": "[4.5.0, )",
+          "System.Collections.Immutable": "[1.5.0, )"
+        }
+      },
+      "mono.debugging.soft": {
+        "type": "Project",
+        "dependencies": {
+          "Mono.Debugger.Soft": "[1.0.0, )",
+          "Mono.Debugging": "[1.0.0, )",
+          "Mono.Posix-4.5": "[4.5.0, )",
+          "Newtonsoft.Json": "[13.0.4, )"
+        }
+      },
+      "vscodedebug": {
+        "type": "Project",
+        "dependencies": {
+          "Newtonsoft.Json": "[13.0.4, )"
+        }
       }
     },
     ".NETFramework,Version=v4.8/win-x64": {}

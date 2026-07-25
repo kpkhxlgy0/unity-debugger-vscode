@@ -124,7 +124,7 @@
 - Consumes: no product interfaces.
 - Produces: npm scripts `build`, `test`, `test:extension`, `test:adapter`, `package`; `UnityDebugger.sln`; production entry point `UnityDebugger.Adapter.Program.Main(string[] args)`.
 
-- [ ] **Step 1: Write the scaffold contract test**
+- [x] **Step 1: Write the scaffold contract test**
 
 Create `tests/build/scaffold.test.mjs`:
 
@@ -160,7 +160,7 @@ test("adapter project targets net48 x64", () => {
 });
 ```
 
-- [ ] **Step 2: Run the contract test and verify the empty repository fails**
+- [x] **Step 2: Run the contract test and verify the empty repository fails**
 
 Run:
 
@@ -170,7 +170,7 @@ node --test tests/build/scaffold.test.mjs
 
 Expected: FAIL because `package.json` and the Adapter project do not exist.
 
-- [ ] **Step 3: Create the root toolchain and extension manifest**
+- [x] **Step 3: Create the root toolchain and extension manifest**
 
 Use these exact manifest constraints in `package.json`; keep `publisher` as the explicit development value until the reviewed release-preparation commit verifies Marketplace ownership:
 
@@ -280,7 +280,7 @@ Set central package versions in `Directory.Packages.props`:
 </Project>
 ```
 
-- [ ] **Step 4: Create the minimal extension and Adapter projects**
+- [x] **Step 4: Create the minimal extension and Adapter projects**
 
 `extension/src/extension.ts` must contain only a buildable activation shell:
 
@@ -326,7 +326,7 @@ namespace UnityDebugger.Adapter
 
 Create the xUnit project targeting `net48`, referencing the Adapter project and the centrally pinned test packages. Add both projects to `UnityDebugger.sln`.
 
-- [ ] **Step 5: Install, restore, build, and generate lockfiles**
+- [x] **Step 5: Install, restore, build, and generate lockfiles**
 
 Run:
 
@@ -338,7 +338,7 @@ npm run build
 
 Expected: npm creates `package-lock.json`; .NET creates both `packages.lock.json` files; TypeScript bundles to `dist/extension.js`; `UnityCommunityDebug.exe` builds for `net48`.
 
-- [ ] **Step 6: Verify the scaffold contract and clean working build**
+- [x] **Step 6: Verify the scaffold contract and clean working build**
 
 Run:
 
@@ -350,7 +350,7 @@ git diff --check
 
 Expected: all tests PASS and `git diff --check` emits no output.
 
-- [ ] **Step 7: Commit the scaffold**
+- [x] **Step 7: Commit the scaffold**
 
 ```powershell
 git add -- .editorconfig .gitignore .node-version global.json Directory.Build.props Directory.Packages.props package.json package-lock.json tsconfig.json vitest.config.ts esbuild.mjs extension adapter tests/build UnityDebugger.sln
@@ -383,7 +383,7 @@ git commit -m "build: scaffold extension and adapter"
 - Consumes: Task 1 build and lockfile infrastructure.
 - Produces: source-built `VSCodeDebug`, `Mono.Debugger.Soft`, `Mono.Debugging`, and `Mono.Debugging.Soft` assemblies; `npm run verify:third-party`; exact provenance manifest schema `{name, repository, revision, license, notice, paths, modifications}`.
 
-- [ ] **Step 1: Write the provenance contract test**
+- [x] **Step 1: Write the provenance contract test**
 
 Create `tests/build/third-party.test.mjs`:
 
@@ -413,7 +413,7 @@ test("every vendored source has exact provenance and a retained notice", () => {
 });
 ```
 
-- [ ] **Step 2: Run the provenance test and verify it fails**
+- [x] **Step 2: Run the provenance test and verify it fails**
 
 Run:
 
@@ -423,7 +423,7 @@ node --test tests/build/third-party.test.mjs
 
 Expected: FAIL because `third-party/sources.json` does not exist.
 
-- [ ] **Step 3: Implement the pinned source importer**
+- [x] **Step 3: Implement the pinned source importer**
 
 `scripts/import-upstream.ps1` must use three immutable revisions, reject non-empty destination directories, clone into a GUID-named directory under `[System.IO.Path]::GetTempPath()`, copy only these paths, and validate the temporary delete target before cleanup:
 
@@ -458,8 +458,9 @@ New-Item -ItemType Directory -Path $tempRoot | Out-Null
 try {
     foreach ($source in $sources) {
         $checkout = Join-Path $tempRoot $source.Name
-        git clone --filter=blob:none --no-checkout $source.Repository $checkout
-        git -C $checkout checkout $source.Revision -- $source.Paths
+        git clone --no-checkout $source.Repository $checkout
+        git -C $checkout fetch --no-tags origin $source.Revision
+        git -C $checkout checkout FETCH_HEAD -- $source.Paths
 
         $destination = Join-Path $repoRoot ("adapter/vendor/" + $source.Name)
         if ((Test-Path -LiteralPath $destination) -and
@@ -486,7 +487,7 @@ The import script copies `vscode-mono-debug/src/*.cs` directly into its vendor
 root. Copy the retained license texts into `third-party/licenses/` without
 editing their wording.
 
-- [ ] **Step 4: Record provenance and local modifications**
+- [x] **Step 4: Record provenance and local modifications**
 
 Create `third-party/sources.json` with the exact values tested above. The modifications arrays must be explicit:
 
@@ -526,7 +527,7 @@ Create `third-party/sources.json` with the exact values tested above. The modifi
 
 `THIRD_PARTY_NOTICES.md` must name these three sources plus restored transitive packages and link each retained license file.
 
-- [ ] **Step 5: Wire source projects into the Adapter build**
+- [x] **Step 5: Wire source projects into the Adapter build**
 
 Create `adapter/vendor/vscode-mono-debug/ProtocolTrace.cs`:
 
@@ -635,7 +636,7 @@ This payload-free hook is required because the audited revision exposes
 `AssemblyLoaded` but not Domain/assembly unload. Retain copyright headers and
 record the exact changed files in `third-party/sources.json`.
 
-- [ ] **Step 6: Implement and run third-party verification**
+- [x] **Step 6: Implement and run third-party verification**
 
 `scripts/verify-third-party.mjs` must perform the same checks as the test, reject a moving branch name in `revision`, and reject a missing `THIRD_PARTY_NOTICES.md` entry. Add:
 
@@ -666,7 +667,7 @@ node --test tests/build/third-party.test.mjs
 
 Expected: provenance checks PASS and every debugger dependency builds from source.
 
-- [ ] **Step 7: Commit the audited source baseline**
+- [x] **Step 7: Commit the audited source baseline**
 
 ```powershell
 git add -- adapter/vendor adapter/src/UnityDebugger.Adapter/UnityDebugger.Adapter.csproj UnityDebugger.sln scripts/import-upstream.ps1 scripts/verify-third-party.mjs third-party THIRD_PARTY_NOTICES.md tests/build/third-party.test.mjs package.json package-lock.json

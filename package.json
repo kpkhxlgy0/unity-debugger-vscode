@@ -78,6 +78,7 @@
     "build:extension": "node esbuild.mjs",
     "build:adapter": "dotnet restore UnityDebugger.sln --locked-mode && dotnet build UnityDebugger.sln -c Release --no-restore",
     "build": "npm run build:extension && npm run build:adapter",
+    "verify:third-party": "node scripts/verify-third-party.mjs",
     "test:build": "node --test tests/build/*.test.mjs",
     "test:extension": "vitest run tests/extension",
     "test:adapter": "dotnet test UnityDebugger.sln -c Release --no-restore",
