@@ -29,7 +29,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.True(Required<bool>(response["success"]));
             Assert.False(Required<bool>(response.SelectToken(
                 "body.supportsConfigurationDoneRequest")));
-            Assert.False(Required<bool>(response.SelectToken(
+            Assert.True(Required<bool>(response.SelectToken(
                 "body.supportsConditionalBreakpoints")));
             Assert.False(Required<bool>(response.SelectToken(
                 "body.supportsEvaluateForHovers")));
@@ -115,13 +115,86 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     item => OptionalText(item["type"]) == "response"));
         }
 
+        [Fact]
+        public void SetBreakpoints_binds_condition_and_returns_logical_id()
+        {
+            var backend = new FakeDebuggerBackend();
+            var messages = Run(
+                new UnityDebugSession(() => backend),
+                Request("initialize", new
+                {
+                    linesStartAt1 = true,
+                    pathFormat = "path",
+                }),
+                Request("attach", ValidAttachArguments()),
+                Request("setBreakpoints", new
+                {
+                    source = new
+                    {
+                        name = "Player.cs",
+                        path = @"H:\fixture\Assets\Player.cs",
+                    },
+                    breakpoints = new[]
+                    {
+                        new
+                        {
+                            line = 12,
+                            condition = "health <= 0",
+                        },
+                    },
+                }));
+
+            var response = Response(messages, "setBreakpoints");
+            Assert.True(Required<bool>(response["success"]));
+            Assert.Single(backend.Bound);
+            Assert.Equal("health <= 0", backend.Bound[0].Condition);
+            Assert.Equal(
+                1,
+                Required<long>(
+                    response.SelectToken("body.breakpoints[0].id")));
+            Assert.True(Required<bool>(
+                response.SelectToken("body.breakpoints[0].verified")));
+            Assert.Null(
+                response.SelectToken(
+                    "body.breakpoints[0].backendBreakpointId"));
+        }
+
+        [Fact]
+        public void SetBreakpoints_rejects_non_managed_source()
+        {
+            var backend = new FakeDebuggerBackend();
+            var messages = Run(
+                new UnityDebugSession(() => backend),
+                Request("initialize", new
+                {
+                    linesStartAt1 = true,
+                    pathFormat = "path",
+                }),
+                Request("attach", ValidAttachArguments()),
+                Request("setBreakpoints", new
+                {
+                    source = new
+                    {
+                        name = "Surface.shader",
+                        path = @"H:\fixture\Assets\Surface.shader",
+                    },
+                    breakpoints = new[] { new { line = 5 } },
+                }));
+
+            var response = Response(messages, "setBreakpoints");
+            Assert.False(Required<bool>(response["success"]));
+            Assert.Contains(
+                ".cs file",
+                Required<string>(response["message"]));
+            Assert.Empty(backend.Bound);
+        }
+
         [Theory]
         [InlineData("launch", false)]
         [InlineData("setFunctionBreakpoints", true)]
         [InlineData("setVariable", true)]
         [InlineData("source", true)]
         [InlineData("setExceptionBreakpoints", false)]
-        [InlineData("setBreakpoints", false)]
         [InlineData("continue", false)]
         [InlineData("next", false)]
         [InlineData("stepIn", false)]

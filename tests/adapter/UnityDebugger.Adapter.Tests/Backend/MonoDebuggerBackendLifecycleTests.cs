@@ -134,6 +134,37 @@ namespace UnityDebugger.Adapter.Tests.Backend
             }
         }
 
+        [Fact]
+        public void Breakpoint_operations_and_status_changes_are_forwarded()
+        {
+            var facade = new FakeSoftDebuggerSessionFacade();
+            using (var backend = new MonoDebuggerBackend(() => facade))
+            {
+                BackendBreakpointChangedEventArgs? changed = null;
+                backend.BreakpointChanged += (_, arguments) =>
+                    changed = arguments;
+                backend.Attach(Target());
+                var logical = new LogicalBreakpoint(
+                    7,
+                    @"H:\fixture\Assets\Player.cs",
+                    12,
+                    1,
+                    "health <= 0",
+                    null,
+                    null);
+
+                var bound = backend.BindBreakpoint(logical);
+                facade.RaiseBreakpointChanged(
+                    new BackendBreakpointChangedEventArgs(bound));
+                backend.RemoveBreakpoint(bound.Id);
+
+                Assert.Single(facade.Bound);
+                Assert.Equal("health <= 0", facade.Bound[0].Condition);
+                Assert.Same(bound, changed?.Breakpoint);
+                Assert.Equal(1, facade.RemoveBreakpointCount);
+            }
+        }
+
         private static AttachTarget Target(int port = 56234) =>
             new AttachTarget(
                 1234,

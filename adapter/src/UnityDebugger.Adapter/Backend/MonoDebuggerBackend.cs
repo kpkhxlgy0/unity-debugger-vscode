@@ -27,10 +27,8 @@ namespace UnityDebugger.Adapter.Backend
         public event EventHandler? Continued;
 #pragma warning restore CS0067
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
-#pragma warning disable CS0067
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
-#pragma warning restore CS0067
         public event EventHandler? ReloadStarted;
         public event EventHandler? ReloadCompleted;
         public event EventHandler? Terminated;
@@ -104,10 +102,17 @@ namespace UnityDebugger.Adapter.Backend
             string expression) => throw NotImplemented();
 
         public BackendBoundBreakpoint BindBreakpoint(
-            LogicalBreakpoint breakpoint) => throw NotImplemented();
+            LogicalBreakpoint breakpoint)
+        {
+            RequireAttached();
+            return facade!.BindBreakpoint(breakpoint);
+        }
 
-        public void RemoveBreakpoint(long backendBreakpointId) =>
-            throw NotImplemented();
+        public void RemoveBreakpoint(long backendBreakpointId)
+        {
+            RequireAttached();
+            facade!.RemoveBreakpoint(backendBreakpointId);
+        }
 
         public void Continue(long threadId)
         {
@@ -138,6 +143,7 @@ namespace UnityDebugger.Adapter.Backend
             value.ThreadChanged += OnThreadChanged;
             value.AssemblyUnloaded += OnAssemblyUnloaded;
             value.AssemblyLoaded += OnAssemblyLoaded;
+            value.BreakpointChanged += OnBreakpointChanged;
         }
 
         private void Unsubscribe(ISoftDebuggerSessionFacade value)
@@ -147,6 +153,7 @@ namespace UnityDebugger.Adapter.Backend
             value.ThreadChanged -= OnThreadChanged;
             value.AssemblyUnloaded -= OnAssemblyUnloaded;
             value.AssemblyLoaded -= OnAssemblyLoaded;
+            value.BreakpointChanged -= OnBreakpointChanged;
         }
 
         private void ReleaseFacade()
@@ -196,6 +203,11 @@ namespace UnityDebugger.Adapter.Backend
             object? sender,
             EventArgs arguments) =>
             ReloadCompleted?.Invoke(this, EventArgs.Empty);
+
+        private void OnBreakpointChanged(
+            object? sender,
+            BackendBreakpointChangedEventArgs arguments) =>
+            BreakpointChanged?.Invoke(this, arguments);
 
         private void RequireAttached()
         {

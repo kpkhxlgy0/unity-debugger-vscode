@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,6 +16,8 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
         public event EventHandler? AssemblyUnloaded;
         public event EventHandler? AssemblyLoaded;
+        public event EventHandler<BackendBreakpointChangedEventArgs>?
+            BreakpointChanged;
 
         public bool IsRunning { get; set; } = true;
         public bool HasExited { get; set; }
@@ -30,6 +33,9 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public int DetachCount { get; private set; }
         public int DisposeCount { get; private set; }
         public int ContinueCount { get; private set; }
+        public int RemoveBreakpointCount { get; private set; }
+        public List<LogicalBreakpoint> Bound { get; } =
+            new List<LogicalBreakpoint>();
 
         public Task ConnectAsync(
             IPAddress address,
@@ -61,6 +67,22 @@ namespace UnityDebugger.Adapter.Tests.Backend
             IsRunning = true;
         }
 
+        public BackendBoundBreakpoint BindBreakpoint(
+            LogicalBreakpoint breakpoint)
+        {
+            Bound.Add(breakpoint);
+            return new BackendBoundBreakpoint(
+                Bound.Count,
+                true,
+                breakpoint.Line,
+                null);
+        }
+
+        public void RemoveBreakpoint(long backendBreakpointId)
+        {
+            RemoveBreakpointCount++;
+        }
+
         public void Dispose()
         {
             DisposeCount++;
@@ -85,5 +107,9 @@ namespace UnityDebugger.Adapter.Tests.Backend
 
         public void RaiseAssemblyLoaded() =>
             AssemblyLoaded?.Invoke(this, EventArgs.Empty);
+
+        public void RaiseBreakpointChanged(
+            BackendBreakpointChangedEventArgs arguments) =>
+            BreakpointChanged?.Invoke(this, arguments);
     }
 }

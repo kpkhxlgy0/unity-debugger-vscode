@@ -1730,7 +1730,7 @@ git commit -m "feat: attach mono debugger backend"
 - Consumes: `LogicalBreakpoint`, `BackendBoundBreakpoint`, workspace root.
 - Produces: `BreakpointManager.ReplaceForSource(sourcePath, requested)`; `BreakpointManager.MarkAllPending(reason)`; `BreakpointManager.RebindAll()`; `BreakpointManager.RebindPending()`; `BreakpointManager.Changed`; `SourceMapper.ToClientPath(runtimePath)`; DAP `setBreakpoints` and breakpoint-changed events with conditional support.
 
-- [ ] **Step 1: Write failing breakpoint and source tests**
+- [x] **Step 1: Write failing breakpoint and source tests**
 
 Required breakpoint behavior:
 
@@ -1768,7 +1768,7 @@ Source mapping tests must cover case-insensitive workspace paths, slash
 normalization, runtime paths outside the workspace, missing files, and
 redaction-safe display names.
 
-- [ ] **Step 2: Run focused tests and verify missing managers fail**
+- [x] **Step 2: Run focused tests and verify missing managers fail**
 
 Run:
 
@@ -1778,7 +1778,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because both units are absent.
 
-- [ ] **Step 3: Implement logical breakpoint ownership**
+- [x] **Step 3: Implement logical breakpoint ownership**
 
 `BreakpointManager` owns monotonically increasing logical IDs and a dictionary
 keyed by canonical source path plus line. `ReplaceForSource` must:
@@ -1810,7 +1810,7 @@ verified backend binding; `RebindAll` first removes any surviving backend
 binding and then attempts every logical breakpoint. Both paths preserve the
 logical ID and condition.
 
-- [ ] **Step 4: Implement source mapping**
+- [x] **Step 4: Implement source mapping**
 
 `SourceMapper` constructor receives the normalized workspace root and an
 injected `Func<string, bool> fileExists`. `ToClientPath` must:
@@ -1822,7 +1822,7 @@ injected `Func<string, bool> fileExists`. `ToClientPath` must:
   fabricated path, and message `Source file is unavailable in this workspace.`;
 - never search the entire disk by filename.
 
-- [ ] **Step 5: Add real backend binding and DAP translation**
+- [x] **Step 5: Add real backend binding and DAP translation**
 
 Extend the facade:
 
@@ -1857,7 +1857,7 @@ use the same `DapBreakpoint` object in changed events. Add a serialization test
 that asserts the stable logical ID is present and no private backend ID is
 serialized.
 
-- [ ] **Step 6: Verify breakpoint replacement and mapping**
+- [x] **Step 6: Verify breakpoint replacement and mapping**
 
 Run:
 
@@ -1868,7 +1868,7 @@ dotnet test UnityDebugger.sln -c Release --no-restore
 
 Expected: tests PASS, including pending symbols and condition replacement.
 
-- [ ] **Step 7: Commit breakpoints and source mapping**
+- [x] **Step 7: Commit breakpoints and source mapping**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests

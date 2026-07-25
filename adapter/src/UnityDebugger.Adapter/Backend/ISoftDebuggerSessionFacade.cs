@@ -13,6 +13,8 @@ namespace UnityDebugger.Adapter.Backend
         event EventHandler<BackendThreadEventArgs>? ThreadChanged;
         event EventHandler? AssemblyUnloaded;
         event EventHandler? AssemblyLoaded;
+        event EventHandler<BackendBreakpointChangedEventArgs>?
+            BreakpointChanged;
 
         bool IsRunning { get; }
         bool HasExited { get; }
@@ -24,5 +26,8 @@ namespace UnityDebugger.Adapter.Backend
             CancellationToken cancellationToken);
         void Detach();
         void Continue();
+        BackendBoundBreakpoint BindBreakpoint(
+            LogicalBreakpoint breakpoint);
+        void RemoveBreakpoint(long backendBreakpointId);
     }
 }

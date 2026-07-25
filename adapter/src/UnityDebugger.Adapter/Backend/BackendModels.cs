@@ -125,9 +125,9 @@ namespace UnityDebugger.Adapter.Backend
             string sourcePath,
             int line,
             int column,
-            string condition,
-            string hitCondition,
-            string logMessage)
+            string? condition,
+            string? hitCondition,
+            string? logMessage)
         {
             Id = id;
             SourcePath = sourcePath;
@@ -142,9 +142,9 @@ namespace UnityDebugger.Adapter.Backend
         public string SourcePath { get; }
         public int Line { get; }
         public int Column { get; }
-        public string Condition { get; }
-        public string HitCondition { get; }
-        public string LogMessage { get; }
+        public string? Condition { get; }
+        public string? HitCondition { get; }
+        public string? LogMessage { get; }
     }
 
     internal sealed class BackendBoundBreakpoint

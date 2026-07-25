@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +12,12 @@ namespace UnityDebugger.Adapter.Backend
         ISoftDebuggerSessionFacade
     {
         private readonly UnitySoftDebuggerSession session;
+        private readonly object breakpointLock = new object();
+        private readonly Dictionary<long, Breakpoint> breakpoints =
+            new Dictionary<long, Breakpoint>();
+        private readonly Dictionary<BreakEvent, long> breakpointIds =
+            new Dictionary<BreakEvent, long>();
+        private long nextBreakpointId = 1;
         private bool detachCompleted;
         private bool disposed;
 
@@ -39,6 +46,8 @@ namespace UnityDebugger.Adapter.Backend
                 AssemblyUnloaded?.Invoke(this, EventArgs.Empty);
             session.AssemblyLoaded += (_, __) =>
                 AssemblyLoaded?.Invoke(this, EventArgs.Empty);
+            session.Breakpoints.BreakEventStatusChanged +=
+                OnBreakEventStatusChanged;
         }
 
         public event EventHandler? TargetReady;
@@ -47,6 +56,8 @@ namespace UnityDebugger.Adapter.Backend
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
         public event EventHandler? AssemblyUnloaded;
         public event EventHandler? AssemblyLoaded;
+        public event EventHandler<BackendBreakpointChangedEventArgs>?
+            BreakpointChanged;
 
         public bool IsRunning => session.IsRunning;
         public bool HasExited => session.HasExited;
@@ -125,6 +136,55 @@ namespace UnityDebugger.Adapter.Backend
             session.Continue();
         }
 
+        public BackendBoundBreakpoint BindBreakpoint(
+            LogicalBreakpoint breakpoint)
+        {
+            if (disposed)
+                throw new ObjectDisposedException(
+                    nameof(SoftDebuggerSessionFacade));
+
+            var value = session.Breakpoints.Add(
+                breakpoint.SourcePath,
+                breakpoint.Line,
+                Math.Max(1, breakpoint.Column));
+            if (value == null)
+            {
+                return new BackendBoundBreakpoint(
+                    0,
+                    false,
+                    breakpoint.Line,
+                    "Symbols are not loaded.");
+            }
+
+            value.ConditionExpression = breakpoint.Condition;
+            value.CommitChanges();
+            long id;
+            lock (breakpointLock)
+            {
+                id = nextBreakpointId++;
+                breakpoints.Add(id, value);
+                breakpointIds.Add(value, id);
+            }
+            return ToBackendBreakpoint(id, value);
+        }
+
+        public void RemoveBreakpoint(long backendBreakpointId)
+        {
+            Breakpoint? value;
+            lock (breakpointLock)
+            {
+                if (!breakpoints.TryGetValue(
+                    backendBreakpointId,
+                    out value))
+                {
+                    return;
+                }
+                breakpoints.Remove(backendBreakpointId);
+                breakpointIds.Remove(value);
+            }
+            session.Breakpoints.Remove(value);
+        }
+
         public void Detach()
         {
             if (detachCompleted)
@@ -152,6 +212,43 @@ namespace UnityDebugger.Adapter.Backend
                 return;
             disposed = true;
             Detach();
+        }
+
+        private void OnBreakEventStatusChanged(
+            object? sender,
+            BreakEventArgs arguments)
+        {
+            if (!(arguments.BreakEvent is Breakpoint value))
+                return;
+
+            long id;
+            lock (breakpointLock)
+            {
+                if (!breakpointIds.TryGetValue(value, out id))
+                    return;
+            }
+            BreakpointChanged?.Invoke(
+                this,
+                new BackendBreakpointChangedEventArgs(
+                    ToBackendBreakpoint(id, value)));
+        }
+
+        private BackendBoundBreakpoint ToBackendBreakpoint(
+            long id,
+            Breakpoint value)
+        {
+            var status = value.GetStatus(session);
+            var verified = status == BreakEventStatus.Bound;
+            return new BackendBoundBreakpoint(
+                id,
+                verified,
+                value.Line,
+                verified
+                    ? null
+                    : status == BreakEventStatus.NotBound ||
+                      status == BreakEventStatus.Disconnected
+                        ? "Symbols are not loaded."
+                        : "Breakpoint could not be bound.");
         }
 
         private void RaiseStopped(

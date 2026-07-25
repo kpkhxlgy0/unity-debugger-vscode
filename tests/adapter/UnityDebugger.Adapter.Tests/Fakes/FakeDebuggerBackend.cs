@@ -23,6 +23,10 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new List<BackendScope>();
         public List<BackendVariable> Variables { get; } =
             new List<BackendVariable>();
+        public List<LogicalBreakpoint> Bound { get; } =
+            new List<LogicalBreakpoint>();
+        public List<long> RemovedBreakpointIds { get; } =
+            new List<long>();
 
         public bool IsAttached { get; private set; }
         public bool BindAsPending { get; set; }
@@ -74,16 +78,20 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new BackendEvaluationResult("", "", 0);
 
         public BackendBoundBreakpoint BindBreakpoint(
-            LogicalBreakpoint breakpoint) =>
-            new BackendBoundBreakpoint(
-                1,
+            LogicalBreakpoint breakpoint)
+        {
+            Bound.Add(breakpoint);
+            return new BackendBoundBreakpoint(
+                Bound.Count,
                 !BindAsPending,
                 breakpoint.Line,
-                BindAsPending ? "Pending" : null);
+                BindAsPending ? "Symbols are not loaded." : null);
+        }
 
         public void RemoveBreakpoint(long backendBreakpointId)
         {
             RemoveBreakpointCount++;
+            RemovedBreakpointIds.Add(backendBreakpointId);
         }
 
         public void Continue(long threadId)
