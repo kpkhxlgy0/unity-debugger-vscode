@@ -7,6 +7,11 @@
     <RootNamespace>UnityDebugger.Adapter</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="UnityDebugger.Adapter.Tests" />
+    <InternalsVisibleTo Include="UnityDebugger.TestAdapter" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>

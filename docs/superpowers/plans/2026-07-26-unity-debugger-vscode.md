@@ -1286,7 +1286,7 @@ git commit -m "feat: resolve unity attach sessions"
 - Consumes: vendored `VSCodeDebug.DebugSession`; Newtonsoft.Json.
 - Produces: `AttachTarget`; `IDebuggerBackend`; complete backend model names used by Tasks 7–11; `UnityDebugSession` supporting DAP `initialize`, `attach`, and `disconnect`, plus explicit attach-only responses for every other abstract DAP method.
 
-- [ ] **Step 1: Write strict attach argument tests**
+- [x] **Step 1: Write strict attach argument tests**
 
 `AttachArgumentsTests.cs` must cover:
 
@@ -1328,7 +1328,7 @@ project version. Accept other `2022.3.*` and `6000.*` versions as unverified,
 and reject otherwise valid `2021.*`/`2023.*` versions as outside the 0.1.0
 compatibility policy.
 
-- [ ] **Step 2: Define the backend boundary once**
+- [x] **Step 2: Define the backend boundary once**
 
 Create these exact members in `IDebuggerBackend`; later tasks implement them
 without renaming:
@@ -1391,7 +1391,7 @@ Add:
 to the production SDK project so the unit and process-level test assemblies can
 exercise internal boundaries without making them public API.
 
-- [ ] **Step 3: Run tests and verify missing types fail**
+- [x] **Step 3: Run tests and verify missing types fail**
 
 Run:
 
@@ -1401,7 +1401,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because the types and session do not exist.
 
-- [ ] **Step 4: Implement strict parsing and a lifecycle-only backend**
+- [x] **Step 4: Implement strict parsing and a lifecycle-only backend**
 
 `AttachArguments.Parse(JObject)` must:
 
@@ -1420,7 +1420,7 @@ with the same policy used by TypeScript.
 `Attach`; all inspection/control methods throw `InvalidOperationException`;
 `Disconnect` and `Dispose` are idempotent.
 
-- [ ] **Step 5: Implement initialize/attach/disconnect DAP routing**
+- [x] **Step 5: Implement initialize/attach/disconnect DAP routing**
 
 `UnityDebugSession` must accept `Func<IDebuggerBackend>` and report only the
 capabilities implemented at this point:
@@ -1485,7 +1485,7 @@ private static int Main(string[] args)
 }
 ```
 
-- [ ] **Step 6: Verify lifecycle and stdout discipline**
+- [x] **Step 6: Verify lifecycle and stdout discipline**
 
 Run:
 
@@ -1497,7 +1497,7 @@ dotnet build UnityDebugger.sln -c Release --no-restore
 
 Expected: parsing/lifecycle tests PASS; the built process writes no startup text to DAP stdout.
 
-- [ ] **Step 7: Commit DAP lifecycle**
+- [x] **Step 7: Commit DAP lifecycle**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests
