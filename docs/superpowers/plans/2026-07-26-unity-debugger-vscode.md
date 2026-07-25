@@ -687,7 +687,7 @@ git commit -m "build: import audited debugger sources"
 - Consumes: Node file reads supplied by callers; no VS Code API.
 - Produces: `parseProjectVersion(contents: string): string`; `readProjectVersion(workspaceRoot: string): Promise<string>`; `classifyVersion(projectVersion: string): VersionDecision`; types `SupportLevel`, `VersionDecision`, and `EditorCandidate`.
 
-- [ ] **Step 1: Write failing version tests**
+- [x] **Step 1: Write failing version tests**
 
 `tests/extension/projectVersion.test.ts`:
 
@@ -740,7 +740,7 @@ describe("classifyVersion", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests and verify missing modules fail**
+- [x] **Step 2: Run the tests and verify missing modules fail**
 
 Run:
 
@@ -750,7 +750,7 @@ npm run test:extension -- projectVersion versionPolicy
 
 Expected: FAIL because the parser and policy modules do not exist.
 
-- [ ] **Step 3: Implement exact version types and parsing**
+- [x] **Step 3: Implement exact version types and parsing**
 
 `extension/src/model.ts`:
 
@@ -824,7 +824,7 @@ export function classifyVersion(projectVersion: string): VersionDecision {
 `<workspaceRoot>/ProjectSettings/ProjectVersion.txt` as UTF-8 and delegate to
 `parseProjectVersion`.
 
-- [ ] **Step 4: Run the focused and full extension tests**
+- [x] **Step 4: Run the focused and full extension tests**
 
 Run:
 
@@ -835,7 +835,7 @@ npm run test:extension
 
 Expected: all tests PASS.
 
-- [ ] **Step 5: Commit version policy**
+- [x] **Step 5: Commit version policy**
 
 ```powershell
 git add -- extension/src/model.ts extension/src/projectVersion.ts extension/src/versionPolicy.ts tests/extension/projectVersion.test.ts tests/extension/versionPolicy.test.ts
