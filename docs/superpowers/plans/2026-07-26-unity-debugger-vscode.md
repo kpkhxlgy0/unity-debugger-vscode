@@ -2416,7 +2416,7 @@ git commit -m "feat: recover domain reloads safely"
 - Consumes: production `UnityDebugSession`, `IDebuggerBackend`, DAP stdin/stdout.
 - Produces: test-only executable `UnityDebugger.TestAdapter.exe`; `DapClient.request(command, arguments)`; deterministic scenarios `normal`, `reload`, `protocol-error`, and `backend-crash`.
 
-- [ ] **Step 1: Write the failing process-level integration test**
+- [x] **Step 1: Write the failing process-level integration test**
 
 The normal scenario test must spawn the test Adapter and perform:
 
@@ -2460,7 +2460,7 @@ await client.expectCleanExit(0);
 Add tests for reload/rebind, exception stop, all three step operations,
 protocol rejection, backend crash reporting, and disconnect cleanup.
 
-- [ ] **Step 2: Run integration tests and verify the test Adapter is missing**
+- [x] **Step 2: Run integration tests and verify the test Adapter is missing**
 
 Run:
 
@@ -2470,7 +2470,7 @@ npm run test:integration
 
 Expected: FAIL because the test Adapter and `DapClient` do not exist.
 
-- [ ] **Step 3: Implement test-only Adapter and scripted backend**
+- [x] **Step 3: Implement test-only Adapter and scripted backend**
 
 `UnityDebugger.TestAdapter` references the production Adapter project, is never
 referenced by the production project, and chooses a scenario only from its
@@ -2490,7 +2490,7 @@ request/event cycle, then raises reload-complete. The crash scenario throws
 `DebuggerBackendException("Simulated backend failure.")`; it must not terminate
 the test process before DAP reports the error.
 
-- [ ] **Step 4: Implement a framed DAP client**
+- [x] **Step 4: Implement a framed DAP client**
 
 `DapClient` must buffer stdout bytes, parse ASCII headers through
 `\r\n\r\n`, require one valid `Content-Length`, decode exactly that many UTF-8
@@ -2511,7 +2511,7 @@ request/event names. Treat a response for an unknown or already-completed
 duplicate-response defect removed from the vendored protocol. Reject any
 non-DAP bytes on stdout.
 
-- [ ] **Step 5: Wire build and test scripts**
+- [x] **Step 5: Wire build and test scripts**
 
 Add the test Adapter to `UnityDebugger.sln`, exclude its output from VSIX
 staging, and add:
@@ -2524,7 +2524,7 @@ staging, and add:
 Vitest integration setup must build `UnityDebugger.TestAdapter` once before
 tests, not once per case.
 
-- [ ] **Step 6: Verify complete simulated sessions**
+- [x] **Step 6: Verify complete simulated sessions**
 
 Run:
 
@@ -2536,7 +2536,7 @@ npm test
 Expected: normal, reload, exception, protocol-error, and backend-failure
 scenarios PASS; every spawned Adapter exits.
 
-- [ ] **Step 7: Commit the integration suite**
+- [x] **Step 7: Commit the integration suite**
 
 ```powershell
 git add -- tests/integration UnityDebugger.sln vitest.config.ts package.json package-lock.json

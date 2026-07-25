@@ -99,7 +99,8 @@
     "test:build": "node --test tests/build/*.test.mjs",
     "test:extension": "vitest run tests/extension",
     "test:adapter": "dotnet test UnityDebugger.sln -c Release --no-restore",
-    "test": "npm run test:build && npm run test:extension && npm run test:adapter",
+    "test:integration": "vitest run tests/integration",
+    "test": "npm run test:build && npm run test:extension && npm run test:adapter && npm run test:integration",
     "package": "npm run build && vsce package --out dist/unity-debugger-vscode-0.1.0.vsix"
   },
   "devDependencies": {
