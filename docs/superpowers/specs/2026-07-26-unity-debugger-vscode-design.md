@@ -353,8 +353,8 @@ in ordinary hosted CI.
   and .NET Framework 4.8 Adapter, and runs all non-Editor tests.
 - CI checks third-party notices and inspects the VSIX contents.
 - A SemVer Git tag creates a release candidate.
-- Marketplace publication requires an explicit maintainer approval; tags do not
-  publish automatically.
+- Marketplace publication is performed manually through the publisher portal;
+  tags and GitHub Actions do not publish to the Marketplace.
 - Each GitHub Release contains the `.vsix` and its SHA-256 checksum.
 - The Marketplace page includes the support matrix, known limitations, privacy
   statement, issue/security routes, and non-affiliation statement.
@@ -384,7 +384,7 @@ Implementation proceeds in independently testable increments:
 6. Add breakpoints, frames, variables, evaluation, stepping, and exceptions.
 7. Add Domain Reload recovery and diagnostic redaction.
 8. Validate ReSharper coexistence and the real Tuanjie Editor.
-9. Add release packaging, checksums, notices, documentation, and gated
-   Marketplace publication.
+9. Add release packaging, checksums, notices, documentation, and a manual
+   Marketplace publication procedure.
 
 Each increment must end with passing automated tests and a reviewable commit.

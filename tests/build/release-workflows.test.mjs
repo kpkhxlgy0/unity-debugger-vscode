@@ -3,40 +3,28 @@ import fs from "node:fs";
 import test from "node:test";
 import { load } from "js-yaml";
 
-test("registry workflows publish one prebuilt audited release artifact", () => {
-  const marketplace = loadPublishJob(
-    ".github/workflows/publish-marketplace.yml",
+test("only Open VSX has an automated registry publishing workflow", () => {
+  assert.equal(
+    fs.existsSync(".github/workflows/publish-marketplace.yml"),
+    false,
   );
+
   const openVsx = loadPublishJob(
     ".github/workflows/publish-open-vsx.yml",
   );
 
-  assert.equal(marketplace.environment, "vscode-marketplace");
   assert.equal(openVsx.environment, "open-vsx");
 
-  for (const job of [marketplace, openVsx]) {
-    assert.equal(job["runs-on"], "windows-latest");
-    const commands = runBodies(job);
-    assert.match(commands, /gh release download/);
-    assert.match(commands, /unity-debugger-pure-0\.1\.0\.vsix/);
-    assert.match(commands, /verify-release-artifact\.mjs/);
-    assert.doesNotMatch(commands, /npm run package/);
-    assert.doesNotMatch(
-      commands,
-      /dotnet (?:restore|build|test)/,
-    );
-  }
-
-  const marketplaceValidation = namedStep(
-    marketplace,
-    "Confirm publisher ownership and credentials",
+  assert.equal(openVsx["runs-on"], "windows-latest");
+  const commands = runBodies(openVsx);
+  assert.match(commands, /gh release download/);
+  assert.match(commands, /unity-debugger-pure-0\.1\.0\.vsix/);
+  assert.match(commands, /verify-release-artifact\.mjs/);
+  assert.doesNotMatch(commands, /npm run package/);
+  assert.doesNotMatch(
+    commands,
+    /dotnet (?:restore|build|test)/,
   );
-  assert.deepEqual(marketplaceValidation.env, {
-    VSCE_PAT: "${{ secrets.VSCE_PAT }}",
-    VSCE_PUBLISHER: "${{ vars.VSCE_PUBLISHER }}",
-    OWNERSHIP_CONFIRMED:
-      "${{ vars.MARKETPLACE_OWNERSHIP_CONFIRMED }}",
-  });
 
   const openVsxValidation = namedStep(
     openVsx,

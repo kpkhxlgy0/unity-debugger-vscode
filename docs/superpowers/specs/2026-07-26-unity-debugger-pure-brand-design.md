@@ -141,15 +141,14 @@ path.
 
 The release workflow will build, test, audit, and package exactly one
 `unity-debugger-pure-0.1.0.vsix`. That immutable artifact, identified by its
-SHA-256 value, will be consumed by two independently approved publishing jobs:
+SHA-256 value, is uploaded manually to the Visual Studio Marketplace. Open VSX
+uses a pinned `ovsx` version and the separate `OVSX_PAT` secret to publish the
+same audited artifact after namespace approval.
 
-- Visual Studio Marketplace uses a pinned `vsce` version and the `VSCE_PAT`
-  secret.
-- Open VSX uses a pinned `ovsx` version and the separate `OVSX_PAT` secret.
-
-The jobs use separate GitHub Environments and approvals. Failure or rejection
-in one registry does not trigger, retry, or roll back the other registry. No
-workflow rebuilds the VSIX between destinations.
+Visual Studio Marketplace publishing has no repository token or automated
+publishing workflow. Failure or rejection in one registry does not trigger,
+retry, or roll back the other registry. No publishing path rebuilds the VSIX
+between destinations.
 
 The Open VSX namespace `kpk` already exists. Exclusive ownership will be
 requested through Open VSX Option 1, after the extension is public on the
@@ -210,12 +209,12 @@ Unrelated MyGame configuration and all MyGame source files remain untouched.
   command prefix, support URL, or configuration snippet is inconsistent.
 - Runtime inventory verification must fail until the renamed Adapter hash and
   path are committed.
-- Marketplace publication remains manually approved and must fail if the
-  configured publisher does not exactly equal `kpk`.
+- Marketplace publication is a manual upload of the checksum-verified GitHub
+  Release VSIX under the `kpk` publisher.
 - Open VSX publication remains separately approved and must fail if its token
   cannot publish to the exclusively owned `kpk` namespace.
-- Both registry jobs must verify that the input VSIX hash equals the audited
-  release artifact hash; neither job may package from source.
+- The manual Marketplace procedure and Open VSX workflow must both use the
+  audited release artifact; neither path may package from source.
 - A registry version conflict, scan rejection, or partial outage is reported
   for that registry only and does not cause the other registry to republish.
 - Cursor discoverability is a post-publication verification result, not a

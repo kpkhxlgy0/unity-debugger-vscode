@@ -21,19 +21,9 @@ first release candidate.
 - Confirm the packaged manifest repository, bugs, and homepage links resolve
   to that repository.
 
-## 3. GitHub publishing environments
+## 3. GitHub publishing environment
 
-Create two independently reviewed GitHub Environments.
-
-`vscode-marketplace`:
-
-```text
-Secret name: VSCE_PAT
-VSCE_PUBLISHER=kpk
-MARKETPLACE_OWNERSHIP_CONFIRMED=true
-```
-
-`open-vsx`:
+Create the reviewed `open-vsx` GitHub Environment:
 
 ```text
 Secret name: OVSX_PAT
@@ -41,13 +31,16 @@ OVSX_NAMESPACE=kpk
 OPEN_VSX_OWNERSHIP_CONFIRMED=true
 ```
 
-The user enters `VSCE_PAT` and `OVSX_PAT` directly in GitHub. Never put token
-values in source, logs, shell history, release notes, issues, or chat.
+The user enters `OVSX_PAT` directly in GitHub. Never put token values in
+source, logs, shell history, release notes, issues, or chat.
 
 ## 4. Visual Studio Marketplace
 
-- Publish only the audited GitHub Release VSIX after checksum and manifest
-  verification.
+- Download the audited VSIX and checksum from the matching GitHub Release.
+- Verify the checksum before uploading.
+- Upload the VSIX manually through
+  `https://marketplace.visualstudio.com/manage/publishers/kpk`.
+- Do not add a Marketplace token or automated Marketplace publishing workflow.
 - Confirm the listing is
   `https://marketplace.visualstudio.com/items?itemName=kpk.unity-debugger-pure`.
 
@@ -60,8 +53,8 @@ values in source, logs, shell history, release notes, issues, or chat.
 
 ## 6. Open VSX
 
-- Publish the exact same GitHub Release VSIX used by the Visual Studio
-  Marketplace workflow.
+- Publish the exact same GitHub Release VSIX manually uploaded to the Visual
+  Studio Marketplace.
 - Confirm the listing is
   `https://open-vsx.org/extension/kpk/unity-debugger-pure`.
 
