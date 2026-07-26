@@ -114,6 +114,7 @@
     "inventory:runtime:write": "node scripts/generate-runtime-inventory.mjs --write",
     "inventory:runtime": "node scripts/generate-runtime-inventory.mjs --verify",
     "verify:vsix": "node scripts/verify-vsix.mjs dist/unity-debugger-pure-0.1.0.vsix",
+    "verify:release-artifact": "node scripts/verify-release-artifact.mjs dist/unity-debugger-pure-0.1.0.vsix dist/unity-debugger-pure-0.1.0.vsix.sha256 v0.1.0",
     "package": "npm run build && npm run stage:adapter && npm run inventory:runtime && vsce package --out dist/unity-debugger-pure-0.1.0.vsix && npm run verify:vsix && npm run test:package"
   },
   "devDependencies": {
