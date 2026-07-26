@@ -5,6 +5,7 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Breakpoints;
+using UnityDebugger.Adapter.Diagnostics;
 using UnityDebugger.Adapter.Source;
 using UnityDebugger.Adapter.State;
 using VSCodeDebug;
@@ -32,6 +33,7 @@ namespace UnityDebugger.Adapter.Dap
         private bool terminatedSent;
         private bool controlResponsePending;
         private bool awaitingContinuedEvent;
+        private bool reloadRequiresRebind;
         private int activeDapThreadId;
         private Event? bufferedControlEvent;
 
@@ -508,6 +510,14 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
+            if (executionState.Status == ExecutionStatus.Reloading)
+            {
+                SendResponse(
+                    response,
+                    new ThreadsResponseBody(
+                        new List<VSCodeDebug.Thread>()));
+                return;
+            }
             if (!TryGetInspectionBackend(response, out var value))
                 return;
             try
@@ -738,6 +748,10 @@ namespace UnityDebugger.Adapter.Dap
             ManagedBreakpointChangedEventArgs arguments)
         {
             var item = arguments.Breakpoint;
+            InternalDebuggerLog.Write(
+                item.Verified
+                    ? "unity-debugger.breakpoint.dap.status.bound"
+                    : "unity-debugger.breakpoint.dap.status.pending");
             var mapped = sourceMapper?.ToClientPath(item.SourcePath);
             var source = mapped != null
                 ? new DapSource(
@@ -776,6 +790,9 @@ namespace UnityDebugger.Adapter.Dap
             {
                 return;
             }
+            reloadRequiresRebind =
+                sender is IDebuggerBackend value &&
+                !value.IsAttached;
             awaitingContinuedEvent = false;
             ResetInspectionState(resetThreads: true);
             if (wasStopped)
@@ -789,7 +806,8 @@ namespace UnityDebugger.Adapter.Dap
                             allThreadsContinued = true,
                         }));
             }
-            breakpointManager?.MarkAllPending(
+            breakpointManager?.BeginReload(
+                preserveVerified: !reloadRequiresRebind,
                 "Waiting for assemblies after Domain Reload.");
             SendEvent(
                 new OutputEvent(
@@ -804,20 +822,29 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (executionState.Status != ExecutionStatus.Reloading)
                 return;
-            breakpointManager?.RebindPending();
         }
 
         private void OnReloadCompleted(object sender, EventArgs arguments)
         {
             if (!executionState.ReloadCompleted())
                 return;
-            breakpointManager?.RebindAll();
-            var rebound = breakpointManager?.VerifiedCount ?? 0;
+            var reboundBindings = reloadRequiresRebind;
+            if (reboundBindings)
+                breakpointManager?.RebindAll();
+            breakpointManager?.CompleteReload();
+            reloadRequiresRebind = false;
+            var verified = breakpointManager?.VerifiedCount ?? 0;
             var pending = breakpointManager?.PendingCount ?? 0;
+            InternalDebuggerLog.Write(
+                pending == 0 && verified > 0
+                    ? "unity-debugger.reload.complete.bound"
+                    : "unity-debugger.reload.complete.pending");
             SendEvent(
                 new OutputEvent(
                     "console",
-                    $"Domain Reload complete; {rebound} rebound, " +
+                    $"Domain Reload complete; {verified} " +
+                    (reboundBindings ? "rebound" : "verified") +
+                    ", " +
                     $"{pending} pending." +
                     Environment.NewLine));
         }

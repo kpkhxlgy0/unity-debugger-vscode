@@ -1,6 +1,10 @@
+using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Breakpoints;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Tests.Fakes;
@@ -32,11 +36,11 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
         }
 
         [Fact]
-        public void Missing_symbols_leave_breakpoint_pending()
+        public void Rejected_breakpoint_remains_pending()
         {
             var backend = new FakeDebuggerBackend
             {
-                BindAsPending = true,
+                RejectBreakpoint = true,
             };
             using (var manager = new BreakpointManager(backend))
             {
@@ -48,6 +52,57 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                 Assert.Equal(
                     "Symbols are not loaded.",
                     result[0].Message);
+            }
+        }
+
+        [Fact]
+        public void Accepted_breakpoint_ignores_false_pending_status()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                BindAsPending = true,
+            };
+            using (var manager = new BreakpointManager(backend))
+            {
+                var initial = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, null) });
+
+                Assert.True(initial[0].Verified);
+                Assert.Null(initial[0].Message);
+
+                backend.RaiseBreakpointChanged(
+                    new BackendBreakpointChangedEventArgs(
+                        new BackendBoundBreakpoint(
+                            1,
+                            false,
+                            12,
+                            "Symbols are not loaded.")));
+                var afterStatus = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, null) });
+
+                Assert.True(afterStatus[0].Verified);
+                Assert.Null(afterStatus[0].Message);
+            }
+        }
+
+        [Fact]
+        public void Bound_change_during_bind_is_not_lost()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                BindAsPending = true,
+                RaiseBoundBreakpointBeforeBindReturns = true,
+            };
+            using (var manager = new BreakpointManager(backend))
+            {
+                var result = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, null) });
+
+                Assert.True(result[0].Verified);
+                Assert.Null(result[0].Message);
             }
         }
 
@@ -91,18 +146,94 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
         }
 
         [Fact]
+        public async Task Removed_entry_discards_late_rebind_result()
+        {
+            var backend = new FakeDebuggerBackend();
+            using (var manager = new BreakpointManager(backend))
+            using (var bindEntered = new ManualResetEventSlim())
+            using (var continueBind = new ManualResetEventSlim())
+            {
+                manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, "ready") });
+                backend.BindEnteredSignal = bindEntered;
+                backend.ContinueBindSignal = continueBind;
+
+                var rebind = Task.Run(
+                    () => manager.ReplaceForSource(
+                        @"H:\fixture\Assets\Player.cs",
+                        new[]
+                        {
+                            new RequestedBreakpoint(12, "!ready"),
+                        }));
+                Assert.True(bindEntered.Wait(TimeSpan.FromSeconds(2)));
+
+                var removed = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    Array.Empty<RequestedBreakpoint>());
+                Assert.Empty(removed);
+
+                continueBind.Set();
+                await rebind;
+
+                Assert.Empty(backend.ActiveBreakpointIds);
+            }
+        }
+
+        [Fact]
+        public async Task Concurrent_condition_change_and_reload_keep_one_binding()
+        {
+            var backend = new FakeDebuggerBackend();
+            using (var manager = new BreakpointManager(backend))
+            using (var removeEntered = new ManualResetEventSlim())
+            using (var continueRemove = new ManualResetEventSlim())
+            using (var firstBindEntered = new ManualResetEventSlim())
+            using (var bindsEntered = new CountdownEvent(2))
+            using (var continueBind = new ManualResetEventSlim())
+            {
+                manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, "ready") });
+                backend.RemoveEnteredSignal = removeEntered;
+                backend.ContinueRemoveSignal = continueRemove;
+                backend.BindEnteredSignal = firstBindEntered;
+                backend.BindsEnteredCountdown = bindsEntered;
+                backend.ContinueBindSignal = continueBind;
+
+                var conditionChange = Task.Run(
+                    () => manager.ReplaceForSource(
+                        @"H:\fixture\Assets\Player.cs",
+                        new[]
+                        {
+                            new RequestedBreakpoint(12, "!ready"),
+                        }));
+                Assert.True(removeEntered.Wait(TimeSpan.FromSeconds(2)));
+
+                var reloadRebind = Task.Run(manager.RebindAll);
+                Assert.True(firstBindEntered.Wait(TimeSpan.FromSeconds(2)));
+                continueRemove.Set();
+                Assert.True(bindsEntered.Wait(TimeSpan.FromSeconds(2)));
+                continueBind.Set();
+
+                await Task.WhenAll(conditionChange, reloadRebind);
+
+                Assert.Single(backend.ActiveBreakpointIds);
+            }
+        }
+
+        [Fact]
         public void RebindPending_preserves_id_and_retries_only_pending()
         {
             var backend = new FakeDebuggerBackend
             {
-                BindAsPending = true,
+                RejectBreakpoint = true,
             };
             using (var manager = new BreakpointManager(backend))
             {
                 var pending = manager.ReplaceForSource(
                     @"H:\fixture\Assets\Player.cs",
                     new[] { new RequestedBreakpoint(12, null) })[0];
-                backend.BindAsPending = false;
+                backend.RejectBreakpoint = false;
 
                 manager.RebindPending();
                 var rebound = manager.ReplaceForSource(

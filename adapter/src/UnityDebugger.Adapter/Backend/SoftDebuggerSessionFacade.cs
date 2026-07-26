@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mono.Debugging.Client;
 using Mono.Debugging.Soft;
+using UnityDebugger.Adapter.Diagnostics;
 
 namespace UnityDebugger.Adapter.Backend
 {
@@ -363,6 +364,8 @@ namespace UnityDebugger.Adapter.Backend
                 Math.Max(1, breakpoint.Column));
             if (value == null)
             {
+                InternalDebuggerLog.Write(
+                    "unity-debugger.breakpoint.facade.bind.pending");
                 return new BackendBoundBreakpoint(
                     0,
                     false,
@@ -379,7 +382,12 @@ namespace UnityDebugger.Adapter.Backend
                 breakpoints.Add(id, value);
                 breakpointIds.Add(value, id);
             }
-            return ToBackendBreakpoint(id, value);
+            var bound = ToBackendBreakpoint(id, value);
+            InternalDebuggerLog.Write(
+                bound.Verified
+                    ? "unity-debugger.breakpoint.facade.bind.bound"
+                    : "unity-debugger.breakpoint.facade.bind.pending");
+            return bound;
         }
 
         public void RemoveBreakpoint(long backendBreakpointId)
@@ -543,23 +551,36 @@ namespace UnityDebugger.Adapter.Backend
             if (!(arguments.BreakEvent is Breakpoint value))
                 return;
 
+            var status = value.GetStatus(session);
+            var verified = status == BreakEventStatus.Bound;
             long id;
             lock (breakpointLock)
             {
                 if (!breakpointIds.TryGetValue(value, out id))
+                {
+                    InternalDebuggerLog.Write(
+                        verified
+                            ? "unity-debugger.breakpoint.facade.status.bound.unmapped"
+                            : "unity-debugger.breakpoint.facade.status.pending.unmapped");
                     return;
+                }
             }
+            InternalDebuggerLog.Write(
+                verified
+                    ? "unity-debugger.breakpoint.facade.status.bound.mapped"
+                    : "unity-debugger.breakpoint.facade.status.pending.mapped");
             BreakpointChanged?.Invoke(
                 this,
                 new BackendBreakpointChangedEventArgs(
-                    ToBackendBreakpoint(id, value)));
+                    ToBackendBreakpoint(id, value, status)));
         }
 
         private BackendBoundBreakpoint ToBackendBreakpoint(
             long id,
-            Breakpoint value)
+            Breakpoint value,
+            BreakEventStatus? observedStatus = null)
         {
-            var status = value.GetStatus(session);
+            var status = observedStatus ?? value.GetStatus(session);
             var verified = status == BreakEventStatus.Bound;
             return new BackendBoundBreakpoint(
                 id,

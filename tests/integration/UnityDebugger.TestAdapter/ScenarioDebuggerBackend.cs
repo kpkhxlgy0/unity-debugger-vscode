@@ -12,6 +12,9 @@ namespace UnityDebugger.TestAdapter
         private readonly string scenario;
         private readonly CancellationTokenSource lifetime =
             new CancellationTokenSource();
+        private readonly object breakpointLock = new object();
+        private readonly HashSet<long> activeBreakpointIds =
+            new HashSet<long>();
         private AttachTarget? target;
         private long nextBreakpointId = 1;
         private int firstBreakpoint;
@@ -115,6 +118,8 @@ namespace UnityDebugger.TestAdapter
             LogicalBreakpoint breakpoint)
         {
             var id = nextBreakpointId++;
+            lock (breakpointLock)
+                activeBreakpointIds.Add(id);
             if (Interlocked.Exchange(ref firstBreakpoint, 1) == 0)
             {
                 if (scenario == "reload")
@@ -125,10 +130,21 @@ namespace UnityDebugger.TestAdapter
                             EventArgs.Empty),
                         30);
                     Schedule(
+                        () => BreakpointChanged?.Invoke(
+                            this,
+                            new BackendBreakpointChangedEventArgs(
+                                new BackendBoundBreakpoint(
+                                    id,
+                                    false,
+                                    breakpoint.Line,
+                                    "Symbols are not loaded."))),
+                        70);
+                    Schedule(
                         () => ReloadCompleted?.Invoke(
                             this,
                             EventArgs.Empty),
                         100);
+                    ScheduleBreakpointStop(id, 130);
                 }
                 else if (scenario != "exception")
                 {
@@ -144,6 +160,8 @@ namespace UnityDebugger.TestAdapter
 
         public void RemoveBreakpoint(long backendBreakpointId)
         {
+            lock (breakpointLock)
+                activeBreakpointIds.Remove(backendBreakpointId);
         }
 
         public void Continue(long threadId)
@@ -193,6 +211,31 @@ namespace UnityDebugger.TestAdapter
                 () => Stopped?.Invoke(
                     this,
                     new BackendStoppedEventArgs(reason, 1, null)),
+                delayMilliseconds);
+        }
+
+        private void ScheduleBreakpointStop(
+            long backendBreakpointId,
+            int delayMilliseconds)
+        {
+            Schedule(
+                () =>
+                {
+                    lock (breakpointLock)
+                    {
+                        if (!activeBreakpointIds.Contains(
+                            backendBreakpointId))
+                        {
+                            return;
+                        }
+                    }
+                    Stopped?.Invoke(
+                        this,
+                        new BackendStoppedEventArgs(
+                            BackendStopReason.Breakpoint,
+                            1,
+                            null));
+                },
                 delayMilliseconds);
         }
 

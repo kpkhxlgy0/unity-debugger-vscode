@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityDebugger.Adapter.Backend;
 
 namespace UnityDebugger.Adapter.Tests.Fakes
 {
     internal sealed class FakeDebuggerBackend : IDebuggerBackend
     {
+        private long nextBackendBreakpointId = 1;
+
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
         public event EventHandler? Continued;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
@@ -32,11 +35,20 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new List<LogicalBreakpoint>();
         public List<long> RemovedBreakpointIds { get; } =
             new List<long>();
+        public HashSet<long> ActiveBreakpointIds { get; } =
+            new HashSet<long>();
         public List<ExceptionBreakMode> ExceptionModes { get; } =
             new List<ExceptionBreakMode>();
 
         public bool IsAttached { get; private set; }
         public bool BindAsPending { get; set; }
+        public bool RejectBreakpoint { get; set; }
+        public bool RaiseBoundBreakpointBeforeBindReturns { get; set; }
+        public ManualResetEventSlim? BindEnteredSignal { get; set; }
+        public CountdownEvent? BindsEnteredCountdown { get; set; }
+        public ManualResetEventSlim? ContinueBindSignal { get; set; }
+        public ManualResetEventSlim? RemoveEnteredSignal { get; set; }
+        public ManualResetEventSlim? ContinueRemoveSignal { get; set; }
         public Exception? AttachException { get; set; }
         public BackendEvaluationResult EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
@@ -75,6 +87,7 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         {
             DisconnectCount++;
             IsAttached = false;
+            ActiveBreakpointIds.Clear();
         }
 
         public IReadOnlyList<BackendThread> GetThreads() => Threads;
@@ -118,17 +131,39 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             LogicalBreakpoint breakpoint)
         {
             Bound.Add(breakpoint);
+            var id = nextBackendBreakpointId++;
+            if (!RejectBreakpoint)
+                ActiveBreakpointIds.Add(id);
+            BindEnteredSignal?.Set();
+            BindsEnteredCountdown?.Signal();
+            ContinueBindSignal?.Wait(TimeSpan.FromSeconds(5));
+            if (RaiseBoundBreakpointBeforeBindReturns)
+            {
+                BreakpointChanged?.Invoke(
+                    this,
+                    new BackendBreakpointChangedEventArgs(
+                        new BackendBoundBreakpoint(
+                            id,
+                            true,
+                            breakpoint.Line,
+                            null)));
+            }
             return new BackendBoundBreakpoint(
-                Bound.Count,
-                !BindAsPending,
+                RejectBreakpoint ? 0 : id,
+                !RejectBreakpoint && !BindAsPending,
                 breakpoint.Line,
-                BindAsPending ? "Symbols are not loaded." : null);
+                RejectBreakpoint || BindAsPending
+                    ? "Symbols are not loaded."
+                    : null);
         }
 
         public void RemoveBreakpoint(long backendBreakpointId)
         {
+            RemoveEnteredSignal?.Set();
+            ContinueRemoveSignal?.Wait(TimeSpan.FromSeconds(5));
             RemoveBreakpointCount++;
             RemovedBreakpointIds.Add(backendBreakpointId);
+            ActiveBreakpointIds.Remove(backendBreakpointId);
         }
 
         public void Continue(long threadId)
@@ -201,6 +236,7 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         {
             DisposeCount++;
             IsAttached = false;
+            ActiveBreakpointIds.Clear();
         }
 
         public void RaiseStopped(BackendStoppedEventArgs arguments) =>
@@ -209,8 +245,36 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public void RaiseReloadStarted() =>
             ReloadStarted?.Invoke(this, EventArgs.Empty);
 
+        public void RaiseConnectionLost()
+        {
+            IsAttached = false;
+            ActiveBreakpointIds.Clear();
+            ReloadStarted?.Invoke(this, EventArgs.Empty);
+        }
+
         public void RaiseReloadCompleted() =>
             ReloadCompleted?.Invoke(this, EventArgs.Empty);
+
+        public void RaiseReconnectCompleted()
+        {
+            nextBackendBreakpointId = 1;
+            IsAttached = true;
+            ReloadCompleted?.Invoke(this, EventArgs.Empty);
+        }
+
+        public bool RaiseBreakpointHit(
+            long backendBreakpointId,
+            long threadId)
+        {
+            if (!ActiveBreakpointIds.Contains(backendBreakpointId))
+                return false;
+            RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Breakpoint,
+                    threadId,
+                    null));
+            return true;
+        }
 
         public void RaiseReloadProgress() =>
             ReloadProgress?.Invoke(this, EventArgs.Empty);

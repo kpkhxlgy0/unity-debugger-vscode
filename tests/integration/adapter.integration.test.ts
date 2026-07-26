@@ -107,7 +107,7 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("rebinds breakpoints after a simulated Domain Reload", async () => {
+  it("preserves verified breakpoint status during a simulated Domain Reload", async () => {
     const client = await start("reload");
     await initialize(client);
     await attach(client);
@@ -116,16 +116,24 @@ describe("Unity debug adapter process", () => {
       breakpoints: [{ line: 12 }],
     });
 
-    const pending = await client.waitForEvent("breakpoint");
-    expect(pending.body.breakpoint).toMatchObject({
-      id: 1,
-      verified: false,
-      message: "Waiting for assemblies after Domain Reload.",
+    await client.waitForEvent("output");
+    const completed = await client.waitForEvent("output");
+    expect(completed.body.output).toBe(
+      "Domain Reload complete; 1 verified, 0 pending.\r\n",
+    );
+
+    const preserved = await client.request("setBreakpoints", {
+      source: { path: fixtureSource },
+      breakpoints: [{ line: 12 }],
     });
-    const rebound = await client.waitForEvent("breakpoint");
-    expect(rebound.body.breakpoint).toMatchObject({
+    expect(preserved.body.breakpoints[0]).toMatchObject({
       id: 1,
       verified: true,
+    });
+    const stopped = await client.waitForEvent("stopped");
+    expect(stopped.body).toMatchObject({
+      reason: "breakpoint",
+      allThreadsStopped: true,
     });
 
     await client.request("disconnect", {});

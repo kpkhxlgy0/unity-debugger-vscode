@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityDebugger.Adapter.Backend;
+using UnityDebugger.Adapter.Diagnostics;
 
 namespace UnityDebugger.Adapter.Breakpoints
 {
@@ -70,7 +71,13 @@ namespace UnityDebugger.Adapter.Breakpoints
                 StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<long, Entry> backendEntries =
             new Dictionary<long, Entry>();
+        private readonly object bindingLock = new object();
+        private readonly Dictionary<long, BackendBoundBreakpoint>
+            changesDuringBind =
+                new Dictionary<long, BackendBoundBreakpoint>();
         private long nextId = 1;
+        private int bindsInProgress;
+        private bool preserveVerifiedWhileReloading;
         private bool disposed;
 
         public BreakpointManager(IDebuggerBackend backend)
@@ -83,11 +90,26 @@ namespace UnityDebugger.Adapter.Breakpoints
         public event EventHandler<ManagedBreakpointChangedEventArgs>?
             Changed;
 
-        public int VerifiedCount =>
-            entries.Values.Count(item => item.Verified);
+        public int VerifiedCount
+        {
+            get
+            {
+                lock (bindingLock)
+                    return entries.Values.Count(item => item.Verified);
+            }
+        }
 
-        public int PendingCount =>
-            entries.Count - VerifiedCount;
+        public int PendingCount
+        {
+            get
+            {
+                lock (bindingLock)
+                {
+                    return entries.Count -
+                        entries.Values.Count(item => item.Verified);
+                }
+            }
+        }
 
         public IReadOnlyList<ManagedBreakpoint> ReplaceForSource(
             string sourcePath,
@@ -99,44 +121,56 @@ namespace UnityDebugger.Adapter.Breakpoints
             var requestedLines = new HashSet<int>(
                 requests.Select(item => item.Line));
 
-            foreach (var entry in entries.Values
-                .Where(
-                    item =>
-                        string.Equals(
-                            item.SourcePath,
-                            canonicalPath,
-                            StringComparison.OrdinalIgnoreCase) &&
-                        !requestedLines.Contains(item.RequestedLine))
-                .ToArray())
+            Entry[] removed;
+            lock (bindingLock)
             {
-                Remove(entry);
+                ThrowIfDisposed();
+                removed = entries.Values
+                    .Where(
+                        item =>
+                            string.Equals(
+                                item.SourcePath,
+                                canonicalPath,
+                                StringComparison.OrdinalIgnoreCase) &&
+                            !requestedLines.Contains(
+                                item.RequestedLine))
+                    .ToArray();
             }
+            foreach (var entry in removed)
+                Remove(entry);
 
             var result = new List<ManagedBreakpoint>(requests.Length);
             foreach (var request in requests)
             {
                 var key = Key(canonicalPath, request.Line);
-                if (!entries.TryGetValue(key, out var entry))
+                Entry entry;
+                var shouldBind = false;
+                lock (bindingLock)
                 {
-                    entry = new Entry(
-                        nextId++,
-                        canonicalPath,
-                        request.Line,
-                        request.Condition);
-                    entries.Add(key, entry);
-                    Bind(entry);
+                    if (!entries.TryGetValue(key, out entry!))
+                    {
+                        entry = new Entry(
+                            nextId++,
+                            canonicalPath,
+                            request.Line,
+                            request.Condition);
+                        entries.Add(key, entry);
+                        shouldBind = true;
+                    }
+                    else if (!string.Equals(
+                        entry.Condition,
+                        request.Condition,
+                        StringComparison.Ordinal))
+                    {
+                        entry.Condition = request.Condition;
+                        shouldBind = true;
+                    }
                 }
-                else if (!string.Equals(
-                    entry.Condition,
-                    request.Condition,
-                    StringComparison.Ordinal))
-                {
-                    RemoveBackendBinding(entry);
-                    entry.Condition = request.Condition;
+                if (shouldBind)
                     Bind(entry);
-                }
 
-                result.Add(Snapshot(entry));
+                lock (bindingLock)
+                    result.Add(Snapshot(entry));
             }
 
             return result;
@@ -144,112 +178,237 @@ namespace UnityDebugger.Adapter.Breakpoints
 
         public void MarkAllPending(string reason)
         {
-            ThrowIfDisposed();
-            backendEntries.Clear();
-            foreach (var entry in entries.Values)
+            ManagedBreakpoint[] changed;
+            lock (bindingLock)
             {
-                if (entry.BackendId.HasValue)
-                {
-                    try
-                    {
-                        backend.RemoveBreakpoint(
-                            entry.BackendId.Value);
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        // A transport-triggered reload has no live binding.
-                    }
-                }
-                entry.BackendId = null;
-                entry.Verified = false;
-                entry.Message = reason;
-                RaiseChanged(entry);
+                ThrowIfDisposed();
+                changed = entries.Values
+                    .Select(
+                        entry =>
+                        {
+                            entry.Verified = false;
+                            entry.Message = reason;
+                            return Snapshot(entry);
+                        })
+                    .ToArray();
+            }
+            foreach (var breakpoint in changed)
+                RaiseChanged(breakpoint);
+        }
+
+        public void BeginReload(
+            bool preserveVerified,
+            string pendingReason)
+        {
+            lock (bindingLock)
+            {
+                ThrowIfDisposed();
+                preserveVerifiedWhileReloading = preserveVerified;
+            }
+            if (!preserveVerified)
+                MarkAllPending(pendingReason);
+        }
+
+        public void CompleteReload()
+        {
+            lock (bindingLock)
+            {
+                ThrowIfDisposed();
+                preserveVerifiedWhileReloading = false;
             }
         }
 
         public void RebindAll()
         {
-            ThrowIfDisposed();
-            foreach (var entry in entries.Values.ToArray())
+            Entry[] values;
+            lock (bindingLock)
             {
-                RemoveBackendBinding(entry);
+                ThrowIfDisposed();
+                values = entries.Values.ToArray();
+            }
+            foreach (var entry in values)
+            {
                 Bind(entry);
-                RaiseChanged(entry);
+                ManagedBreakpoint changed;
+                lock (bindingLock)
+                    changed = Snapshot(entry);
+                RaiseChanged(changed);
             }
         }
 
         public void RebindPending()
         {
-            ThrowIfDisposed();
-            foreach (var entry in entries.Values
-                .Where(item => !item.Verified)
-                .ToArray())
+            Entry[] values;
+            lock (bindingLock)
             {
-                RemoveBackendBinding(entry);
+                ThrowIfDisposed();
+                values = entries.Values
+                    .Where(item => !item.Verified)
+                    .ToArray();
+            }
+            foreach (var entry in values)
+            {
                 Bind(entry);
-                RaiseChanged(entry);
+                ManagedBreakpoint changed;
+                lock (bindingLock)
+                    changed = Snapshot(entry);
+                RaiseChanged(changed);
             }
         }
 
         public void Dispose()
         {
-            if (disposed)
-                return;
-            disposed = true;
+            lock (bindingLock)
+            {
+                if (disposed)
+                    return;
+                disposed = true;
+            }
             backend.BreakpointChanged -= OnBackendBreakpointChanged;
         }
 
         private void Bind(Entry entry)
         {
-            var logical = new LogicalBreakpoint(
-                entry.Id,
-                entry.SourcePath,
-                entry.RequestedLine,
-                1,
-                entry.Condition,
-                null,
-                null);
+            LogicalBreakpoint logical;
+            long bindingGeneration;
+            long? bindingToRemove;
+            lock (bindingLock)
+            {
+                if (disposed || !entry.Registered)
+                    return;
+                bindingToRemove = DetachBackendBindingLocked(entry);
+                logical = new LogicalBreakpoint(
+                    entry.Id,
+                    entry.SourcePath,
+                    entry.RequestedLine,
+                    1,
+                    entry.Condition,
+                    null,
+                    null);
+                bindingGeneration = entry.BindingGeneration;
+                bindsInProgress++;
+            }
+            long? staleBackendId = null;
             try
             {
+                RemoveBackendBreakpoint(bindingToRemove);
                 var bound = backend.BindBreakpoint(logical);
-                entry.BackendId = bound.Id > 0
-                    ? bound.Id
-                    : (long?)null;
-                entry.Verified = bound.Verified;
-                entry.BoundLine = bound.Line > 0
-                    ? bound.Line
-                    : entry.RequestedLine;
-                entry.Message = bound.Verified
-                    ? null
-                    : bound.Message ?? PendingMessage;
-                if (entry.BackendId.HasValue)
-                    backendEntries[entry.BackendId.Value] = entry;
+                InternalDebuggerLog.Write(
+                    bound.Verified
+                        ? "unity-debugger.breakpoint.manager.bind.bound"
+                        : "unity-debugger.breakpoint.manager.bind.pending");
+                lock (bindingLock)
+                {
+                    if (
+                        disposed ||
+                        !entry.Registered ||
+                        entry.BindingGeneration != bindingGeneration)
+                    {
+                        if (bound.Id > 0)
+                        {
+                            changesDuringBind.Remove(bound.Id);
+                            staleBackendId = bound.Id;
+                        }
+                    }
+                    else
+                    {
+                        entry.BackendId = bound.Id > 0
+                            ? bound.Id
+                            : (long?)null;
+                        ApplyBoundState(entry, bound);
+                        if (entry.BackendId.HasValue)
+                        {
+                            var backendId = entry.BackendId.Value;
+                            backendEntries[backendId] = entry;
+                            if (changesDuringBind.TryGetValue(
+                                backendId,
+                                out var changed))
+                            {
+                                changesDuringBind.Remove(backendId);
+                                ApplyBoundState(entry, changed);
+                            }
+                        }
+                    }
+                }
             }
             catch (InvalidOperationException)
             {
-                entry.BackendId = null;
-                entry.Verified = false;
-                entry.Message = PendingMessage;
+                lock (bindingLock)
+                {
+                    if (
+                        !disposed &&
+                        entry.Registered &&
+                        entry.BindingGeneration == bindingGeneration)
+                    {
+                        entry.BackendId = null;
+                        entry.Verified = false;
+                        entry.Message = PendingMessage;
+                    }
+                }
             }
+            finally
+            {
+                lock (bindingLock)
+                {
+                    bindsInProgress--;
+                    if (bindsInProgress == 0)
+                        changesDuringBind.Clear();
+                }
+            }
+            RemoveStaleBackendBreakpoint(staleBackendId);
         }
 
         private void Remove(Entry entry)
         {
-            RemoveBackendBinding(entry);
-            entries.Remove(Key(entry.SourcePath, entry.RequestedLine));
+            long? backendId = null;
+            lock (bindingLock)
+            {
+                var key = Key(entry.SourcePath, entry.RequestedLine);
+                if (
+                    !entry.Registered ||
+                    !entries.TryGetValue(key, out var current) ||
+                    !ReferenceEquals(current, entry))
+                {
+                    return;
+                }
+                entry.Registered = false;
+                backendId = DetachBackendBindingLocked(entry);
+                entries.Remove(key);
+            }
+            RemoveBackendBreakpoint(backendId);
         }
 
-        private void RemoveBackendBinding(Entry entry)
+        private long? DetachBackendBindingLocked(Entry entry)
         {
-            if (entry.BackendId.HasValue)
-            {
-                var backendId = entry.BackendId.Value;
-                backendEntries.Remove(backendId);
-                backend.RemoveBreakpoint(backendId);
-            }
+            entry.BindingGeneration++;
+            var backendId = entry.BackendId;
+            if (backendId.HasValue)
+                backendEntries.Remove(backendId.Value);
             entry.BackendId = null;
             entry.Verified = false;
             entry.Message = PendingMessage;
+            return backendId;
+        }
+
+        private void RemoveBackendBreakpoint(long? backendId)
+        {
+            if (backendId.HasValue)
+            {
+                backend.RemoveBreakpoint(backendId.Value);
+            }
+        }
+
+        private void RemoveStaleBackendBreakpoint(long? backendId)
+        {
+            try
+            {
+                RemoveBackendBreakpoint(backendId);
+            }
+            catch (InvalidOperationException)
+            {
+                // A concurrent disconnect can dispose the stale backend
+                // binding before this cleanup request reaches it.
+            }
         }
 
         private void OnBackendBreakpointChanged(
@@ -257,23 +416,73 @@ namespace UnityDebugger.Adapter.Breakpoints
             BackendBreakpointChangedEventArgs arguments)
         {
             var bound = arguments.Breakpoint;
-            if (!backendEntries.TryGetValue(bound.Id, out var entry))
-                return;
-
-            entry.Verified = bound.Verified;
-            if (bound.Line > 0)
-                entry.BoundLine = bound.Line;
-            entry.Message = bound.Verified
-                ? null
-                : bound.Message ?? PendingMessage;
-            RaiseChanged(entry);
+            Entry entry;
+            ManagedBreakpoint changed;
+            lock (bindingLock)
+            {
+                if (disposed)
+                    return;
+                if (!backendEntries.TryGetValue(bound.Id, out entry!))
+                {
+                    if (bindsInProgress > 0)
+                    {
+                        InternalDebuggerLog.Write(
+                            bound.Verified
+                                ? "unity-debugger.breakpoint.manager.status.bound.buffered"
+                                : "unity-debugger.breakpoint.manager.status.pending.buffered");
+                        changesDuringBind[bound.Id] = bound;
+                    }
+                    else
+                    {
+                        InternalDebuggerLog.Write(
+                            bound.Verified
+                                ? "unity-debugger.breakpoint.manager.status.bound.unmapped"
+                                : "unity-debugger.breakpoint.manager.status.pending.unmapped");
+                    }
+                    return;
+                }
+                if (
+                    preserveVerifiedWhileReloading &&
+                    entry.Verified &&
+                    !bound.Verified)
+                {
+                    InternalDebuggerLog.Write(
+                        "unity-debugger.breakpoint.manager.status.pending.suppressed");
+                    return;
+                }
+                InternalDebuggerLog.Write(
+                    bound.Verified
+                        ? "unity-debugger.breakpoint.manager.status.bound.mapped"
+                        : "unity-debugger.breakpoint.manager.status.pending.mapped");
+                ApplyBoundState(entry, bound);
+                changed = Snapshot(entry);
+            }
+            RaiseChanged(changed);
         }
 
-        private void RaiseChanged(Entry entry)
+        private static void ApplyBoundState(
+            Entry entry,
+            BackendBoundBreakpoint bound)
+        {
+            var verified = bound.Verified || bound.Id > 0;
+            if (verified && !bound.Verified)
+            {
+                InternalDebuggerLog.Write(
+                    "unity-debugger.breakpoint.manager.status.pending.accepted");
+            }
+            entry.Verified = verified;
+            if (bound.Line > 0)
+                entry.BoundLine = bound.Line;
+            entry.Message = verified
+                ? null
+                : bound.Message ?? PendingMessage;
+        }
+
+        private void RaiseChanged(ManagedBreakpoint breakpoint)
         {
             Changed?.Invoke(
                 this,
-                new ManagedBreakpointChangedEventArgs(Snapshot(entry)));
+                new ManagedBreakpointChangedEventArgs(breakpoint));
         }
 
         private static ManagedBreakpoint Snapshot(Entry entry) =>
@@ -310,6 +519,7 @@ namespace UnityDebugger.Adapter.Breakpoints
                 BoundLine = line;
                 Condition = condition;
                 Message = PendingMessage;
+                Registered = true;
             }
 
             public long Id { get; }
@@ -320,6 +530,8 @@ namespace UnityDebugger.Adapter.Breakpoints
             public long? BackendId { get; set; }
             public bool Verified { get; set; }
             public string? Message { get; set; }
+            public long BindingGeneration { get; set; }
+            public bool Registered { get; set; }
         }
     }
 }

@@ -44,6 +44,15 @@ namespace UnityDebugger.Adapter.Diagnostics
             Write(null);
         }
 
+        public void LogInternalEvent(string eventName)
+        {
+            Write(
+                InternalDebuggerLog.IsAllowed(eventName)
+                    ? eventName
+                    : EventName,
+                null);
+        }
+
         public string? GetNewDebuggerLogFilename()
         {
             return null;
@@ -51,9 +60,16 @@ namespace UnityDebugger.Adapter.Diagnostics
 
         private void Write(Exception? exception)
         {
+            Write(EventName, exception);
+        }
+
+        private void Write(
+            string eventName,
+            Exception? exception)
+        {
             try
             {
-                sink(EventName, exception?.GetType().Name);
+                sink(eventName, exception?.GetType().Name);
             }
             catch
             {
