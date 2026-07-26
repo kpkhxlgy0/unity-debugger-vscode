@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
@@ -18,8 +19,8 @@ namespace UnityDebugger.Adapter.Dap
             this.id = id;
             this.name = name;
             this.source = source;
-            this.line = line;
-            this.column = column;
+            this.line = Math.Max(0, line);
+            this.column = Math.Max(0, column);
             this.presentationHint = presentationHint;
         }
 

@@ -217,7 +217,7 @@ describe("Unity debug adapter process", () => {
     });
     expect(stack.body.stackFrames[0]).toMatchObject({
       name: "UnityEngine.PlayerLoop",
-      presentationHint: "deemphasize",
+      presentationHint: "subtle",
     });
     expect(stack.body.stackFrames[0]).not.toHaveProperty("source");
     expect(stack.body.stackFrames[1].source.path).toBe(fixtureSource);

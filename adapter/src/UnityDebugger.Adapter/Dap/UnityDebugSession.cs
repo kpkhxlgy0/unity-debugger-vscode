@@ -399,7 +399,7 @@ namespace UnityDebugger.Adapter.Dap
                             source,
                             frame.Line,
                             Math.Max(1, frame.Column),
-                            source == null ? "deemphasize" : "normal"));
+                            source == null ? "subtle" : "normal"));
                 }
                 SendResponse(
                     response,

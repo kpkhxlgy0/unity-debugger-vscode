@@ -149,7 +149,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 "UnityEngine.PlayerLoop",
                 Required<string>(unavailable["name"]));
             Assert.Equal(
-                "deemphasize",
+                "subtle",
                 Required<string>(unavailable["presentationHint"]));
             Assert.Null(unavailable["source"]);
             Assert.Equal(
