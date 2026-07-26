@@ -94,7 +94,7 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityCommunityDebug.exe",
-      "sha256": "7bd52869935cb07e0e5326e6ec47041f90a206831cfe9d9467204239946e739b",
+      "sha256": "b0016b137d5ff0f87a50e08477beda7e1398573d0e42aaa6c3f24d57138e60ce",
       "origin": "project",
       "license": "MIT"
     },
