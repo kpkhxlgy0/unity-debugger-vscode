@@ -15,7 +15,7 @@ workflows download and hash-verify that artifact without rebuilding it.
 
 **Tech Stack:** VS Code Extension API, TypeScript 7, Vitest 4, Node.js 26.5,
 ESM build scripts, .NET SDK 10, .NET Framework 4.8 x64, xUnit, GitHub Actions,
-`@vscode/vsce` 3.9.2, `ovsx` 1.0.2.
+`@vscode/vsce` 3.9.2, `ovsx` 1.0.2, `js-yaml` 4.3.0.
 
 ## Global Constraints
 
@@ -60,14 +60,13 @@ ESM build scripts, .NET SDK 10, .NET Framework 4.8 x64, xUnit, GitHub Actions,
 - `extension/src/productIdentity.ts` — one typed source for extension-host
   product constants.
 - `tests/extension/productIdentity.test.ts` — exact product-identity contract.
-- `tests/build/branding.test.mjs` — active-product legacy-token and manifest
-  consistency checks.
 - `scripts/verify-release-artifact.mjs` — verifies release checksum, filename,
   tag, publisher, package name, and manifest version before publication.
 - `tests/build/release-artifact.test.mjs` — valid and tampered release-asset
   tests.
-- `tests/build/release-workflows.test.mjs` — static guarantees that both
-  publishing workflows consume the prebuilt asset and use separate controls.
+- `tests/build/release-workflows.test.mjs` — parses both publishing workflows
+  and verifies their effective jobs consume the prebuilt asset with separate
+  controls.
 - `.github/workflows/publish-open-vsx.yml` — separately approved Open VSX
   publication.
 - `docs/release-checklist.md` — exact public release, ownership, and Cursor
@@ -146,29 +145,27 @@ ESM build scripts, .NET SDK 10, .NET Framework 4.8 x64, xUnit, GitHub Actions,
 Create `tests/extension/productIdentity.test.ts`:
 
 ```ts
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PRODUCT_IDENTITY } from "../../extension/src/productIdentity.js";
 
 describe("PRODUCT_IDENTITY", () => {
-  it("defines the reviewed public identity", () => {
-    expect(PRODUCT_IDENTITY).toEqual({
-      publisher: "kpk",
-      extensionName: "unity-debugger-pure",
-      displayName: "Unity Debugger Pure",
-      description:
-        "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, " +
-        "without C# Dev Kit or Microsoft's Unity extension.",
-      debugType: "unity-debugger-pure",
-      defaultConfigurationName: "Attach to Unity Debugger Pure",
-      commandIds: {
-        refreshTargets: "unity-debugger-pure.refreshTargets",
-        openLogs: "unity-debugger-pure.openLogs",
-        copyDiagnostics: "unity-debugger-pure.copyDiagnostics",
-      },
-      adapterExecutable: "UnityDebuggerPure.exe",
-      diagnosticsDirectoryName: "unity-debugger-pure",
-      vsixFileName: "unity-debugger-pure-0.1.0.vsix",
-    });
+  it("matches the public manifest contract consumed by the extension", () => {
+    const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+    const contribution = manifest.contributes.debuggers[0];
+    expect(PRODUCT_IDENTITY.publisher).toBe(manifest.publisher);
+    expect(PRODUCT_IDENTITY.extensionName).toBe(manifest.name);
+    expect(PRODUCT_IDENTITY.displayName).toBe(manifest.displayName);
+    expect(PRODUCT_IDENTITY.description).toBe(manifest.description);
+    expect(PRODUCT_IDENTITY.debugType).toBe(contribution.type);
+    expect(PRODUCT_IDENTITY.defaultConfigurationName).toBe(
+      contribution.configurationSnippets[0].body.name,
+    );
+    expect(Object.values(PRODUCT_IDENTITY.commandIds)).toEqual(
+      manifest.contributes.commands.map(
+        (command: { command: string }) => command.command,
+      ),
+    );
   });
 });
 ```
@@ -473,6 +470,8 @@ git commit -m "refactor: migrate extension host identity"
   `tests/adapter/UnityDebugger.Adapter.Tests/Build/AdapterAssemblyTests.cs`
 - Modify:
   `tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/DiagnosticLogTests.cs`
+- Modify:
+  `tests/adapter/UnityDebugger.Adapter.Tests/Dap/UnityDebugSessionLifecycleTests.cs`
 - Modify: `tests/integration/adapter.integration.test.ts`
 - Modify:
   `adapter/src/UnityDebugger.Adapter/packages.lock.json`
@@ -499,16 +498,28 @@ var executable = Path.Combine(
 Assert.Equal("UnityDebuggerPure", assembly.GetName().Name);
 ```
 
-In `DiagnosticLogTests.cs`, add:
+In `DiagnosticLogTests.cs`, add a behavior test for the resolved path:
 
 ```csharp
 [Fact]
-public void Product_directory_uses_final_identity()
+public void ResolveLogDirectory_uses_final_product_directory()
 {
     Assert.Equal(
-        "unity-debugger-pure",
-        DiagnosticLog.ProductDirectoryName);
+        Path.GetFullPath(
+            Path.Combine(
+                @"C:\Local",
+                "unity-debugger-pure",
+                "logs")),
+        DiagnosticLog.ResolveLogDirectory(@"C:\Local"));
 }
+```
+
+In `UnityDebugSessionLifecycleTests.cs`, extend
+`Attach_unverified_version_emits_exactly_one_warning` to assert the emitted
+warning contains:
+
+```text
+https://marketplace.visualstudio.com/items?itemName=kpk.unity-debugger-pure#support-policy
 ```
 
 In `tests/integration/adapter.integration.test.ts`, change both initialize
@@ -526,8 +537,9 @@ Run:
 dotnet test UnityDebugger.sln -c Release --no-restore
 ```
 
-Expected: compilation fails because `ProductDirectoryName` is absent or the
-assembly-name test cannot find `UnityDebuggerPure.exe`.
+Expected: compilation fails because `ResolveLogDirectory` is absent, the
+warning has the retired Marketplace URL, or the assembly-name test cannot find
+`UnityDebuggerPure.exe`.
 
 - [ ] **Step 3: Apply the Adapter identity**
 
@@ -549,11 +561,20 @@ private const string SupportPolicyUrl =
 Set in `DiagnosticLog.cs`:
 
 ```csharp
-internal const string ProductDirectoryName = "unity-debugger-pure";
+internal static string ResolveLogDirectory(string localRoot)
+{
+    return Path.GetFullPath(
+        Path.Combine(
+            localRoot,
+            "unity-debugger-pure",
+            "logs"));
+}
 ```
 
-Use `ProductDirectoryName` in the existing `Path.Combine` call. Do not change
-retention, redaction, file naming, or logged fields.
+Use `ResolveLogDirectory(localRoot)` in `CreateDefault`. Do not change
+retention, redaction, file naming, or logged fields. Remove the
+source-text-based Adapter support URL test from `tests/build/scaffold.test.mjs`;
+the DAP warning assertion now verifies the user-visible behavior instead.
 
 - [ ] **Step 4: Refresh and verify NuGet lockfiles**
 
@@ -590,11 +611,10 @@ git commit -m "refactor: rename Unity debug adapter"
 
 ---
 
-### Task 4: Migrate packaging, runtime inventory, and active-brand safeguards
+### Task 4: Migrate packaging, runtime inventory, and artifact identity safeguards
 
 **Files:**
 
-- Create: `tests/build/branding.test.mjs`
 - Modify: `scripts/stage-adapter.mjs`
 - Modify: `scripts/generate-runtime-inventory.mjs`
 - Modify: `scripts/verify-vsix.mjs`
@@ -612,70 +632,29 @@ git commit -m "refactor: rename Unity debug adapter"
 - Produces: staged Adapter tree, committed runtime inventory, VSIX, and
   `.sha256` file under the final names.
 
-- [ ] **Step 1: Write the failing active-brand guard**
+- [ ] **Step 1: Write the failing packaged-artifact contract**
 
-Create `tests/build/branding.test.mjs`:
-
-```js
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import test from "node:test";
-
-const activeFiles = [
-  "package.json",
-  "extension/src/adapterLauncher.ts",
-  "extension/src/debugConfigurationProvider.ts",
-  "extension/src/diagnostics.ts",
-  "extension/src/extension.ts",
-  "extension/src/model.ts",
-  "adapter/src/UnityDebugger.Adapter/UnityDebugger.Adapter.csproj",
-  "adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs",
-  "adapter/src/UnityDebugger.Adapter/Diagnostics/DiagnosticLog.cs",
-  "scripts/stage-adapter.mjs",
-  "scripts/generate-runtime-inventory.mjs",
-  "scripts/verify-vsix.mjs",
-];
-
-test("active product files contain no retired identity", () => {
-  const retired = [
-    "unity-community",
-    "UnityCommunityDebug",
-    "unity-debugger-community",
-    "Community Debugger for Unity 2022 & Tuanjie",
-  ];
-  for (const file of activeFiles) {
-    const text = fs.readFileSync(file, "utf8");
-    for (const token of retired) {
-      assert.equal(
-        text.includes(token),
-        false,
-        `${file} contains retired identity ${token}`,
-      );
-    }
-  }
-});
-```
-
-Historical files under `docs/superpowers` and third-party upstream notices are
-intentionally absent from this list.
-
-Update `tests/package/vsix.test.mjs` to invoke:
+Update `tests/package/vsix.test.mjs` to invoke the real VSIX verifier against:
 
 ```js
 "dist/unity-debugger-pure-0.1.0.vsix"
 ```
 
-- [ ] **Step 2: Run the guard and verify packaging identity failures**
+The verifier is the production release boundary: after the package exists, it
+must reject a manifest whose publisher/name/debugger contribution differ from
+`kpk.unity-debugger-pure`, reject a missing
+`UnityDebuggerPure.exe`, and reject any packaged
+`UnityCommunityDebug.exe`.
+
+- [ ] **Step 2: Run the package contract and verify the final artifact is absent**
 
 Run:
 
 ```powershell
-node --test tests/build/branding.test.mjs
 node --test tests/package/vsix.test.mjs
 ```
 
-Expected: branding fails on packaging scripts; package test fails because the
-final VSIX does not exist.
+Expected: FAIL because the final VSIX does not exist.
 
 - [ ] **Step 3: Rename every Adapter artifact reference**
 
@@ -685,6 +664,32 @@ Use `UnityDebuggerPure.exe` in:
 - the project-origin entry in `scripts/generate-runtime-inventory.mjs`;
 - the required path, lookup key, and AMD64 verification target in
   `scripts/verify-vsix.mjs`.
+
+In `scripts/verify-vsix.mjs`, validate the parsed packaged manifest and
+debugger contribution, then validate the final executable path:
+
+```js
+if (
+  manifest.publisher !== "kpk" ||
+  manifest.name !== "unity-debugger-pure" ||
+  manifest.displayName !== "Unity Debugger Pure"
+) {
+  throw new Error("Packaged manifest has the wrong product identity.");
+}
+const debuggerContribution = manifest.contributes?.debuggers?.find(
+  (entry) => entry.type === "unity-debugger-pure",
+);
+if (!debuggerContribution) {
+  throw new Error("Packaged manifest has no unity-debugger-pure debugger.");
+}
+if (
+  files.has(
+    "extension/adapter/win32-x64/unitycommunitydebug.exe",
+  )
+) {
+  throw new Error("VSIX contains the retired Adapter executable.");
+}
+```
 
 Update package scripts to:
 
@@ -737,11 +742,11 @@ Run:
 
 ```powershell
 npm run package
-node --test tests/build/branding.test.mjs
 ```
 
 Expected: `dist\unity-debugger-pure-0.1.0.vsix` and its checksum exist; the
-VSIX verifier, package test, runtime inventory, and active-brand guard pass.
+VSIX verifier, package test, runtime inventory, and packaged identity checks
+pass.
 
 - [ ] **Step 6: Prove retired package artifacts are absent**
 
@@ -757,7 +762,7 @@ Expected: both commands produce no retired active identity or artifact.
 - [ ] **Step 7: Commit the packaging migration**
 
 ```powershell
-git add package.json scripts tests/build/branding.test.mjs tests/build/scaffold.test.mjs tests/package/vsix.test.mjs third-party/runtime-assemblies.json .github/workflows/ci.yml .github/workflows/release.yml
+git add package.json scripts tests/build/scaffold.test.mjs tests/package/vsix.test.mjs third-party/runtime-assemblies.json .github/workflows/ci.yml .github/workflows/release.yml
 git commit -m "build: package Unity Debugger Pure"
 ```
 
@@ -771,48 +776,19 @@ git commit -m "build: package Unity Debugger Pure"
 - Modify: `README.md`
 - Modify: `CHANGELOG.md`
 - Modify: `LICENSE`
-- Modify: `tests/build/branding.test.mjs`
 
 **Interfaces:**
 
 - Produces: exact installation URLs and a human release gate used by Task 9.
 - Consumes: final identity and distribution order from Tasks 1 and 4.
 
-- [ ] **Step 1: Extend the documentation test before editing prose**
+- [ ] **Step 1: Record the pre-edit documentation gaps**
 
-Add this test to `tests/build/branding.test.mjs`:
+Read `README.md`, `CHANGELOG.md`, and `LICENSE` and list the retired public
+identity, old attach JSON, old diagnostics path, and missing registry links.
+This is a human-facing documentation review, not an automated prose test.
 
-```js
-activeFiles.push("README.md", "CHANGELOG.md");
-
-test("README documents every supported distribution channel", () => {
-  const readme = fs.readFileSync("README.md", "utf8");
-  for (const required of [
-    "Unity Debugger Pure",
-    "kpk.unity-debugger-pure",
-    "Attach to Unity Debugger Pure",
-    "https://marketplace.visualstudio.com/items?itemName=kpk.unity-debugger-pure",
-    "https://open-vsx.org/extension/kpk/unity-debugger-pure",
-    "%LOCALAPPDATA%\\unity-debugger-pure\\logs",
-    "Cursor",
-  ]) {
-    assert.ok(readme.includes(required), `README is missing ${required}`);
-  }
-});
-```
-
-- [ ] **Step 2: Run the documentation contract and verify it fails**
-
-Run:
-
-```powershell
-node --test tests/build/branding.test.mjs
-```
-
-Expected: README assertions fail on the final name, IDs, URLs, and diagnostics
-path.
-
-- [ ] **Step 3: Rewrite current public identity and installation guidance**
+- [ ] **Step 2: Rewrite current public identity and installation guidance**
 
 Update `README.md` to:
 
@@ -856,7 +832,7 @@ Change the license copyright line to:
 Copyright (c) 2026 Unity Debugger Pure contributors
 ```
 
-- [ ] **Step 4: Write the exact manual release checklist**
+- [ ] **Step 3: Write the exact manual release checklist**
 
 Create `docs/release-checklist.md` with these ordered gates:
 
@@ -882,23 +858,25 @@ OPEN_VSX_OWNERSHIP_CONFIRMED=true
 List `VSCE_PAT` and `OVSX_PAT` only as secret names, with instructions that the
 user enters them directly in GitHub and never sends their values through chat.
 
-- [ ] **Step 5: Run documentation and package checks**
+- [ ] **Step 4: Review documentation and rebuild the package**
 
 Run:
 
 ```powershell
-node --test tests/build/branding.test.mjs
 npm run package
 git diff --check
 ```
 
-Expected: documentation contract passes and the rebuilt VSIX contains the
-final README, changelog, and license.
+Open the packaged `extension/README.md`, `extension/CHANGELOG.md`, and
+`extension/LICENSE.txt` from the VSIX and manually verify the reviewed
+identity, three installation links, attach JSON, diagnostics directory,
+non-affiliation notice, and unchanged support matrix. Expected: the rebuilt
+VSIX contains exactly the reviewed human-facing documents.
 
-- [ ] **Step 6: Commit documentation**
+- [ ] **Step 5: Commit documentation**
 
 ```powershell
-git add README.md CHANGELOG.md LICENSE docs/release-checklist.md tests/build/branding.test.mjs
+git add README.md CHANGELOG.md LICENSE docs/release-checklist.md
 git commit -m "docs: document Unity Debugger Pure distribution"
 ```
 
@@ -1053,31 +1031,65 @@ git commit -m "build: verify immutable release assets"
 
 - [ ] **Step 1: Write workflow policy tests**
 
-Create `tests/build/release-workflows.test.mjs` to assert:
+Create `tests/build/release-workflows.test.mjs`. Parse each workflow with
+`js-yaml` and assert the effective job configuration rather than grepping
+source lines:
 
 ```js
-const marketplace = fs.readFileSync(
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+import { load } from "js-yaml";
+
+function loadPublishJob(filePath) {
+  const workflow = load(fs.readFileSync(filePath, "utf8"));
+  assert.deepEqual(workflow.permissions, { contents: "read" });
+  return workflow.jobs.publish;
+}
+
+function runBodies(job) {
+  return job.steps
+    .filter((step) => typeof step.run === "string")
+    .map((step) => step.run)
+    .join("\n");
+}
+
+const marketplace = loadPublishJob(
+  ".github/workflows/publish-marketplace.yml",
+);
+const openVsx = loadPublishJob(
+  ".github/workflows/publish-open-vsx.yml",
+);
+
+for (const job of [marketplace, openVsx]) {
+  assert.equal(job["runs-on"], "windows-latest");
+  const commands = runBodies(job);
+  assert.match(commands, /gh release download/);
+  assert.match(commands, /unity-debugger-pure-0\.1\.0\.vsix/);
+  assert.match(commands, /verify-release-artifact\.mjs/);
+  assert.doesNotMatch(commands, /npm run package/);
+  assert.doesNotMatch(commands, /dotnet (?:restore|build|test)/);
+}
+assert.equal(marketplace.environment, "vscode-marketplace");
+assert.equal(openVsx.environment, "open-vsx");
+```
+
+Verify the publish steps bind separate environment controls:
+
+```js
+const marketplaceSource = fs.readFileSync(
   ".github/workflows/publish-marketplace.yml",
   "utf8",
 );
-const openVsx = fs.readFileSync(
+const openVsxSource = fs.readFileSync(
   ".github/workflows/publish-open-vsx.yml",
   "utf8",
 );
 
-for (const workflow of [marketplace, openVsx]) {
-  assert.match(workflow, /gh release download/);
-  assert.match(workflow, /unity-debugger-pure-0\.1\.0\.vsix/);
-  assert.match(workflow, /verify-release-artifact\.mjs/);
-  assert.doesNotMatch(workflow, /npm run package/);
-  assert.doesNotMatch(workflow, /dotnet (?:restore|build|test)/);
-}
-assert.match(marketplace, /environment: vscode-marketplace/);
-assert.match(marketplace, /secrets\.VSCE_PAT/);
-assert.match(marketplace, /vars\.VSCE_PUBLISHER/);
-assert.match(openVsx, /environment: open-vsx/);
-assert.match(openVsx, /secrets\.OVSX_PAT/);
-assert.match(openVsx, /vars\.OVSX_NAMESPACE/);
+assert.match(marketplaceSource, /secrets\.VSCE_PAT/);
+assert.match(marketplaceSource, /vars\.VSCE_PUBLISHER/);
+assert.match(openVsxSource, /secrets\.OVSX_PAT/);
+assert.match(openVsxSource, /vars\.OVSX_NAMESPACE/);
 ```
 
 Also assert:
@@ -1086,6 +1098,7 @@ Also assert:
 const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
 assert.equal(manifest.devDependencies["@vscode/vsce"], "3.9.2");
 assert.equal(manifest.devDependencies.ovsx, "1.0.2");
+assert.equal(manifest.devDependencies["js-yaml"], "4.3.0");
 ```
 
 - [ ] **Step 2: Run the workflow test and verify it fails**
@@ -1096,17 +1109,18 @@ Run:
 node --test tests/build/release-workflows.test.mjs
 ```
 
-Expected: FAIL because the Open VSX workflow and pinned `ovsx` dependency are
-absent, and the Marketplace workflow still rebuilds.
+Expected: FAIL because the Open VSX workflow and direct `ovsx`/`js-yaml`
+dependencies are absent, and the parsed Marketplace job still rebuilds.
 
-- [ ] **Step 3: Pin the Open VSX CLI**
+- [ ] **Step 3: Pin the Open VSX CLI and YAML parser**
 
 Add to `package.json`:
 
 ```json
 {
   "devDependencies": {
-    "ovsx": "1.0.2"
+    "ovsx": "1.0.2",
+    "js-yaml": "4.3.0"
   }
 }
 ```
