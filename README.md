@@ -1,4 +1,4 @@
-# Community Debugger for Unity 2022 & Tuanjie
+# Unity Debugger Pure
 
 An independent, community-maintained VS Code debugger for managed C# code in
 local Unity 2022 and Tuanjie Editors. This project is not affiliated with,
@@ -6,14 +6,23 @@ endorsed by, or supported by Unity Technologies or Unity China.
 
 It provides Unity Editor attach without requiring C# Dev Kit or Microsoft's
 Unity extension. ReSharper for VS Code can remain installed for code analysis,
-navigation, and refactoring; this extension owns only the `unity-community`
-debug type.
+navigation, and refactoring; this extension owns only the
+`unity-debugger-pure` debug type. Its Marketplace extension ID is
+`kpk.unity-debugger-pure`.
 
 ## Install
 
-Install **Community Debugger for Unity 2022 & Tuanjie** from the VS Code
-Marketplace, or run **Extensions: Install from VSIX...** and select the
-release `.vsix`.
+Install **Unity Debugger Pure** from one of these sources:
+
+- [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=kpk.unity-debugger-pure)
+  for VS Code;
+- [Open VSX](https://open-vsx.org/extension/kpk/unity-debugger-pure) for
+  Open VSX-compatible editors;
+- Cursor's Extensions view, which obtains this extension from Open VSX.
+
+For sideloading, download `unity-debugger-pure-0.1.0.vsix` from the
+[GitHub Releases page](https://github.com/kpkhxlgy0/unity-debugger-vscode/releases),
+run **Extensions: Install from VSIX...**, and select that exact file.
 
 Before attaching, set the Editor's **Code Optimization** mode to **Debug** and
 open the Unity/Tuanjie project root in VS Code.
@@ -23,8 +32,8 @@ configuration:
 
 ```json
 {
-  "name": "Attach Tuanjie / Unity 2022 Editor",
-  "type": "unity-community",
+  "name": "Attach to Unity Debugger Pure",
+  "type": "unity-debugger-pure",
   "request": "attach"
 }
 ```
@@ -70,14 +79,14 @@ It does not accept arbitrary executables or remote debug hosts from
 so future remote support will require explicit opt-in.
 
 The extension has no telemetry. Diagnostics are written under
-`%LOCALAPPDATA%\unity-debugger-vscode\logs`, retain five files, redact user
+`%LOCALAPPDATA%\unity-debugger-pure\logs`, retain five files, redact user
 profile/workspace paths, and never record source text, expressions, evaluation
 results, or variable values.
 
 Use:
 
-- **Unity Community Debugger: Open Sanitized Diagnostics**
-- **Unity Community Debugger: Copy Sanitized Diagnostics**
+- **Unity Debugger Pure: Open Sanitized Diagnostics**
+- **Unity Debugger Pure: Copy Sanitized Diagnostics**
 
 When reporting an issue, include only the sanitized diagnostics plus Editor,
 extension, Windows, and reproduction information. Do not paste project source
