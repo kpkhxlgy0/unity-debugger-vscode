@@ -191,6 +191,49 @@ describe("Unity debug adapter process", () => {
     await client.request("disconnect", {});
     await client.expectCleanExit(0);
   });
+
+  it("omits unavailable pause sources and evaluates safe hovers", async () => {
+    const client = await start("pause-source");
+    const capabilities = await client.request("initialize", {
+      adapterID: "unity-community",
+      linesStartAt1: true,
+      columnsStartAt1: true,
+      pathFormat: "path",
+    });
+    expect(capabilities.body.supportsEvaluateForHovers).toBe(true);
+    await client.waitForEvent("initialized");
+    await attach(client);
+
+    const threads = await client.request("threads", {});
+    const threadId = threads.body.threads[0].id;
+    await client.request("pause", { threadId });
+    const stopped = await client.waitForEvent("stopped");
+    expect(stopped.body.reason).toBe("pause");
+
+    const stack = await client.request("stackTrace", {
+      threadId,
+      startFrame: 0,
+      levels: 20,
+    });
+    expect(stack.body.stackFrames[0]).toMatchObject({
+      name: "UnityEngine.PlayerLoop",
+      presentationHint: "deemphasize",
+    });
+    expect(stack.body.stackFrames[0]).not.toHaveProperty("source");
+    expect(stack.body.stackFrames[1].source.path).toBe(fixtureSource);
+
+    const hover = await client.request("evaluate", {
+      expression: "_isVisible",
+      frameId: stack.body.stackFrames[1].id,
+      context: "hover",
+    });
+    expect(hover.body.result).toBe("false");
+
+    await client.request("continue", { threadId });
+    await client.waitForEvent("continued");
+    await client.request("disconnect", {});
+    await client.expectCleanExit(0);
+  });
 });
 
 async function start(scenario: string): Promise<DapClient> {

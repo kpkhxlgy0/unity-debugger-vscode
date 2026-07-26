@@ -15,6 +15,7 @@ namespace UnityDebugger.TestAdapter
                     "exception",
                     "protocol-error",
                     "backend-crash",
+                    "pause-source",
                 },
                 StringComparer.Ordinal);
 

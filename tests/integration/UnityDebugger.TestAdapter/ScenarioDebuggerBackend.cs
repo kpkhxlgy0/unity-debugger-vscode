@@ -18,6 +18,7 @@ namespace UnityDebugger.TestAdapter
         private AttachTarget? target;
         private long nextBreakpointId = 1;
         private int firstBreakpoint;
+        private int pauseRequested;
 
 #pragma warning disable CS0067
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
@@ -68,6 +69,28 @@ namespace UnityDebugger.TestAdapter
                 target!.WorkspaceRoot,
                 "Assets",
                 "DebuggerFixture.cs");
+            if (
+                scenario == "pause-source" &&
+                Volatile.Read(ref pauseRequested) != 0)
+            {
+                return new[]
+                {
+                    new BackendStackFrame(
+                        9,
+                        1,
+                        "UnityEngine.PlayerLoop",
+                        string.Empty,
+                        0,
+                        1),
+                    new BackendStackFrame(
+                        10,
+                        1,
+                        "FixtureBehaviour.Update",
+                        sourcePath,
+                        12,
+                        1),
+                };
+            }
             return new[]
             {
                 new BackendStackFrame(
@@ -109,6 +132,19 @@ namespace UnityDebugger.TestAdapter
             BackendEvaluationMode mode)
         {
             ThrowIfCrashScenario();
+            if (
+                scenario == "pause-source" &&
+                string.Equals(
+                    expression,
+                    "_isVisible",
+                    StringComparison.Ordinal) &&
+                mode == BackendEvaluationMode.Safe)
+            {
+                return new BackendEvaluationResult(
+                    "false",
+                    "System.Boolean",
+                    0);
+            }
             return new BackendEvaluationResult(
                 "0",
                 "System.Int32",
@@ -173,6 +209,8 @@ namespace UnityDebugger.TestAdapter
 
         public void Pause(long threadId)
         {
+            if (scenario == "pause-source")
+                Interlocked.Exchange(ref pauseRequested, 1);
             ScheduleStop(BackendStopReason.Pause, 10);
         }
 
