@@ -4,24 +4,58 @@ import test from "node:test";
 
 test("manifest defines an independent attach-only debugger", () => {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
-  assert.equal(manifest.name, "unity-debugger-vscode");
+  assert.equal(manifest.publisher, "kpk");
+  assert.equal(manifest.name, "unity-debugger-pure");
+  assert.equal(manifest.displayName, "Unity Debugger Pure");
   assert.equal(
-    manifest.displayName,
-    "Community Debugger for Unity 2022 & Tuanjie",
+    manifest.description,
+    "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, " +
+      "without C# Dev Kit or Microsoft's Unity extension.",
   );
   assert.equal(manifest.version, "0.1.0");
+  assert.deepEqual(manifest.repository, {
+    type: "git",
+    url: "https://github.com/kpkhxlgy0/unity-debugger-vscode.git",
+  });
+  assert.deepEqual(manifest.bugs, {
+    url: "https://github.com/kpkhxlgy0/unity-debugger-vscode/issues",
+  });
+  assert.equal(
+    manifest.homepage,
+    "https://github.com/kpkhxlgy0/unity-debugger-vscode#readme",
+  );
   assert.equal(manifest.extensionDependencies, undefined);
   assert.deepEqual(manifest.extensionKind, ["workspace"]);
   assert.deepEqual(manifest.os, ["win32"]);
 
   const debuggerContribution = manifest.contributes.debuggers.find(
-    (entry) => entry.type === "unity-community",
+    (entry) => entry.type === "unity-debugger-pure",
   );
   assert.ok(debuggerContribution);
   assert.ok(debuggerContribution.configurationAttributes.attach);
   assert.equal(
     debuggerContribution.configurationAttributes.launch,
     undefined,
+  );
+  assert.equal(
+    debuggerContribution.configurationSnippets[0].body.name,
+    "Attach to Unity Debugger Pure",
+  );
+  assert.deepEqual(
+    manifest.contributes.commands.map((command) => command.command),
+    [
+      "unity-debugger-pure.refreshTargets",
+      "unity-debugger-pure.openLogs",
+      "unity-debugger-pure.copyDiagnostics",
+    ],
+  );
+  assert.deepEqual(
+    manifest.contributes.commands.map((command) => command.title),
+    [
+      "Unity Debugger Pure: Refresh Local Editors",
+      "Unity Debugger Pure: Open Sanitized Diagnostics",
+      "Unity Debugger Pure: Copy Sanitized Diagnostics",
+    ],
   );
 
   assert.match(

@@ -1,9 +1,17 @@
 {
-  "name": "unity-debugger-vscode",
-  "displayName": "Community Debugger for Unity 2022 & Tuanjie",
-  "description": "Community managed-code debugger for local Unity 2022 and Tuanjie Editors.",
-  "publisher": "unity-debugger-community",
+  "name": "unity-debugger-pure",
+  "displayName": "Unity Debugger Pure",
+  "description": "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, without C# Dev Kit or Microsoft's Unity extension.",
+  "publisher": "kpk",
   "version": "0.1.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kpkhxlgy0/unity-debugger-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kpkhxlgy0/unity-debugger-vscode/issues"
+  },
+  "homepage": "https://github.com/kpkhxlgy0/unity-debugger-vscode#readme",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -22,24 +30,24 @@
   ],
   "main": "./dist/extension.cjs",
   "activationEvents": [
-    "onDebugResolve:unity-community",
-    "onCommand:unity-community.refreshTargets",
-    "onCommand:unity-community.openLogs",
-    "onCommand:unity-community.copyDiagnostics"
+    "onDebugResolve:unity-debugger-pure",
+    "onCommand:unity-debugger-pure.refreshTargets",
+    "onCommand:unity-debugger-pure.openLogs",
+    "onCommand:unity-debugger-pure.copyDiagnostics"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "unity-community.refreshTargets",
-        "title": "Unity Community Debugger: Refresh Local Editors"
+        "command": "unity-debugger-pure.refreshTargets",
+        "title": "Unity Debugger Pure: Refresh Local Editors"
       },
       {
-        "command": "unity-community.openLogs",
-        "title": "Unity Community Debugger: Open Sanitized Diagnostics"
+        "command": "unity-debugger-pure.openLogs",
+        "title": "Unity Debugger Pure: Open Sanitized Diagnostics"
       },
       {
-        "command": "unity-community.copyDiagnostics",
-        "title": "Unity Community Debugger: Copy Sanitized Diagnostics"
+        "command": "unity-debugger-pure.copyDiagnostics",
+        "title": "Unity Debugger Pure: Copy Sanitized Diagnostics"
       }
     ],
     "breakpoints": [
@@ -49,8 +57,8 @@
     ],
     "debuggers": [
       {
-        "type": "unity-community",
-        "label": "Community Debugger for Unity 2022 & Tuanjie",
+        "type": "unity-debugger-pure",
+        "label": "Unity Debugger Pure",
         "languages": [
           "csharp"
         ],
@@ -67,7 +75,7 @@
               },
               "type": {
                 "enum": [
-                  "unity-community"
+                  "unity-debugger-pure"
                 ]
               },
               "request": {
@@ -80,10 +88,10 @@
         },
         "configurationSnippets": [
           {
-            "label": "Attach Tuanjie / Unity 2022 Editor",
+            "label": "Attach to Unity Debugger Pure",
             "body": {
-              "name": "Attach Tuanjie / Unity 2022 Editor",
-              "type": "unity-community",
+              "name": "Attach to Unity Debugger Pure",
+              "type": "unity-debugger-pure",
               "request": "attach"
             }
           }
