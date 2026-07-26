@@ -7,7 +7,7 @@ test("packaged VSIX satisfies the audited production contract", () => {
     process.execPath,
     [
       "scripts/verify-vsix.mjs",
-      "dist/unity-debugger-vscode-0.1.0.vsix",
+      "dist/unity-debugger-pure-0.1.0.vsix",
     ],
     {
       cwd: process.cwd(),

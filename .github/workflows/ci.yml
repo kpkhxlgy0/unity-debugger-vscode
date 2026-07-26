@@ -25,7 +25,7 @@ jobs:
       - run: npm run package
       - uses: actions/upload-artifact@v4
         with:
-          name: unity-debugger-vscode-vsix
+          name: unity-debugger-pure-vsix
           path: |
             dist/*.vsix
             dist/*.sha256

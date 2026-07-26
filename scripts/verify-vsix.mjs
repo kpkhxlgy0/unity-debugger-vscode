@@ -53,7 +53,7 @@ for (const entry of archive.getEntries()) {
 
 const required = [
   "extension/dist/extension.cjs",
-  "extension/adapter/win32-x64/UnityCommunityDebug.exe",
+  "extension/adapter/win32-x64/UnityDebuggerPure.exe",
   "extension/LICENSE.txt",
   "extension/README.md",
   "extension/CHANGELOG.md",
@@ -84,6 +84,28 @@ for (const item of files.values()) {
 const manifest = JSON.parse(
   files.get("extension/package.json").bytes.toString("utf8"),
 );
+if (
+  manifest.publisher !== "kpk" ||
+  manifest.name !== "unity-debugger-pure" ||
+  manifest.displayName !== "Unity Debugger Pure"
+) {
+  throw new Error("Packaged manifest has the wrong product identity.");
+}
+const debuggerContribution = manifest.contributes?.debuggers?.find(
+  (entry) => entry.type === "unity-debugger-pure",
+);
+if (!debuggerContribution) {
+  throw new Error(
+    "Packaged manifest has no unity-debugger-pure debugger.",
+  );
+}
+if (
+  files.has(
+    "extension/adapter/win32-x64/unitycommunitydebug.exe",
+  )
+) {
+  throw new Error("VSIX contains the retired Adapter executable.");
+}
 if (manifest.extensionDependencies !== undefined) {
   throw new Error("Packaged manifest must not have extensionDependencies.");
 }
@@ -134,7 +156,7 @@ if (packagedAssemblies.length !== inventoryByPath.size) {
 }
 
 const executable = files.get(
-  "extension/adapter/win32-x64/unitycommunitydebug.exe",
+  "extension/adapter/win32-x64/unitydebuggerpure.exe",
 ).bytes;
 verifyAmd64Pe(executable);
 

@@ -24,7 +24,7 @@ if (write === verify) {
 }
 
 const sourceOrigins = new Map([
-  ["UnityCommunityDebug.exe", ["project", "MIT"]],
+  ["UnityDebuggerPure.exe", ["project", "MIT"]],
   ["VSCodeDebug.dll", ["source-built:vscode-mono-debug", "MIT"]],
   ["Mono.Debugger.Soft.dll", ["source-built:debugger-libs", "MIT"]],
   ["Mono.Debugging.dll", ["source-built:debugger-libs", "MIT"]],

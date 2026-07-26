@@ -93,8 +93,8 @@
       "license": "MIT"
     },
     {
-      "path": "extension/adapter/win32-x64/UnityCommunityDebug.exe",
-      "sha256": "b0016b137d5ff0f87a50e08477beda7e1398573d0e42aaa6c3f24d57138e60ce",
+      "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
+      "sha256": "87a8d16ef518d8f87912ef364e907da431d86ebcd073dfbd5939773d35bdd5d4",
       "origin": "project",
       "license": "MIT"
     },

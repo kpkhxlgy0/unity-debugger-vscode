@@ -113,8 +113,8 @@
     "stage:adapter": "node scripts/stage-adapter.mjs",
     "inventory:runtime:write": "node scripts/generate-runtime-inventory.mjs --write",
     "inventory:runtime": "node scripts/generate-runtime-inventory.mjs --verify",
-    "verify:vsix": "node scripts/verify-vsix.mjs dist/unity-debugger-vscode-0.1.0.vsix",
-    "package": "npm run build && npm run stage:adapter && npm run inventory:runtime && vsce package --allow-missing-repository --out dist/unity-debugger-vscode-0.1.0.vsix && npm run verify:vsix && npm run test:package"
+    "verify:vsix": "node scripts/verify-vsix.mjs dist/unity-debugger-pure-0.1.0.vsix",
+    "package": "npm run build && npm run stage:adapter && npm run inventory:runtime && vsce package --out dist/unity-debugger-pure-0.1.0.vsix && npm run verify:vsix && npm run test:package"
   },
   "devDependencies": {
     "@types/node": "26.1.1",

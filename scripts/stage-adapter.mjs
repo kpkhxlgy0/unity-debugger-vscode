@@ -41,8 +41,8 @@ const selected = sourceEntries
   )
   .sort();
 
-if (!selected.includes("UnityCommunityDebug.exe")) {
-  throw new Error("Release output has no UnityCommunityDebug.exe.");
+if (!selected.includes("UnityDebuggerPure.exe")) {
+  throw new Error("Release output has no UnityDebuggerPure.exe.");
 }
 for (const name of selected) {
   if (/(?:test|xunit|testhost)/i.test(name)) {
