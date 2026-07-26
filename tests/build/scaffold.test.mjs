@@ -99,3 +99,10 @@ test("release assemblies do not embed the changing Git revision", () => {
     );
   }
 });
+
+test("repository checkout preserves audited C# source bytes", () => {
+  const attributes = fs.readFileSync(".gitattributes", "utf8");
+  assert.match(attributes, /^\*\.cs -text$/m);
+  assert.match(attributes, /^\*\.bat text eol=crlf$/m);
+  assert.match(attributes, /^\*\.cmd text eol=crlf$/m);
+});

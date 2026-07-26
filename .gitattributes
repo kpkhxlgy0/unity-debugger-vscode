@@ -1,0 +1,13 @@
+* text=auto
+
+*.cs -text
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.dll binary
+*.exe binary
+*.pdb binary
+*.png binary
+*.snk binary
+*.vsix binary
