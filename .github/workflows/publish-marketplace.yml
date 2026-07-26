@@ -1,5 +1,6 @@
 name: Publish to VS Code Marketplace
 
+# Manual-only release gate; this file must remain on the default branch.
 on:
   workflow_dispatch:
     inputs:
