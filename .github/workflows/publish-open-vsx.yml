@@ -1,4 +1,4 @@
-name: Publish to VS Code Marketplace
+name: Publish to Open VSX
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
 jobs:
   publish:
     runs-on: windows-latest
-    environment: vscode-marketplace
+    environment: open-vsx
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,27 +39,27 @@ jobs:
             dist/unity-debugger-pure-0.1.0.vsix `
             dist/unity-debugger-pure-0.1.0.vsix.sha256 `
             $env:RELEASE_TAG
-      - name: Confirm publisher ownership and credentials
+      - name: Confirm namespace ownership and credentials
         shell: pwsh
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          VSCE_PUBLISHER: ${{ vars.VSCE_PUBLISHER }}
-          OWNERSHIP_CONFIRMED: ${{ vars.MARKETPLACE_OWNERSHIP_CONFIRMED }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          OVSX_NAMESPACE: ${{ vars.OVSX_NAMESPACE }}
+          OWNERSHIP_CONFIRMED: ${{ vars.OPEN_VSX_OWNERSHIP_CONFIRMED }}
         run: |
-          if ($env:VSCE_PUBLISHER -ne "kpk") {
-            throw "VSCE_PUBLISHER must equal kpk"
+          if ($env:OVSX_NAMESPACE -ne "kpk") {
+            throw "OVSX_NAMESPACE must equal kpk"
           }
           if ($env:OWNERSHIP_CONFIRMED -ne "true") {
-            throw "Marketplace publisher ownership is not confirmed"
+            throw "Open VSX namespace ownership is not confirmed"
           }
-          if ([string]::IsNullOrWhiteSpace($env:VSCE_PAT)) {
-            throw "VSCE_PAT is required"
+          if ([string]::IsNullOrWhiteSpace($env:OVSX_PAT)) {
+            throw "OVSX_PAT is required"
           }
       - name: Publish audited VSIX
         shell: pwsh
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          npx --no-install vsce publish `
-            --packagePath dist/unity-debugger-pure-0.1.0.vsix `
-            -p $env:VSCE_PAT
+          npx --no-install ovsx publish `
+            dist/unity-debugger-pure-0.1.0.vsix `
+            -p $env:OVSX_PAT
