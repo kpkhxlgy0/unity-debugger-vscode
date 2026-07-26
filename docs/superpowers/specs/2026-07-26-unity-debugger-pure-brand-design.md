@@ -6,7 +6,7 @@ Date: 2026-07-26
 
 Rename the unpublished extension from its community-oriented working identity
 to the final public product identity, **Unity Debugger Pure**, before the first
-Marketplace release.
+public release to the Visual Studio Marketplace and Open VSX.
 
 The migration must be complete across the Marketplace identity, debugger
 configuration, commands, Adapter executable, diagnostics, documentation,
@@ -41,6 +41,15 @@ The Marketplace description is:
 The Git repository and local directory remain named `unity-debugger-vscode`.
 The C# namespace remains `UnityDebugger.*` because it is product-neutral and
 changing it would provide no user value.
+
+The public source repository will be:
+
+```text
+https://github.com/kpkhxlgy0/unity-debugger-vscode
+```
+
+`package.json` will declare that repository together with its GitHub Issues URL
+and README homepage. The release branch remains `master`.
 
 ## Manifest and Extension Host
 
@@ -113,6 +122,56 @@ written. This new design is the authoritative identity specification.
 The repository directory, solution name, source namespaces, third-party
 notices, and support matrix are not renamed.
 
+## Distribution Targets
+
+The first public release targets three user-facing channels while keeping only
+two publishing integrations:
+
+| Channel | Registry source | Identity |
+|---|---|---|
+| Visual Studio Marketplace | Microsoft Marketplace | `kpk.unity-debugger-pure` |
+| Open VSX | Eclipse Open VSX | `kpk.unity-debugger-pure` |
+| Cursor | Open VSX downstream discovery | `kpk.unity-debugger-pure` |
+
+Cursor does not receive a separately uploaded VSIX. The release will publish to
+Open VSX and then verify that Cursor can discover the Open VSX listing. If the
+listing is active on Open VSX but absent from Cursor, the release process will
+request Cursor extension verification rather than creating a third publication
+path.
+
+The release workflow will build, test, audit, and package exactly one
+`unity-debugger-pure-0.1.0.vsix`. That immutable artifact, identified by its
+SHA-256 value, will be consumed by two independently approved publishing jobs:
+
+- Visual Studio Marketplace uses a pinned `vsce` version and the `VSCE_PAT`
+  secret.
+- Open VSX uses a pinned `ovsx` version and the separate `OVSX_PAT` secret.
+
+The jobs use separate GitHub Environments and approvals. Failure or rejection
+in one registry does not trigger, retry, or roll back the other registry. No
+workflow rebuilds the VSIX between destinations.
+
+The Open VSX namespace `kpk` already exists. Exclusive ownership will be
+requested through Open VSX Option 1, after the extension is public on the
+Visual Studio Marketplace with its GitHub repository declared in
+`package.json`. This avoids granting an Open VSX administrator temporary Reader
+access to the Microsoft publisher account.
+
+The first-release order is:
+
+1. Create the public GitHub repository and push the reviewed `master` history.
+2. Add and verify the public repository metadata in `package.json`.
+3. Build, test, audit, and hash the single release VSIX.
+4. Publish that artifact to the Visual Studio Marketplace.
+5. Request exclusive ownership of the Open VSX `kpk` namespace using Option 1.
+6. After ownership is granted, publish the same artifact to Open VSX.
+7. Verify the listing in Open VSX and Cursor; request Cursor verification if
+   downstream discovery does not occur.
+
+The README will document installation from the Visual Studio Marketplace, Open
+VSX, Cursor, and a downloaded release VSIX without implying that Cursor is a
+separate package registry.
+
 ## Installed Extension Migration
 
 Changing both publisher and package name creates a new VS Code extension ID.
@@ -153,9 +212,19 @@ Unrelated MyGame configuration and all MyGame source files remain untouched.
   path are committed.
 - Marketplace publication remains manually approved and must fail if the
   configured publisher does not exactly equal `kpk`.
+- Open VSX publication remains separately approved and must fail if its token
+  cannot publish to the exclusively owned `kpk` namespace.
+- Both registry jobs must verify that the input VSIX hash equals the audited
+  release artifact hash; neither job may package from source.
+- A registry version conflict, scan rejection, or partial outage is reported
+  for that registry only and does not cause the other registry to republish.
+- Cursor discoverability is a post-publication verification result, not a
+  reason to upload a different package.
 - If the old extension cannot be uninstalled or the new installed Adapter hash
   differs, real-Editor acceptance stops before attaching.
-- No Marketplace publishing, Git push, or tag is authorized by this migration.
+- Preparing the public repository and release workflows is in scope. Actual
+  repository creation, Git push, registry publication, namespace ownership
+  request, or release tag remains a separately confirmed external action.
 
 ## Test Strategy
 
@@ -168,8 +237,10 @@ Implementation uses test-driven development:
 3. Rename production identity and Adapter artifacts until focused tests pass.
 4. Run the full build, extension, Adapter, process-integration, and VSIX
    package suites.
-5. Audit the VSIX file list and runtime inventory.
-6. Install the exact new VSIX and hash-verify the installed Adapter.
+5. Test that release automation sends the same prebuilt VSIX path and expected
+   hash to both registry jobs, uses separate secrets, and pins both CLIs.
+6. Audit the VSIX file list and runtime inventory.
+7. Install the exact new VSIX and hash-verify the installed Adapter.
 
 Real acceptance uses only the existing
 `H:\workspace\Unity\Tuanjie\Projects\MyGame` Editor and its VS Code window. The
@@ -189,4 +260,6 @@ user will verify:
 - Changing the supported Tuanjie/Unity versions
 - Adding remote Player, mobile, IL2CPP, or Unity 6 guarantees
 - Adding aliases for the old extension or debug type
-- Publishing to Marketplace, pushing Git, or creating a release tag
+- Creating a Cursor Marketplace Plugin; Cursor consumes the Open VSX extension
+- Performing an unapproved Git push, registry publication, namespace request,
+  or release tag operation
