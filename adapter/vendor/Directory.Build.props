@@ -4,7 +4,7 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <EnableSourceLink>false</EnableSourceLink>
-    <PathMap>$(MSBuildProjectDirectory)=/_/vendor/$(MSBuildProjectName)</PathMap>
+    <PathMap>$(MSBuildProjectDirectory)=/_/vendor/$(MSBuildProjectName),$(MSBuildThisFileDirectory)=/_/vendor/</PathMap>
     <Nullable>disable</Nullable>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>

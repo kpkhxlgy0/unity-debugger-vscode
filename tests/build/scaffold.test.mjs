@@ -106,3 +106,14 @@ test("repository checkout preserves audited C# source bytes", () => {
   assert.match(attributes, /^\*\.bat text eol=crlf$/m);
   assert.match(attributes, /^\*\.cmd text eol=crlf$/m);
 });
+
+test("vendored builds map shared sources outside each project directory", () => {
+  const buildProps = fs.readFileSync(
+    "adapter/vendor/Directory.Build.props",
+    "utf8",
+  );
+  assert.match(
+    buildProps,
+    /\$\(MSBuildThisFileDirectory\)=\/_\/vendor\//,
+  );
+});

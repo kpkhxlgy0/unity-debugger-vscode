@@ -4,7 +4,7 @@
   "assemblies": [
     {
       "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.CSharp.dll",
-      "sha256": "da673239e8c49c6d87908d0be6d6fa031367203fee8c277762cc0c7931359f7a",
+      "sha256": "df36c0a041c66f5f78c75c03e0046fac8b20387306db324856a1df2e7a801aeb",
       "origin": "source-built:nrefactory",
       "license": "MIT"
     },
@@ -94,7 +94,7 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
-      "sha256": "87a8d16ef518d8f87912ef364e907da431d86ebcd073dfbd5939773d35bdd5d4",
+      "sha256": "198fe66d1a95c85ee3c35de0dbd1d84c859593897d440b98235c6af970121f96",
       "origin": "project",
       "license": "MIT"
     },
