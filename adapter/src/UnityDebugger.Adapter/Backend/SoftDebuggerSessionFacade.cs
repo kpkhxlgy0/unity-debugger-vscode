@@ -139,10 +139,9 @@ namespace UnityDebugger.Adapter.Backend
                             connectionAttemptIntervalMilliseconds,
                     };
                     var evaluationOptions =
-                        EvaluationOptions.DefaultOptions.Clone();
-                    evaluationOptions.AllowTargetInvoke = false;
-                    evaluationOptions.AllowMethodEvaluation = false;
-                    evaluationOptions.AllowToStringCalls = false;
+                        EvaluationOptionsPolicy.Create(
+                            EvaluationOptions.DefaultOptions,
+                            BackendEvaluationMode.Safe);
                     var options = new DebuggerSessionOptions
                     {
                         EvaluationOptions = evaluationOptions,
@@ -309,7 +308,8 @@ namespace UnityDebugger.Adapter.Backend
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression)
+            string expression,
+            BackendEvaluationMode mode)
         {
             ThrowIfDisposed();
             Mono.Debugging.Client.StackFrame frame;
@@ -322,7 +322,9 @@ namespace UnityDebugger.Adapter.Backend
                 }
             }
 
-            var options = ExplicitEvaluationOptions();
+            var options = EvaluationOptionsPolicy.Create(
+                session.EvaluationOptions,
+                mode);
             try
             {
                 var value = frame.GetExpressionValue(
@@ -499,20 +501,9 @@ namespace UnityDebugger.Adapter.Backend
 
         private EvaluationOptions SafeEvaluationOptions()
         {
-            var options = session.EvaluationOptions.Clone();
-            options.AllowTargetInvoke = false;
-            options.AllowMethodEvaluation = false;
-            options.AllowToStringCalls = false;
-            return options;
-        }
-
-        private EvaluationOptions ExplicitEvaluationOptions()
-        {
-            var options = session.EvaluationOptions.Clone();
-            options.AllowTargetInvoke = true;
-            options.AllowMethodEvaluation = true;
-            options.AllowToStringCalls = true;
-            return options;
+            return EvaluationOptionsPolicy.Create(
+                session.EvaluationOptions,
+                BackendEvaluationMode.Safe);
         }
 
         private static void WaitForValue(

@@ -52,6 +52,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
             new List<BackendVariable>();
         public BackendEvaluationResult EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
+        public BackendEvaluationMode? LastEvaluationMode { get; private set; }
 
         public Task ConnectAsync(
             IPAddress address,
@@ -124,7 +125,12 @@ namespace UnityDebugger.Adapter.Tests.Backend
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression) => EvaluationResult;
+            string expression,
+            BackendEvaluationMode mode)
+        {
+            LastEvaluationMode = mode;
+            return EvaluationResult;
+        }
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

@@ -105,7 +105,8 @@ namespace UnityDebugger.TestAdapter
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression)
+            string expression,
+            BackendEvaluationMode mode)
         {
             ThrowIfCrashScenario();
             return new BackendEvaluationResult(

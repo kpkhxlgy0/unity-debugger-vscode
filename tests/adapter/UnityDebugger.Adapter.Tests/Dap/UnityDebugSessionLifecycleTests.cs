@@ -31,7 +31,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 "body.supportsConfigurationDoneRequest")));
             Assert.True(Required<bool>(response.SelectToken(
                 "body.supportsConditionalBreakpoints")));
-            Assert.False(Required<bool>(response.SelectToken(
+            Assert.True(Required<bool>(response.SelectToken(
                 "body.supportsEvaluateForHovers")));
             Assert.Equal(
                 1,

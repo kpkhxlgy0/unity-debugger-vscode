@@ -200,7 +200,13 @@ namespace UnityDebugger.Adapter.Tests.Backend
                     backend.GetVariables(8));
                 Assert.Same(
                     facade.EvaluationResult,
-                    backend.Evaluate(5, "health"));
+                    backend.Evaluate(
+                        5,
+                        "health",
+                        BackendEvaluationMode.Safe));
+                Assert.Equal(
+                    BackendEvaluationMode.Safe,
+                    facade.LastEvaluationMode);
             }
         }
 

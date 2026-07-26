@@ -50,7 +50,7 @@ namespace UnityDebugger.Adapter.Dap
                 supportsConfigurationDoneRequest = false,
                 supportsFunctionBreakpoints = false,
                 supportsConditionalBreakpoints = true,
-                supportsEvaluateForHovers = false,
+                supportsEvaluateForHovers = true,
                 supportsExceptionOptions = true,
                 exceptionBreakpointFilters = new[]
                 {
@@ -547,20 +547,32 @@ namespace UnityDebugger.Adapter.Dap
                 return;
             var request = arguments as JObject;
             var context = request?["context"]?.Value<string>();
-            if (
-                !string.Equals(
+            BackendEvaluationMode mode;
+            if (string.Equals(
+                context,
+                "hover",
+                StringComparison.Ordinal))
+            {
+                mode = BackendEvaluationMode.Safe;
+            }
+            else if (
+                string.Equals(
                     context,
                     "watch",
-                    StringComparison.Ordinal) &&
-                !string.Equals(
+                    StringComparison.Ordinal) ||
+                string.Equals(
                     context,
                     "repl",
                     StringComparison.Ordinal))
             {
+                mode = BackendEvaluationMode.Explicit;
+            }
+            else
+            {
                 SendErrorResponse(
                     response,
                     2024,
-                    "Evaluation is available only for watch or repl.");
+                    "The requested evaluation context is not supported.");
                 return;
             }
 
@@ -582,7 +594,10 @@ namespace UnityDebugger.Adapter.Dap
 
             try
             {
-                var result = value.Evaluate(frame.Id, expression!);
+                var result = value.Evaluate(
+                    frame.Id,
+                    expression!,
+                    mode);
                 var childReference = 0;
                 if (result.VariablesReference > 0)
                 {

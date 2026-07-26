@@ -29,7 +29,8 @@ namespace UnityDebugger.Adapter.Backend
             long variablesReference);
         BackendEvaluationResult Evaluate(
             long frameId,
-            string expression);
+            string expression,
+            BackendEvaluationMode mode);
         BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint);
         void RemoveBreakpoint(long backendBreakpointId);

@@ -3,6 +3,12 @@ using System.Net;
 
 namespace UnityDebugger.Adapter.Backend
 {
+    internal enum BackendEvaluationMode
+    {
+        Safe,
+        Explicit,
+    }
+
     internal sealed class AttachTarget
     {
         public AttachTarget(

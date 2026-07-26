@@ -46,7 +46,8 @@ namespace UnityDebugger.Adapter.Backend
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression) => throw NotAttached();
+            string expression,
+            BackendEvaluationMode mode) => throw NotAttached();
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint) => throw NotAttached();

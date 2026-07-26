@@ -53,6 +53,7 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public BackendEvaluationResult EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
         public string? LastExpression { get; private set; }
+        public BackendEvaluationMode? LastEvaluationMode { get; private set; }
         public int StackTraceCount { get; private set; }
         public int ScopesCount { get; private set; }
         public int VariablesCount { get; private set; }
@@ -120,10 +121,12 @@ namespace UnityDebugger.Adapter.Tests.Fakes
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression)
+            string expression,
+            BackendEvaluationMode mode)
         {
             EvaluateCount++;
             LastExpression = expression;
+            LastEvaluationMode = mode;
             return EvaluationResult;
         }
 

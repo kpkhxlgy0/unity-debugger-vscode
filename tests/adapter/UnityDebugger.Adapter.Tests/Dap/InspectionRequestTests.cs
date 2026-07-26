@@ -160,11 +160,15 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Theory]
-        [InlineData("watch")]
-        [InlineData("repl")]
-        public void Explicit_evaluation_contexts_are_allowed(
-            string context)
+        [InlineData("hover", (int)BackendEvaluationMode.Safe)]
+        [InlineData("watch", (int)BackendEvaluationMode.Explicit)]
+        [InlineData("repl", (int)BackendEvaluationMode.Explicit)]
+        public void Evaluation_context_selects_backend_mode(
+            string context,
+            int expectedModeValue)
         {
+            var expectedMode =
+                (BackendEvaluationMode)expectedModeValue;
             var fixture = Fixture();
             var messages = Run(
                 fixture.Session,
@@ -186,10 +190,11 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.True(Required<bool>(
                 Response(messages, "evaluate")["success"]));
             Assert.Equal(1, fixture.Backend.EvaluateCount);
+            Assert.Equal(expectedMode, fixture.Backend.LastEvaluationMode);
         }
 
         [Fact]
-        public void Hover_evaluation_is_rejected_without_backend_call()
+        public void Unknown_evaluation_context_is_rejected_without_backend_call()
         {
             var fixture = Fixture();
             var messages = Run(
@@ -206,13 +211,13 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     {
                         frameId = 1,
                         expression = "SECRET_EXPRESSION",
-                        context = "hover",
+                        context = "clipboard",
                     }));
 
             var response = Response(messages, "evaluate");
             Assert.False(Required<bool>(response["success"]));
             Assert.Contains(
-                "watch or repl",
+                "not supported",
                 Required<string>(response["message"]));
             Assert.DoesNotContain(
                 "SECRET_EXPRESSION",

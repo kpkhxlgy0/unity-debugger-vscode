@@ -165,10 +165,11 @@ namespace UnityDebugger.Adapter.Backend
 
         public BackendEvaluationResult Evaluate(
             long frameId,
-            string expression)
+            string expression,
+            BackendEvaluationMode mode)
         {
             RequireAttached();
-            return facade!.Evaluate(frameId, expression);
+            return facade!.Evaluate(frameId, expression, mode);
         }
 
         public BackendBoundBreakpoint BindBreakpoint(
