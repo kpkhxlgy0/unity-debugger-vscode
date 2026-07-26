@@ -17,7 +17,7 @@ namespace UnityDebugger.Adapter.Dap
         private const string SupportedVersion = "2022.3.62t11";
         private const string SupportPolicyUrl =
             "https://marketplace.visualstudio.com/items?itemName=" +
-            "unity-debugger-community.unity-debugger-vscode" +
+            "kpk.unity-debugger-pure" +
             "#support-policy";
         private readonly Func<IDebuggerBackend> backendFactory;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();

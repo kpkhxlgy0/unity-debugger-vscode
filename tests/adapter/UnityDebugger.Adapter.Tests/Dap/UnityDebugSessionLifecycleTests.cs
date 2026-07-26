@@ -68,9 +68,15 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 .Where(item => OptionalText(item["event"]) == "output")
                 .ToArray();
             Assert.Single(warnings);
+            var warning = Required<string>(
+                warnings[0].SelectToken("body.output"));
             Assert.Contains(
                 "Editor 6000.0.50f1 is unverified",
-                Required<string>(warnings[0].SelectToken("body.output")));
+                warning);
+            Assert.Contains(
+                "https://marketplace.visualstudio.com/items?itemName=" +
+                "kpk.unity-debugger-pure#support-policy",
+                warning);
         }
 
         [Fact]

@@ -65,11 +65,7 @@ namespace UnityDebugger.Adapter.Diagnostics
             var localRoot = Path.GetFullPath(
                 Environment.GetFolderPath(
                     Environment.SpecialFolder.LocalApplicationData));
-            var logDirectory = Path.GetFullPath(
-                Path.Combine(
-                    localRoot,
-                    "unity-debugger-vscode",
-                    "logs"));
+            var logDirectory = ResolveLogDirectory(localRoot);
             VerifyInside(logDirectory, localRoot);
             Directory.CreateDirectory(logDirectory);
             RetainLatest(logDirectory);
@@ -104,6 +100,15 @@ namespace UnityDebugger.Adapter.Diagnostics
                         Environment.SpecialFolder.UserProfile),
                     null),
                 true);
+        }
+
+        internal static string ResolveLogDirectory(string localRoot)
+        {
+            return Path.GetFullPath(
+                Path.Combine(
+                    localRoot,
+                    "unity-debugger-pure",
+                    "logs"));
         }
 
         public void Write(

@@ -12,11 +12,11 @@ namespace UnityDebugger.Adapter.Tests.Build
         {
             var executable = Path.Combine(
                 AppContext.BaseDirectory,
-                "UnityCommunityDebug.exe");
+                "UnityDebuggerPure.exe");
 
             var assembly = Assembly.LoadFrom(executable);
 
-            Assert.Equal("UnityCommunityDebug", assembly.GetName().Name);
+            Assert.Equal("UnityDebuggerPure", assembly.GetName().Name);
         }
     }
 }

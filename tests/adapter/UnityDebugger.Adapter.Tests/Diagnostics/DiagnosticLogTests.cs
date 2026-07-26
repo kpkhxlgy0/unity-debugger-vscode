@@ -8,6 +8,14 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
 {
     public sealed class DiagnosticLogTests
     {
+        [Fact]
+        public void ResolveLogDirectory_uses_final_product_directory()
+        {
+            Assert.Equal(
+                @"C:\Local\unity-debugger-pure\logs",
+                DiagnosticLog.ResolveLogDirectory(@"C:\Local"));
+        }
+
         [Theory]
         [InlineData("expression")]
         [InlineData("result")]

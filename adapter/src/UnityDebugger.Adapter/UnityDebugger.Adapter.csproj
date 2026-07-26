@@ -3,7 +3,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>UnityCommunityDebug</AssemblyName>
+    <AssemblyName>UnityDebuggerPure</AssemblyName>
     <RootNamespace>UnityDebugger.Adapter</RootNamespace>
   </PropertyGroup>
   <ItemGroup>

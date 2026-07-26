@@ -61,7 +61,7 @@
           "Newtonsoft.Json": "[13.0.4, )"
         }
       },
-      "UnityCommunityDebug": {
+      "UnityDebuggerPure": {
         "type": "Project",
         "dependencies": {
           "Mono.Debugger.Soft": "[1.0.0, )",

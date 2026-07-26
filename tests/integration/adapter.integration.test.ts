@@ -195,7 +195,7 @@ describe("Unity debug adapter process", () => {
   it("omits unavailable pause sources and evaluates safe hovers", async () => {
     const client = await start("pause-source");
     const capabilities = await client.request("initialize", {
-      adapterID: "unity-community",
+      adapterID: "unity-debugger-pure",
       linesStartAt1: true,
       columnsStartAt1: true,
       pathFormat: "path",
@@ -244,7 +244,7 @@ async function start(scenario: string): Promise<DapClient> {
 
 async function initialize(client: DapClient): Promise<void> {
   await client.request("initialize", {
-    adapterID: "unity-community",
+    adapterID: "unity-debugger-pure",
     linesStartAt1: true,
     columnsStartAt1: true,
     pathFormat: "path",
