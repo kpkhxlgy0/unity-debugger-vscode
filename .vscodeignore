@@ -22,6 +22,7 @@ adapter/**
 **/packages.lock.json
 *.sln
 Directory.Build.props
+Directory.Build.targets
 Directory.Packages.props
 global.json
 package-lock.json

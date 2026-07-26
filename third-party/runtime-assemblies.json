@@ -4,13 +4,13 @@
   "assemblies": [
     {
       "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.CSharp.dll",
-      "sha256": "df36c0a041c66f5f78c75c03e0046fac8b20387306db324856a1df2e7a801aeb",
+      "sha256": "1cf616c412485e54f48fc6da68c6ae12e15e06b0568f76b14169b0b448d6b5b6",
       "origin": "source-built:nrefactory",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.dll",
-      "sha256": "05a1d62c64ee0f3695e362893e0a0542da095ff62e37c576fdecf4eb45d4a4a9",
+      "sha256": "f5882121b390fbc9f1c3a6e2c50828befc44b94e8a7ba8d9d14cf7fe910f1021",
       "origin": "source-built:nrefactory",
       "license": "MIT"
     },
@@ -34,19 +34,19 @@
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugger.Soft.dll",
-      "sha256": "35881b5221d8a59598256e3b8168bc7405c01e575cfedba8493d29c3e0551b9e",
+      "sha256": "da6193a2b8973ac51c71a38b6fde341f314749887cd655fc58825bcf53375fcd",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugging.dll",
-      "sha256": "df603d17aaf65febeb3f92a05e956fdb77fb83fcf93c23e6091742eb2d9efb29",
+      "sha256": "11863c36056142e7188f18c67d3455387b81219b1cbd9a9195cde2693077cfdc",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugging.Soft.dll",
-      "sha256": "b444761743de7d92402881922cc8c843fbca0018baa4ea33b4d3d8363a41769a",
+      "sha256": "7d33831d73d510ab1c562e21398d3dab2885a958a782c83946261d6457cd9df6",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
@@ -94,13 +94,13 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
-      "sha256": "198fe66d1a95c85ee3c35de0dbd1d84c859593897d440b98235c6af970121f96",
+      "sha256": "a2499b8d9d7d99889e7d2300303fefed1929524332d172207b8a09b9bdc0d123",
       "origin": "project",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/VSCodeDebug.dll",
-      "sha256": "f050cb866c8edd36e8e7d4dca2a5cb9311c90c04d37d31f34b860acea3462927",
+      "sha256": "66e30aed6d6f703799e323e6db760be51a45228c090dcccfbae106b8ef448c95",
       "origin": "source-built:vscode-mono-debug",
       "license": "MIT"
     }

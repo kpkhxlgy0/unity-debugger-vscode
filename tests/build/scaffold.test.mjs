@@ -117,3 +117,21 @@ test("vendored builds map shared sources outside each project directory", () => 
     /\$\(MSBuildThisFileDirectory\)=\/_\/vendor\//,
   );
 });
+
+test("release builds omit unpublished adapter symbols", () => {
+  for (const targetsPath of [
+    "Directory.Build.targets",
+    "adapter/vendor/Directory.Build.targets",
+  ]) {
+    const buildTargets = fs.readFileSync(targetsPath, "utf8");
+    assert.match(
+      buildTargets,
+      /<PropertyGroup Condition="'\$\(Configuration\)' == 'Release'">/,
+    );
+    assert.match(buildTargets, /<DebugType>none<\/DebugType>/);
+    assert.match(
+      buildTargets,
+      /<DebugSymbols>false<\/DebugSymbols>/,
+    );
+  }
+});
