@@ -1,7 +1,27 @@
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { terminationMessageFromLog } from "../../extension/src/diagnostics.js";
+import {
+  COPY_DIAGNOSTICS_COMMAND,
+  getLogDirectory,
+  OPEN_LOGS_COMMAND,
+  REFRESH_TARGETS_COMMAND,
+  terminationMessageFromLog,
+} from "../../extension/src/diagnostics.js";
 
 describe("terminationMessageFromLog", () => {
+  it("uses the final commands and diagnostics directory", () => {
+    expect(REFRESH_TARGETS_COMMAND).toBe(
+      "unity-debugger-pure.refreshTargets",
+    );
+    expect(OPEN_LOGS_COMMAND).toBe("unity-debugger-pure.openLogs");
+    expect(COPY_DIAGNOSTICS_COMMAND).toBe(
+      "unity-debugger-pure.copyDiagnostics",
+    );
+    expect(getLogDirectory("C:\\Local")).toBe(
+      path.resolve("C:\\Local", "unity-debugger-pure", "logs"),
+    );
+  });
+
   it("reports a non-zero adapter exit without exposing raw diagnostics", () => {
     const log = [
       "event=dap.command event=attach",

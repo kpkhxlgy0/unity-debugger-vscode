@@ -11,7 +11,7 @@ describe("AdapterLauncher", () => {
         "H:\\extension",
         "adapter",
         "win32-x64",
-        "UnityCommunityDebug.exe",
+        "UnityDebuggerPure.exe",
       ),
       args: [],
       options: {

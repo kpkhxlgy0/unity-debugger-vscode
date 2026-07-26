@@ -15,6 +15,7 @@ import {
   terminationMessageFromLog,
 } from "./diagnostics.js";
 import { EditorDiscovery } from "./editorDiscovery.js";
+import { PRODUCT_IDENTITY } from "./productIdentity.js";
 
 export function activate(context: vscode.ExtensionContext): void {
   const discovery = new EditorDiscovery();
@@ -28,12 +29,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const configurationRegistration =
     vscode.debug.registerDebugConfigurationProvider(
-      "unity-community",
+      PRODUCT_IDENTITY.debugType,
       provider,
     );
   const descriptorRegistration =
     vscode.debug.registerDebugAdapterDescriptorFactory(
-      "unity-community",
+      PRODUCT_IDENTITY.debugType,
       {
         createDebugAdapterDescriptor: () => {
           try {
@@ -104,7 +105,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const terminationRegistration =
     vscode.debug.onDidTerminateDebugSession(async (session) => {
-      if (session.type !== "unity-community") {
+      if (session.type !== PRODUCT_IDENTITY.debugType) {
         return;
       }
       const message = terminationMessageFromLog(

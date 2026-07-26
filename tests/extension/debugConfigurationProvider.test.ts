@@ -18,7 +18,7 @@ const candidate: EditorCandidate = {
 const folder = { uri: { fsPath: "H:\\fixture" } };
 const attach = {
   name: "Attach",
-  type: "unity-community",
+  type: "unity-debugger-pure",
   request: "attach",
 };
 
@@ -55,7 +55,7 @@ describe("DebugConfigurationProvider", () => {
       });
 
     expect(resolved).toMatchObject({
-      type: "unity-community",
+      type: "unity-debugger-pure",
       request: "attach",
       __processId: 1234,
       __host: "127.0.0.1",
@@ -78,7 +78,7 @@ describe("DebugConfigurationProvider", () => {
     expect(configurationUi.showError).toHaveBeenCalledOnce();
   });
 
-  it("rejects every request other than unity-community attach", async () => {
+  it("rejects every request other than unity-debugger-pure attach", async () => {
     const configurationUi = ui();
     const configurationProvider = provider(
       async () => [candidate],
@@ -92,7 +92,7 @@ describe("DebugConfigurationProvider", () => {
       }),
     ).resolves.toBeUndefined();
     expect(configurationUi.showError).toHaveBeenCalledWith(
-      "unity-community supports only request: attach.",
+      "unity-debugger-pure supports only request: attach.",
     );
   });
 

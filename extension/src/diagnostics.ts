@@ -1,8 +1,13 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import { PRODUCT_IDENTITY } from "./productIdentity.js";
+
 export const REFRESH_TARGETS_COMMAND =
-  "unity-community.refreshTargets";
-export const OPEN_LOGS_COMMAND = "unity-community.openLogs";
+  PRODUCT_IDENTITY.commandIds.refreshTargets;
+export const OPEN_LOGS_COMMAND =
+  PRODUCT_IDENTITY.commandIds.openLogs;
 export const COPY_DIAGNOSTICS_COMMAND =
-  "unity-community.copyDiagnostics";
+  PRODUCT_IDENTITY.commandIds.copyDiagnostics;
 
 export const NO_SANITIZED_DIAGNOSTICS =
   "No sanitized Unity debugger diagnostics are available yet.";
@@ -17,7 +22,7 @@ export function getLogDirectory(
   }
   return path.resolve(
     localApplicationData,
-    "unity-debugger-vscode",
+    PRODUCT_IDENTITY.diagnosticsDirectoryName,
     "logs",
   );
 }
@@ -75,5 +80,3 @@ export function terminationMessageFromLog(
     : `The Unity debug adapter exited with code ${exitCode}. ` +
         "Open sanitized diagnostics for details.";
 }
-import fs from "node:fs/promises";
-import path from "node:path";

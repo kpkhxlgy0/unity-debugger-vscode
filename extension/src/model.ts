@@ -1,3 +1,5 @@
+import { PRODUCT_IDENTITY } from "./productIdentity.js";
+
 export type SupportLevel =
   | "supported"
   | "compatible-unverified"
@@ -21,7 +23,7 @@ export interface EditorCandidate {
 
 export interface UnityAttachConfiguration {
   readonly name: string;
-  readonly type: "unity-community";
+  readonly type: typeof PRODUCT_IDENTITY.debugType;
   readonly request: "attach";
   readonly __processId: number;
   readonly __host: "127.0.0.1";

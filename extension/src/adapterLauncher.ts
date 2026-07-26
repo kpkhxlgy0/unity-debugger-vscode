@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { PRODUCT_IDENTITY } from "./productIdentity.js";
 
 export interface AdapterExecutableDescriptor {
   readonly command: string;
@@ -27,7 +28,7 @@ export class AdapterLauncher {
       extensionPath,
       "adapter",
       "win32-x64",
-      "UnityCommunityDebug.exe",
+      PRODUCT_IDENTITY.adapterExecutable,
     );
     if (!this.fileExists(command)) {
       throw new Error(

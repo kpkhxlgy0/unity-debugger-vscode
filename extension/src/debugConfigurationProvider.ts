@@ -2,6 +2,7 @@ import type {
   EditorCandidate,
   UnityAttachConfiguration,
 } from "./model.js";
+import { PRODUCT_IDENTITY } from "./productIdentity.js";
 import { classifyVersion } from "./versionPolicy.js";
 
 export interface ConfigurationUi {
@@ -41,11 +42,11 @@ export class DebugConfigurationProvider {
     }
 
     if (
-      configuration.type !== "unity-community" ||
+      configuration.type !== PRODUCT_IDENTITY.debugType ||
       configuration.request !== "attach"
     ) {
       await this.ui.showError(
-        "unity-community supports only request: attach.",
+        `${PRODUCT_IDENTITY.debugType} supports only request: attach.`,
       );
       return undefined;
     }
@@ -86,9 +87,10 @@ export class DebugConfigurationProvider {
 
     return {
       name: String(
-        configuration.name ?? "Attach Tuanjie / Unity 2022 Editor",
+        configuration.name ??
+          PRODUCT_IDENTITY.defaultConfigurationName,
       ),
-      type: "unity-community",
+      type: PRODUCT_IDENTITY.debugType,
       request: "attach",
       __processId: candidate.processId,
       __host: "127.0.0.1",
