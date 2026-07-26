@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { describeInventoryDifferences } from "./runtime-inventory.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -101,9 +102,18 @@ if (write) {
 } else {
   const committed = await fs.readFile(inventoryPath, "utf8");
   if (committed.replaceAll("\r\n", "\n") !== serialized) {
+    const differences = describeInventoryDifferences(
+      JSON.parse(committed),
+      inventory,
+    );
+    const details =
+      differences.length > 0
+        ? `\n${differences.join("\n")}`
+        : "\nAssembly metadata or ordering differs.";
     throw new Error(
       "Runtime inventory differs from staged binaries. " +
-        "Review and regenerate it explicitly with --write.",
+        "Review and regenerate it explicitly with --write." +
+        details,
     );
   }
   console.log(`Verified ${assemblies.length} runtime inventory entries.`);

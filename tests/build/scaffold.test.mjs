@@ -92,5 +92,10 @@ test("release assemblies do not embed the changing Git revision", () => {
       /<IncludeSourceRevisionInInformationalVersion>false<\/IncludeSourceRevisionInInformationalVersion>/,
       `${propsPath} must produce Git-revision-independent binaries`,
     );
+    assert.match(
+      buildProps,
+      /<EnableSourceLink>false<\/EnableSourceLink>/,
+      `${propsPath} must not embed the current commit in Source Link`,
+    );
   }
 });

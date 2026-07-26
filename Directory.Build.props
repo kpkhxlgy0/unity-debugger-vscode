@@ -3,6 +3,7 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <EnableSourceLink>false</EnableSourceLink>
     <PathMap>$(MSBuildProjectDirectory)=/_/src/$(MSBuildProjectName)</PathMap>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
