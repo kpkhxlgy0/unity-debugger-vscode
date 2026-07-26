@@ -386,24 +386,24 @@ namespace UnityDebugger.Adapter.Dap
                     backendThreadId,
                     startFrame,
                     levels);
-                var dapFrames = new List<VSCodeDebug.StackFrame>();
+                var dapFrames = new List<DapStackFrame>();
                 foreach (var frame in frames)
                 {
                     var mapped = sourceMapper?.ToClientPath(
                         frame.SourcePath);
                     var source = ToDapSource(mapped);
                     dapFrames.Add(
-                        new VSCodeDebug.StackFrame(
+                        new DapStackFrame(
                             frameHandles.Create(frame),
                             frame.Name,
                             source,
                             frame.Line,
                             Math.Max(1, frame.Column),
-                            "normal"));
+                            source == null ? "deemphasize" : "normal"));
                 }
                 SendResponse(
                     response,
-                    new StackTraceResponseBody(
+                    new DapStackTraceResponseBody(
                         dapFrames,
                         dapFrames.Count));
             }
@@ -917,22 +917,15 @@ namespace UnityDebugger.Adapter.Dap
                 "Managed inspection failed. Pause again and retry.");
         }
 
-        private VSCodeDebug.Source ToDapSource(
+        private DapSource? ToDapSource(
             MappedSource? mapped)
         {
             if (mapped == null || !mapped.Available)
-            {
-                return new VSCodeDebug.Source(
-                    "Unavailable source",
-                    null,
-                    0,
-                    "deemphasize");
-            }
-            return new VSCodeDebug.Source(
+                return null;
+            return new DapSource(
                 mapped.Name,
                 ConvertDebuggerPathToClient(mapped.Path) ?? mapped.Path,
-                mapped.SourceReference,
-                "normal");
+                mapped.SourceReference);
         }
 
         private void ResetInspectionState(bool resetThreads)

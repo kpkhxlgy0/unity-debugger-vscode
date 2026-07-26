@@ -119,6 +119,46 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(0, fixture.Backend.VariablesCount);
         }
 
+        [Fact]
+        public void Stack_trace_omits_source_for_unavailable_frame()
+        {
+            var fixture = Fixture();
+            fixture.Backend.Frames.Insert(
+                0,
+                new BackendStackFrame(
+                    3000,
+                    42,
+                    "UnityEngine.PlayerLoop",
+                    string.Empty,
+                    0,
+                    1));
+
+            var messages = Run(
+                fixture.Session,
+                Initialize(),
+                Attach(fixture.Workspace),
+                Request("threads", new { }),
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+
+            var frames = (JArray)Response(messages, "stackTrace")
+                .SelectToken("body.stackFrames")!;
+            var unavailable = frames[0]!;
+            Assert.Equal(
+                "UnityEngine.PlayerLoop",
+                Required<string>(unavailable["name"]));
+            Assert.Equal(
+                "deemphasize",
+                Required<string>(unavailable["presentationHint"]));
+            Assert.Null(unavailable["source"]);
+            Assert.Equal(
+                Path.GetFullPath(fixture.SourcePath),
+                Path.GetFullPath(Required<string>(
+                    frames[1]!.SelectToken("source.path"))),
+                ignoreCase: true);
+        }
+
         [Theory]
         [InlineData("watch")]
         [InlineData("repl")]
