@@ -3,6 +3,7 @@
 .github/**
 .vscode/**
 .node-version
+AGENTS.md
 docs/**
 scripts/**
 tests/**
@@ -30,3 +31,4 @@ esbuild.mjs
 node_modules/**
 dist/*.vsix
 dist/*.sha256
+dist/extension.js

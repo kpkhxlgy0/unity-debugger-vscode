@@ -1,5 +1,6 @@
 import type dgram from "node:dgram";
 import { EventEmitter } from "node:events";
+import net from "node:net";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -19,12 +20,68 @@ function dependencies(
     collectAdvertisements: async () => [
       parsePlayerAdvertisement(packet),
     ],
-    probeLoopbackPort: async (port) => port === 56234,
     ...overrides,
   };
 }
 
 describe("EditorDiscovery", () => {
+  it("leaves the single-use debugger port for the Adapter", async () => {
+    let connectionPhase = "discovery";
+    const acceptedPhases: string[] = [];
+    let resolveAccepted: () => void = () => {};
+    const accepted = new Promise<void>((resolve) => {
+      resolveAccepted = resolve;
+    });
+    const server = net.createServer((socket) => {
+      acceptedPhases.push(connectionPhase);
+      socket.destroy();
+      server.close();
+      resolveAccepted();
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+
+    try {
+      const address = server.address();
+      if (address === null || typeof address === "string") {
+        throw new Error("Expected a TCP loopback address");
+      }
+      const discovery = new EditorDiscovery({
+        readFile: async () => '{"process_id":1234}',
+        readProjectVersion: async () => "2022.3.62t11",
+        isProcessAlive: async () => true,
+        collectAdvertisements: async () => [
+          {
+            ...parsePlayerAdvertisement(packet),
+            debuggerPort: address.port,
+          },
+        ],
+      });
+
+      const [candidate] = await discovery.discover([
+        "H:\\FixtureProject",
+      ]);
+      expect(candidate).toMatchObject({
+        host: "127.0.0.1",
+        port: address.port,
+        source: "advertisement",
+      });
+
+      connectionPhase = "adapter";
+      await Promise.all([
+        connectToLoopback(address.port),
+        accepted,
+      ]);
+      expect(acceptedPhases).toEqual(["adapter"]);
+    } finally {
+      if (server.listening) {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    }
+  });
+
   it("returns a matching Editor on loopback only", async () => {
     const discovery = new EditorDiscovery(dependencies());
 
@@ -76,24 +133,33 @@ describe("EditorDiscovery", () => {
     await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([]);
   });
 
-  it("rejects invalid candidate ports before probing", async () => {
-    const probe = vi.fn(async () => true);
+  it.each([70_000, 56_234.5])(
+    "ignores invalid advertised port %s and uses the derived port",
+    async (debuggerPort) => {
     const advertisement = {
       ...parsePlayerAdvertisement(packet),
       projectName: "fixture",
-      debuggerPort: 70000,
+      debuggerPort,
     };
     const discovery = new EditorDiscovery(
       dependencies({
         collectAdvertisements: async () => [advertisement],
-        probeLoopbackPort: probe,
       }),
     );
 
-    const candidates = await discovery.discover(["H:\\fixture"]);
-    expect(candidates).toHaveLength(1);
-    expect(probe).not.toHaveBeenCalledWith(70000);
-  });
+    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([
+      {
+        processId: 1234,
+        projectName: "fixture",
+        workspaceRoot: path.resolve("H:\\fixture"),
+        host: "127.0.0.1",
+        port: 56234,
+        projectVersion: "2022.3.62t11",
+        source: "derived-port",
+      },
+    ]);
+    },
+  );
 
   it("ignores malformed EditorInstance JSON", async () => {
     const discovery = new EditorDiscovery(
@@ -102,11 +168,19 @@ describe("EditorDiscovery", () => {
     await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([]);
   });
 
-  it("returns no candidate when every loopback probe fails", async () => {
-    const discovery = new EditorDiscovery(
-      dependencies({ probeLoopbackPort: async () => false }),
-    );
-    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([]);
+  it("uses the derived Editor port without a matching advertisement", async () => {
+    const discovery = new EditorDiscovery(dependencies());
+    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([
+      {
+        processId: 1234,
+        projectName: "fixture",
+        workspaceRoot: path.resolve("H:\\fixture"),
+        host: "127.0.0.1",
+        port: 56234,
+        projectVersion: "2022.3.62t11",
+        source: "derived-port",
+      },
+    ]);
   });
 
   it("collects advertisements once and preserves distinct roots", async () => {
@@ -130,7 +204,6 @@ describe("EditorDiscovery", () => {
             ? '{"process_id":1101}'
             : '{"process_id":2202}',
         isProcessAlive: async () => true,
-        probeLoopbackPort: async () => true,
       }),
     );
 
@@ -183,6 +256,20 @@ describe("EditorDiscovery", () => {
     expect(sockets.every((socket) => socket.closed)).toBe(true);
   });
 });
+
+async function connectToLoopback(port: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const socket = net.createConnection({
+      host: "127.0.0.1",
+      port,
+    });
+    socket.once("connect", () => {
+      socket.destroy();
+      resolve();
+    });
+    socket.once("error", reject);
+  });
+}
 
 class FakeDatagramSocket extends EventEmitter {
   public closed = false;

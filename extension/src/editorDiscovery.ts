@@ -1,6 +1,5 @@
 import dgram from "node:dgram";
 import { readFile } from "node:fs/promises";
-import net from "node:net";
 import path from "node:path";
 import {
   defaultEditorPort,
@@ -16,7 +15,6 @@ import { readProjectVersion } from "./projectVersion.js";
 const PLAYER_CONNECTION_GROUP = "225.0.0.222";
 const PLAYER_CONNECTION_PORTS = [54_997, 34_997, 57_997, 58_997] as const;
 const DEFAULT_DISCOVERY_TIMEOUT_MS = 350;
-const DEFAULT_PROBE_TIMEOUT_MS = 250;
 
 type SocketFactory = (
   options: dgram.SocketOptions,
@@ -34,7 +32,6 @@ export interface EditorDiscoveryDependencies {
   readonly collectAdvertisements: (
     timeoutMs: number,
   ) => Promise<readonly PlayerAdvertisement[]>;
-  readonly probeLoopbackPort: (port: number) => Promise<boolean>;
 }
 
 export class EditorDiscovery {
@@ -51,7 +48,6 @@ export class EditorDiscovery {
       isProcessAlive: isProcessAlive,
       collectAdvertisements: async (timeoutMs) =>
         this.collectAdvertisements(timeoutMs),
-      probeLoopbackPort: probeLoopbackPort,
       ...dependencies,
     };
   }
@@ -121,36 +117,26 @@ export class EditorDiscovery {
         return [];
       }
 
-      const advertised = matching.filter(
+      const advertised = matching.find(
         (item) =>
           item.allowDebugging &&
+          Number.isInteger(item.debuggerPort) &&
           item.debuggerPort > 0 &&
           item.debuggerPort <= 65_535,
       );
-      const candidatePorts = uniqueNumbers([
-        ...advertised.map((item) => item.debuggerPort),
-        defaultEditorPort(instance.processId),
-      ]);
-
-      for (const port of candidatePorts) {
-        if (await this.dependencies.probeLoopbackPort(port)) {
-          return [
-            {
-              processId: instance.processId,
-              projectName,
-              workspaceRoot,
-              host: "127.0.0.1",
-              port,
-              projectVersion,
-              source: advertised.some(
-                (item) => item.debuggerPort === port,
-              )
-                ? "advertisement"
-                : "derived-port",
-            },
-          ];
-        }
-      }
+      return [
+        {
+          processId: instance.processId,
+          projectName,
+          workspaceRoot,
+          host: "127.0.0.1",
+          port:
+            advertised?.debuggerPort ??
+            defaultEditorPort(instance.processId),
+          projectVersion,
+          source: advertised ? "advertisement" : "derived-port",
+        },
+      ];
     } catch {
       return [];
     }
@@ -255,10 +241,6 @@ function uniqueRoots(workspaceRoots: readonly string[]): string[] {
   return [...roots.values()];
 }
 
-function uniqueNumbers(values: readonly number[]): number[] {
-  return [...new Set(values)];
-}
-
 async function isProcessAlive(processId: number): Promise<boolean> {
   try {
     process.kill(processId, 0);
@@ -266,32 +248,4 @@ async function isProcessAlive(processId: number): Promise<boolean> {
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "EPERM";
   }
-}
-
-async function probeLoopbackPort(port: number): Promise<boolean> {
-  if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
-    return false;
-  }
-
-  return new Promise<boolean>((resolve) => {
-    const socket = net.createConnection({
-      host: "127.0.0.1",
-      port,
-    });
-    let settled = false;
-
-    function finish(result: boolean): void {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      socket.destroy();
-      resolve(result);
-    }
-
-    socket.setTimeout(DEFAULT_PROBE_TIMEOUT_MS);
-    socket.once("connect", () => finish(true));
-    socket.once("timeout", () => finish(false));
-    socket.once("error", () => finish(false));
-  });
 }

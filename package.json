@@ -20,7 +20,7 @@
   "categories": [
     "Debuggers"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "activationEvents": [
     "onDebugResolve:unity-community",
     "onCommand:unity-community.refreshTargets",

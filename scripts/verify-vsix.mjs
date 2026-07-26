@@ -52,7 +52,7 @@ for (const entry of archive.getEntries()) {
 }
 
 const required = [
-  "extension/dist/extension.js",
+  "extension/dist/extension.cjs",
   "extension/adapter/win32-x64/UnityCommunityDebug.exe",
   "extension/LICENSE.txt",
   "extension/README.md",
@@ -176,7 +176,7 @@ function isAllowedPackagedPath(filePath) {
     "extension/security.md",
     "extension/third_party_notices.md",
     "extension/package.json",
-    "extension/dist/extension.js",
+    "extension/dist/extension.cjs",
     "extension/third-party/runtime-assemblies.json",
     "extension/third-party/licenses/vscode-mono-debug-mit.txt",
     "extension/third-party/licenses/debugger-libs-mit.txt",

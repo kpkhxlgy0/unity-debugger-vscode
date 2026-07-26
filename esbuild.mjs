@@ -6,7 +6,7 @@ await build({
   external: ["vscode"],
   format: "cjs",
   logLevel: "info",
-  outfile: "dist/extension.js",
+  outfile: "dist/extension.cjs",
   platform: "node",
   sourcemap: true,
   target: "node20",
