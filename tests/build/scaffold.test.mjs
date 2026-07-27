@@ -81,6 +81,11 @@ test("manifest defines an independent attach-only debugger", () => {
   );
 });
 
+test("packaging excludes nested repository worktrees", () => {
+  const ignore = fs.readFileSync(".vscodeignore", "utf8");
+  assert.match(ignore, /^\.worktrees\/\*\*$/m);
+});
+
 test("adapter project targets net48 x64", () => {
   const project = fs.readFileSync(
     "adapter/src/UnityDebugger.Adapter/UnityDebugger.Adapter.csproj",
