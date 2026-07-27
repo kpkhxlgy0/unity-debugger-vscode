@@ -12,7 +12,16 @@ test("manifest defines an independent attach-only debugger", () => {
     "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, " +
       "without C# Dev Kit or Microsoft's Unity extension.",
   );
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.1.1");
+  assert.equal(manifest.icon, "images/icon.png");
+
+  const icon = fs.readFileSync(manifest.icon);
+  assert.deepEqual(
+    [...icon.subarray(0, 8)],
+    [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  );
+  assert.equal(icon.readUInt32BE(16), 512);
+  assert.equal(icon.readUInt32BE(20), 512);
   assert.deepEqual(manifest.repository, {
     type: "git",
     url: "https://github.com/kpkhxlgy0/unity-debugger-vscode.git",

@@ -11,6 +11,9 @@ describe("PRODUCT_IDENTITY", () => {
     expect(PRODUCT_IDENTITY.extensionName).toBe(manifest.name);
     expect(PRODUCT_IDENTITY.displayName).toBe(manifest.displayName);
     expect(PRODUCT_IDENTITY.description).toBe(manifest.description);
+    expect(PRODUCT_IDENTITY.vsixFileName).toBe(
+      "unity-debugger-pure-0.1.1.vsix",
+    );
     expect(PRODUCT_IDENTITY.debugType).toBe(contribution.type);
     expect(PRODUCT_IDENTITY.defaultConfigurationName).toBe(
       contribution.configurationSnippets[0].body.name,
