@@ -1,3 +1,4 @@
+# Keep registry publication separate from the immutable release build.
 name: Publish to Open VSX
 
 on:
