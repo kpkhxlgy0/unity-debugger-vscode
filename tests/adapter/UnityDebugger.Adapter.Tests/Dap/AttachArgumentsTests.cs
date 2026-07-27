@@ -82,14 +82,26 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Theory]
-        [InlineData("latest")]
         [InlineData("2021.3.45f1")]
         [InlineData("2023.2.20f1")]
-        public void Parse_rejects_malformed_or_unsupported_versions(
+        public void Parse_rejects_unsupported_versions(
             string version)
         {
             var json = ValidArguments();
             json["__projectVersion"] = version;
+
+            var error = Assert.Throws<AttachArgumentException>(
+                () => AttachArguments.Parse(json));
+            Assert.Contains(
+                "outside the version 0.1.1 compatibility policy",
+                error.Message);
+        }
+
+        [Fact]
+        public void Parse_rejects_malformed_version()
+        {
+            var json = ValidArguments();
+            json["__projectVersion"] = "latest";
 
             Assert.Throws<AttachArgumentException>(
                 () => AttachArguments.Parse(json));

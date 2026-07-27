@@ -188,7 +188,7 @@ describe("DebugConfigurationProvider", () => {
       configurationProvider.resolveDebugConfiguration(folder, attach),
     ).resolves.toBeUndefined();
     expect(configurationUi.showError).toHaveBeenCalledWith(
-      expect.stringContaining("outside the version 0.1.0"),
+      expect.stringContaining("outside the version 0.1.1"),
     );
   });
 });

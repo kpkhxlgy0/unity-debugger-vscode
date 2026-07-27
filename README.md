@@ -20,7 +20,7 @@ Install **Unity Debugger Pure** from one of these sources:
   Open VSX-compatible editors;
 - Cursor's Extensions view, which obtains this extension from Open VSX.
 
-For sideloading, download `unity-debugger-pure-0.1.0.vsix` from the
+For sideloading, download `unity-debugger-pure-0.1.1.vsix` from the
 [GitHub Releases page](https://github.com/kpkhxlgy0/unity-debugger-vscode/releases),
 run **Extensions: Install from VSIX...**, and select that exact file.
 
@@ -73,7 +73,7 @@ non-Windows platforms.
 
 ## Security and privacy
 
-Version `0.1.0` automatically connects only to a discovered loopback address.
+Version `0.1.1` automatically connects only to a discovered loopback address.
 It does not accept arbitrary executables or remote debug hosts from
 `launch.json`. Unity's managed debug transport has no strong authentication,
 so future remote support will require explicit opt-in.

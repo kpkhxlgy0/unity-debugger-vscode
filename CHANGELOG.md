@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Add the Unity Debugger Pure extension icon to Marketplace and Open VSX
+  packages.
+
 ## 0.1.0
 
 - Initial Windows x64 release of Unity Debugger Pure.

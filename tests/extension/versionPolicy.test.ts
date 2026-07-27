@@ -18,9 +18,13 @@ describe("classifyVersion", () => {
   );
 
   it.each(["2021.3.45f1", "2023.2.20f1"])(
-    "rejects version outside the 0.1.0 compatibility policy: %s",
+    "rejects version outside the 0.1.1 compatibility policy: %s",
     (version) => {
-      expect(classifyVersion(version).level).toBe("unsupported");
+      const result = classifyVersion(version);
+      expect(result.level).toBe("unsupported");
+      expect(result.warning).toContain(
+        "outside the version 0.1.1 compatibility policy",
+      );
     },
   );
 
