@@ -4,10 +4,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
 
-const expectedFileName = "unity-debugger-pure-0.1.0.vsix";
+const expectedFileName = "unity-debugger-pure-0.1.1.vsix";
 const expectedPublisher = "kpk";
 const expectedName = "unity-debugger-pure";
-const expectedVersion = "0.1.0";
+const expectedVersion = "0.1.1";
 
 export async function verifyReleaseArtifact({
   vsixPath,

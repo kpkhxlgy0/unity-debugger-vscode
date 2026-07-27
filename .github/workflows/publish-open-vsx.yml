@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Audited release tag, exactly v0.1.0
+        description: Audited release tag, exactly v0.1.1
         required: true
         type: string
 
@@ -34,11 +34,11 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           gh release download $env:RELEASE_TAG `
             --dir dist `
-            --pattern "unity-debugger-pure-0.1.0.vsix" `
-            --pattern "unity-debugger-pure-0.1.0.vsix.sha256"
+            --pattern "unity-debugger-pure-0.1.1.vsix" `
+            --pattern "unity-debugger-pure-0.1.1.vsix.sha256"
           node scripts/verify-release-artifact.mjs `
-            dist/unity-debugger-pure-0.1.0.vsix `
-            dist/unity-debugger-pure-0.1.0.vsix.sha256 `
+            dist/unity-debugger-pure-0.1.1.vsix `
+            dist/unity-debugger-pure-0.1.1.vsix.sha256 `
             $env:RELEASE_TAG
       - name: Confirm namespace ownership and credentials
         shell: pwsh
@@ -62,5 +62,5 @@ jobs:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           npx --no-install ovsx publish `
-            dist/unity-debugger-pure-0.1.0.vsix `
+            dist/unity-debugger-pure-0.1.1.vsix `
             -p $env:OVSX_PAT
