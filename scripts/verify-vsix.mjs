@@ -61,6 +61,7 @@ const required = [
   "extension/THIRD_PARTY_NOTICES.md",
   "extension/third-party/runtime-assemblies.json",
   "extension/package.json",
+  "extension/images/icon.png",
 ];
 for (const requiredPath of required) {
   if (!files.has(requiredPath.toLowerCase())) {
@@ -87,7 +88,8 @@ const manifest = JSON.parse(
 if (
   manifest.publisher !== "kpk" ||
   manifest.name !== "unity-debugger-pure" ||
-  manifest.displayName !== "Unity Debugger Pure"
+  manifest.displayName !== "Unity Debugger Pure" ||
+  manifest.icon !== "images/icon.png"
 ) {
   throw new Error("Packaged manifest has the wrong product identity.");
 }
@@ -198,6 +200,7 @@ function isAllowedPackagedPath(filePath) {
     "extension/security.md",
     "extension/third_party_notices.md",
     "extension/package.json",
+    "extension/images/icon.png",
     "extension/dist/extension.cjs",
     "extension/third-party/runtime-assemblies.json",
     "extension/third-party/licenses/vscode-mono-debug-mit.txt",
