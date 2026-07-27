@@ -14,5 +14,5 @@ export const PRODUCT_IDENTITY = {
   },
   adapterExecutable: "UnityDebuggerPure.exe",
   diagnosticsDirectoryName: "unity-debugger-pure",
-  vsixFileName: "unity-debugger-pure-0.1.0.vsix",
+  vsixFileName: "unity-debugger-pure-0.1.1.vsix",
 } as const;

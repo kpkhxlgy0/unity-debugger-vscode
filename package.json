@@ -1,9 +1,10 @@
 {
   "name": "unity-debugger-pure",
   "displayName": "Unity Debugger Pure",
+  "icon": "images/icon.png",
   "description": "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, without C# Dev Kit or Microsoft's Unity extension.",
   "publisher": "kpk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/kpkhxlgy0/unity-debugger-vscode.git"
