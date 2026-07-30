@@ -1,6 +1,7 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import { AdapterLauncher } from "./adapterLauncher.js";
+import { AttachRequestRegistry } from "./attachRequestRegistry.js";
 import {
   DebugConfigurationProvider,
   type ConfigurationUi,
@@ -16,14 +17,23 @@ import {
 } from "./diagnostics.js";
 import { EditorDiscovery } from "./editorDiscovery.js";
 import { PRODUCT_IDENTITY } from "./productIdentity.js";
+import {
+  UnityDebuggerPureApi,
+  VscodeDebugSessionStarter,
+} from "./publicApi.js";
+import type { UnityDebuggerPureApiV1 } from "./publicApiTypes.js";
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(
+  context: vscode.ExtensionContext,
+): UnityDebuggerPureApiV1 {
   const discovery = new EditorDiscovery();
+  const attachRequests = new AttachRequestRegistry();
   const ui = createConfigurationUi();
   const provider = new DebugConfigurationProvider(
     discovery,
     ui,
     listWorkspaceRoots,
+    attachRequests,
   );
   const launcher = new AdapterLauncher();
 
@@ -124,6 +134,13 @@ export function activate(context: vscode.ExtensionContext): void {
     openLogsRegistration,
     copyDiagnosticsRegistration,
     terminationRegistration,
+  );
+
+  return new UnityDebuggerPureApi(
+    discovery,
+    attachRequests,
+    new VscodeDebugSessionStarter(),
+    context.extension.packageJSON.version as string,
   );
 }
 

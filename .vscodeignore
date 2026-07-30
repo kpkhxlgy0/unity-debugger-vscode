@@ -1,6 +1,7 @@
 .git/**
 .gitignore
 .worktrees/**
+.superpowers/**
 .github/**
 .vscode/**
 .node-version

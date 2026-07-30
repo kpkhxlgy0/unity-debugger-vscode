@@ -10,5 +10,5 @@ extension's sanitized diagnostics command. Do not submit project source,
 expressions, raw variable values, credentials, Unity debug ports exposed to the
 public internet, or unsanitized logs.
 
-Version `0.1.1` supports loopback Editor attach only and does not provide
+Version `0.2.0` supports loopback Editor attach only and does not provide
 remote-transport authentication.

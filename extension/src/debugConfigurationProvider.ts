@@ -19,6 +19,13 @@ export interface EditorDiscoveryLike {
   ): Promise<readonly EditorCandidate[]>;
 }
 
+export interface ApiAttachRequestResolver {
+  consumeRequest(
+    requestId: string,
+    workspaceRoot: string,
+  ): EditorCandidate;
+}
+
 export class DebugConfigurationProvider {
   public constructor(
     private readonly discovery: EditorDiscoveryLike,
@@ -26,6 +33,7 @@ export class DebugConfigurationProvider {
     private readonly listWorkspaceRoots: (
       currentFolder: string,
     ) => readonly string[],
+    private readonly apiAttachRequests?: ApiAttachRequestResolver,
   ) {}
 
   public async resolveDebugConfiguration(
@@ -49,6 +57,39 @@ export class DebugConfigurationProvider {
         `${PRODUCT_IDENTITY.debugType} supports only request: attach.`,
       );
       return undefined;
+    }
+
+    const hasApiRequestId = Object.prototype.hasOwnProperty.call(
+      configuration,
+      "__apiAttachRequestId",
+    );
+    if (hasApiRequestId) {
+      const apiRequestId = configuration.__apiAttachRequestId;
+      if (typeof apiRequestId !== "string" || apiRequestId.length === 0) {
+        await this.showInvalidApiAttachRequest();
+        return undefined;
+      }
+
+      let candidate: EditorCandidate;
+      try {
+        const consumed = this.apiAttachRequests?.consumeRequest(
+          apiRequestId,
+          folder.uri.fsPath,
+        );
+        if (!consumed) {
+          throw new Error("No trusted API request resolver is active.");
+        }
+        candidate = consumed;
+      } catch {
+        await this.showInvalidApiAttachRequest();
+        return undefined;
+      }
+
+      return this.applyCandidatePolicy(
+        candidate,
+        String(configuration.name ?? PRODUCT_IDENTITY.defaultConfigurationName),
+        apiRequestId,
+      );
     }
 
     const roots = this.listWorkspaceRoots(folder.uri.fsPath);
@@ -79,24 +120,49 @@ export class DebugConfigurationProvider {
       return undefined;
     }
 
+    return this.applyCandidatePolicy(
+      candidate,
+      String(configuration.name ?? PRODUCT_IDENTITY.defaultConfigurationName),
+    );
+  }
+
+  private async applyCandidatePolicy(
+    candidate: EditorCandidate,
+    name: string,
+    apiAttachRequestId?: string,
+  ): Promise<UnityAttachConfiguration | undefined> {
     const decision = classifyVersion(candidate.projectVersion);
     if (decision.level === "unsupported") {
       await this.ui.showError(decision.warning!);
       return undefined;
     }
 
-    return {
-      name: String(
-        configuration.name ??
-          PRODUCT_IDENTITY.defaultConfigurationName,
-      ),
-      type: PRODUCT_IDENTITY.debugType,
-      request: "attach",
-      __processId: candidate.processId,
-      __host: "127.0.0.1",
-      __port: candidate.port,
-      __workspaceRoot: candidate.workspaceRoot,
-      __projectVersion: candidate.projectVersion,
-    };
+    return toAttachConfiguration(candidate, name, apiAttachRequestId);
   }
+
+  private async showInvalidApiAttachRequest(): Promise<void> {
+    await this.ui.showError(
+      "The API attach request is invalid or expired. Discover targets again.",
+    );
+  }
+}
+
+function toAttachConfiguration(
+  candidate: EditorCandidate,
+  name: string,
+  apiAttachRequestId?: string,
+): UnityAttachConfiguration {
+  return {
+    name,
+    type: PRODUCT_IDENTITY.debugType,
+    request: "attach",
+    __processId: candidate.processId,
+    __host: "127.0.0.1",
+    __port: candidate.port,
+    __workspaceRoot: candidate.workspaceRoot,
+    __projectVersion: candidate.projectVersion,
+    ...(apiAttachRequestId
+      ? { __apiAttachRequestId: apiAttachRequestId }
+      : {}),
+  };
 }

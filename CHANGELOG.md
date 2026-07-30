@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Expose a versioned local extension API for trusted local clients; public API
+  targets are opaque and local only.
+- Keep the public API isolated from normal interactive debugging.
+
 ## 0.1.1
 
 - Add the Unity Debugger Pure extension icon to Marketplace and Open VSX

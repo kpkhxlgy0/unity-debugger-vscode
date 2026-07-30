@@ -96,6 +96,146 @@ describe("DebugConfigurationProvider", () => {
     );
   });
 
+  it("consumes a trusted API request without rediscovery", async () => {
+    const consumeRequest = vi.fn(() => candidate);
+    const discover = vi.fn(async () => []);
+    const configurationProvider = new DebugConfigurationProvider(
+      { discover },
+      ui(),
+      (currentFolder) => [currentFolder],
+      { consumeRequest },
+    );
+
+    const resolved = await configurationProvider.resolveDebugConfiguration(
+      folder,
+      { ...attach, __apiAttachRequestId: "request-1" },
+    );
+
+    expect(consumeRequest).toHaveBeenCalledWith("request-1", "H:\\fixture");
+    expect(discover).not.toHaveBeenCalled();
+    expect(resolved).toMatchObject({
+      __processId: 1234,
+      __host: "127.0.0.1",
+      __port: 56234,
+      __apiAttachRequestId: "request-1",
+    });
+  });
+
+  it.each([
+    {
+      label: "supported",
+      projectVersion: "2022.3.62t11",
+      expectedVersion: "2022.3.62t11",
+      expectedError: undefined,
+    },
+    {
+      label: "compatible but unverified",
+      projectVersion: "6000.0.50f1",
+      expectedVersion: "6000.0.50f1",
+      expectedError: undefined,
+    },
+    {
+      label: "unsupported",
+      projectVersion: "2021.3.45f1",
+      expectedVersion: undefined,
+      expectedError: "outside the version 0.2.0",
+    },
+    {
+      label: "malformed",
+      projectVersion: "latest",
+      expectedVersion: undefined,
+      expectedError: "Malformed or unsupported Editor version: latest",
+    },
+  ])(
+    "applies the ordinary $label version policy to a trusted API request",
+    async ({ projectVersion, expectedVersion, expectedError }) => {
+      const trustedCandidate = { ...candidate, projectVersion };
+      const consumeRequest = vi.fn(() => trustedCandidate);
+      const discover = vi.fn(async () => [candidate]);
+      const configurationUi = ui();
+      const configurationProvider = new DebugConfigurationProvider(
+        { discover },
+        configurationUi,
+        (currentFolder) => [currentFolder],
+        { consumeRequest },
+      );
+
+      const resolved = await configurationProvider.resolveDebugConfiguration(
+        folder,
+        { ...attach, __apiAttachRequestId: "request-1" },
+      );
+
+      expect(consumeRequest).toHaveBeenCalledOnce();
+      expect(discover).not.toHaveBeenCalled();
+      if (expectedVersion) {
+        expect(resolved).toMatchObject({ __projectVersion: expectedVersion });
+        expect(configurationUi.showError).not.toHaveBeenCalled();
+      } else {
+        expect(resolved).toBeUndefined();
+        expect(configurationUi.showError).toHaveBeenCalledWith(
+          expect.stringContaining(expectedError!),
+        );
+      }
+    },
+  );
+
+  it.each([
+    ["empty string", ""],
+    ["undefined", undefined],
+    ["null", null],
+    ["number", 123],
+    ["object", { requestId: "forged" }],
+  ])(
+    "rejects a present %s API request marker without discovery or resolution",
+    async (_label, malformedRequestId) => {
+      const consumeRequest = vi.fn(() => candidate);
+      const discover = vi.fn(async () => [candidate]);
+      const configurationUi = ui();
+      const configurationProvider = new DebugConfigurationProvider(
+        { discover },
+        configurationUi,
+        (currentFolder) => [currentFolder],
+        { consumeRequest },
+      );
+
+      await expect(
+        configurationProvider.resolveDebugConfiguration(folder, {
+          ...attach,
+          __apiAttachRequestId: malformedRequestId,
+        }),
+      ).resolves.toBeUndefined();
+      expect(configurationUi.showError).toHaveBeenCalledWith(
+        "The API attach request is invalid or expired. Discover targets again.",
+      );
+      expect(discover).not.toHaveBeenCalled();
+      expect(consumeRequest).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects a forged API request instead of falling back to discovery", async () => {
+    const configurationUi = ui();
+    const configurationProvider = new DebugConfigurationProvider(
+      { discover: vi.fn(async () => [candidate]) },
+      configurationUi,
+      (currentFolder) => [currentFolder],
+      {
+        consumeRequest: () => {
+          throw new Error("expired");
+        },
+      },
+    );
+
+    await expect(
+      configurationProvider.resolveDebugConfiguration(folder, {
+        ...attach,
+        __apiAttachRequestId: "forged",
+      }),
+    ).resolves.toBeUndefined();
+    expect(configurationUi.showError).toHaveBeenCalledWith(
+      "The API attach request is invalid or expired. Discover targets again.",
+    );
+  });
+
   it("offers one refresh when no Editor is discovered", async () => {
     const configurationUi = ui();
     const discover = vi.fn(async () => []);
@@ -188,7 +328,7 @@ describe("DebugConfigurationProvider", () => {
       configurationProvider.resolveDebugConfiguration(folder, attach),
     ).resolves.toBeUndefined();
     expect(configurationUi.showError).toHaveBeenCalledWith(
-      expect.stringContaining("outside the version 0.1.1"),
+      expect.stringContaining("outside the version 0.2.0"),
     );
   });
 });

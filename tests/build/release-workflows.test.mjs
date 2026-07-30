@@ -18,7 +18,7 @@ test("only Open VSX has an automated registry publishing workflow", () => {
   assert.equal(openVsx["runs-on"], "windows-latest");
   const commands = runBodies(openVsx);
   assert.match(commands, /gh release download/);
-  assert.match(commands, /unity-debugger-pure-0\.1\.1\.vsix/);
+  assert.match(commands, /unity-debugger-pure-0\.2\.0\.vsix/);
   assert.match(commands, /verify-release-artifact\.mjs/);
   assert.doesNotMatch(commands, /npm run package/);
   assert.doesNotMatch(
