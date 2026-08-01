@@ -47,10 +47,18 @@ test("manifest defines an independent attach-only debugger", () => {
     debuggerContribution.configurationAttributes.launch,
     undefined,
   );
-  assert.equal(
-    debuggerContribution.configurationSnippets[0].body.name,
-    "Attach to Unity Debugger Pure",
+  const expectedAttachConfiguration = {
+    name: "Attach to Unity Debugger Pure",
+    type: "unity-debugger-pure",
+    request: "attach",
+  };
+  assert.deepEqual(
+    debuggerContribution.configurationSnippets[0].body,
+    expectedAttachConfiguration,
   );
+  assert.deepEqual(debuggerContribution.initialConfigurations, [
+    expectedAttachConfiguration,
+  ]);
   assert.deepEqual(
     manifest.contributes.commands.map((command) => command.command),
     [

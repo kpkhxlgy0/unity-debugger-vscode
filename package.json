@@ -96,6 +96,13 @@
               "request": "attach"
             }
           }
+        ],
+        "initialConfigurations": [
+          {
+            "name": "Attach to Unity Debugger Pure",
+            "type": "unity-debugger-pure",
+            "request": "attach"
+          }
         ]
       }
     ]

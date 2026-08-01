@@ -101,6 +101,21 @@ if (!debuggerContribution) {
     "Packaged manifest has no unity-debugger-pure debugger.",
   );
 }
+const expectedAttachConfiguration = {
+  name: "Attach to Unity Debugger Pure",
+  type: "unity-debugger-pure",
+  request: "attach",
+};
+if (
+  JSON.stringify(debuggerContribution.configurationSnippets?.[0]?.body) !==
+    JSON.stringify(expectedAttachConfiguration) ||
+  JSON.stringify(debuggerContribution.initialConfigurations) !==
+    JSON.stringify([expectedAttachConfiguration])
+) {
+  throw new Error(
+    "Packaged manifest has the wrong initial debug configuration.",
+  );
+}
 if (
   files.has(
     "extension/adapter/win32-x64/unitycommunitydebug.exe",
