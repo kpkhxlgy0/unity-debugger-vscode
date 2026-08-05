@@ -204,6 +204,61 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(10000, backend.LastSetVariableTimeoutMilliseconds);
         }
 
+        [Fact]
+        public void ExceptionInfoMatchesTheStoppedException()
+        {
+            var backend = new FakeDebuggerBackend();
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            var session = new UnityDebugSession(() => backend);
+            DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "initialize",
+                    new
+                    {
+                        linesStartAt1 = true,
+                        pathFormat = "path",
+                    }),
+                DapTestProtocol.Request(
+                    "attach",
+                    new
+                    {
+                        __processId = 1234,
+                        __host = "127.0.0.1",
+                        __port = 56234,
+                        __workspaceRoot = @"H:\fixture",
+                        __projectVersion = "2022.3.62t11",
+                    }),
+                DapTestProtocol.Request("threads", new { }));
+            backend.RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Exception,
+                    42,
+                    "Invalid state",
+                    exceptionInfo: new BackendExceptionInfo(
+                        "System.InvalidOperationException",
+                        "Invalid state",
+                        "unhandled",
+                        "at Button.Update()")));
+
+            var messages = DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "exceptionInfo",
+                    new { threadId = 1 }));
+
+            var response = DapTestProtocol.Response(messages, "exceptionInfo");
+            Assert.Equal(
+                "System.InvalidOperationException",
+                response["body"]!["exceptionId"]!.Value<string>());
+            Assert.Equal(
+                "unhandled",
+                response["body"]!["breakMode"]!.Value<string>());
+            Assert.Equal(
+                "at Button.Update()",
+                response["body"]!["details"]!["stackTrace"]!.Value<string>());
+        }
+
         private static System.Collections.Generic.IReadOnlyList<JObject>
             RunAttached(
                 FakeDebuggerBackend backend,

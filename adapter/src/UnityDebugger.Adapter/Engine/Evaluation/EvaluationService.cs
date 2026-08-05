@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityDebugger.Adapter.Backend;
+using UnityDebugger.Adapter.Engine.Breakpoints;
 using UnityDebugger.Adapter.Engine.Evaluation.Properties;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
 using UnityDebugger.Adapter.Engine.Evaluation.Values;
@@ -11,7 +12,7 @@ using UnityDebugger.Adapter.Engine.State;
 
 namespace UnityDebugger.Adapter.Engine.Evaluation
 {
-    internal sealed class EvaluationService
+    internal sealed class EvaluationService : IEngineExpressionEvaluator
     {
         private readonly SuspendedState state;
         private readonly CSharpDebugParser parser = new CSharpDebugParser();
@@ -184,6 +185,46 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                 throw new DebuggerBackendException(
                     "Set Variable failed.",
                     exception);
+            }
+        }
+
+        public EngineExpressionResult EvaluateExpression(
+            IFrameEvaluationEnvironment frame,
+            string expression,
+            int timeoutMilliseconds)
+        {
+            try
+            {
+                using (var request = CreateRequest(
+                    timeoutMilliseconds,
+                    CancellationToken.None))
+                {
+                    var parsed = parser.ParseExpression(expression);
+                    if (!parsed.CanEvaluate)
+                    {
+                        return EngineExpressionResult.Failed(
+                            parsed.Error ??
+                            "The expression could not be parsed.");
+                    }
+                    var policy = EvaluationPolicy.Explicit;
+                    var value = new ExpressionEvaluator(frame, policy)
+                        .Evaluate(parsed.Expression!, request.Token);
+                    var display = formatter.FormatAsync(
+                            value,
+                            policy,
+                            request.Token)
+                        .GetAwaiter()
+                        .GetResult();
+                    return EngineExpressionResult.Succeeded(value, display);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return EngineExpressionResult.Timeout();
+            }
+            catch (Exception exception)
+            {
+                return EngineExpressionResult.Failed(exception.Message);
             }
         }
 

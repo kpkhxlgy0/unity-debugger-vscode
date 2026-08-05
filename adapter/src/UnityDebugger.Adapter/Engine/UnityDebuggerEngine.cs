@@ -28,6 +28,7 @@ namespace UnityDebugger.Adapter.Engine
         private EvaluationService? evaluationService;
         private EngineSourceMapManager? sourceMapManager;
         private EngineBreakpointManager? engineBreakpointManager;
+        private EngineExceptionManager? engineExceptionManager;
         private int terminated;
         private bool disposed;
 
@@ -72,6 +73,8 @@ namespace UnityDebugger.Adapter.Engine
                 {
                     createdConnection.Connect();
                     var createdState = new SuspendedState();
+                    var createdEvaluationService =
+                        new EvaluationService(createdState);
                     var eventSource =
                         createdConnection.CreateEventSource();
                     var createdDispatcher =
@@ -92,18 +95,26 @@ namespace UnityDebugger.Adapter.Engine
                         createdBreakpointManager =
                             new EngineBreakpointManager(
                                 createdSourceManager,
-                                runtime);
+                                runtime,
+                                createdEvaluationService);
                         createdBreakpointManager.BreakpointChanged +=
                             OnEngineBreakpointChanged;
                     }
                     createdSourceManager.ModuleChanged +=
                         OnEngineModuleChanged;
+                    EngineExceptionManager? createdExceptionManager = null;
+                    if (createdConnection is IEngineExceptionRuntime exceptionRuntime)
+                    {
+                        createdExceptionManager =
+                            new EngineExceptionManager(exceptionRuntime);
+                    }
 
                     connection = createdConnection;
                     suspendedState = createdState;
-                    evaluationService = new EvaluationService(createdState);
+                    evaluationService = createdEvaluationService;
                     sourceMapManager = createdSourceManager;
                     engineBreakpointManager = createdBreakpointManager;
+                    engineExceptionManager = createdExceptionManager;
                     dispatcher = createdDispatcher;
                     stepRuntime = createdStepRuntime;
                     stepManager = createdStepManager;
@@ -142,6 +153,7 @@ namespace UnityDebugger.Adapter.Engine
                     sourceMapManager.ModuleChanged -= OnEngineModuleChanged;
                 sourceMapManager = null;
                 engineBreakpointManager = null;
+                engineExceptionManager = null;
                 IsAttached = false;
             }
             if (value == null)
@@ -293,8 +305,13 @@ namespace UnityDebugger.Adapter.Engine
                 threadId,
                 EngineStepDepth.Out);
 
-        public void ConfigureExceptions(ExceptionBreakMode mode) =>
-            throw MigrationIncomplete();
+        public void ConfigureExceptions(ExceptionBreakMode mode)
+        {
+            var manager = engineExceptionManager;
+            if (manager == null)
+                throw MigrationIncomplete();
+            manager.Configure(mode);
+        }
 
         public void Process(EngineEvent value)
         {
@@ -307,9 +324,7 @@ namespace UnityDebugger.Adapter.Engine
                     ProcessBreakpointEvent(value);
                     break;
                 case EngineEventKind.Exception:
-                    RaiseStopped(
-                        BackendStopReason.Exception,
-                        value.ThreadId);
+                    ProcessExceptionEvent(value);
                     break;
                 case EngineEventKind.UserBreak:
                     RaiseStopped(
@@ -365,7 +380,8 @@ namespace UnityDebugger.Adapter.Engine
         private void RaiseStopped(
             BackendStopReason reason,
             long threadId,
-            IReadOnlyList<long>? breakpointIds = null)
+            IReadOnlyList<long>? breakpointIds = null,
+            BackendExceptionInfo? exceptionInfo = null)
         {
             SuspendedState.Reset();
             Stopped?.Invoke(
@@ -374,7 +390,8 @@ namespace UnityDebugger.Adapter.Engine
                     reason,
                     threadId,
                     null,
-                    breakpointIds ?? Array.Empty<long>()));
+                    breakpointIds ?? Array.Empty<long>(),
+                    exceptionInfo));
         }
 
         private void ProcessBreakpointEvent(EngineEvent value)
@@ -384,10 +401,18 @@ namespace UnityDebugger.Adapter.Engine
                 value.Payload is BreakpointEvent breakpointEvent &&
                 breakpointEvent.Request != null)
             {
+                IFrameEvaluationEnvironment? frame = null;
+                if (connection is IMonoBreakpointEvaluationConnection evaluation)
+                {
+                    evaluation.TryGetTopFrameEvaluation(
+                        value.ThreadId,
+                        out frame);
+                }
                 var result = engineBreakpointManager.ProcessBreakpointHit(
                     new RuntimeBreakpointHit(
                         breakpointEvent.Request,
-                        breakpointEvent.Method.Locations.Count > 0));
+                        breakpointEvent.Method.Locations.Count > 0,
+                        frame));
                 if (result.Action == BreakpointHitAction.Resume)
                 {
                     RequireStepRuntime().Resume();
@@ -417,6 +442,37 @@ namespace UnityDebugger.Adapter.Engine
                 BackendStopReason.Breakpoint,
                 value.ThreadId,
                 value.Payload as IReadOnlyList<long>);
+        }
+
+        private void ProcessExceptionEvent(EngineEvent value)
+        {
+            if (
+                engineExceptionManager == null ||
+                !(value.Payload is ExceptionEvent exceptionEvent) ||
+                exceptionEvent.Request == null)
+            {
+                RaiseStopped(
+                    BackendStopReason.Exception,
+                    value.ThreadId);
+                return;
+            }
+
+            var typeName = exceptionEvent.Exception.Type.FullName;
+            var result = engineExceptionManager.Process(
+                new RuntimeExceptionHit(
+                    exceptionEvent.Request,
+                    typeName,
+                    typeName,
+                    null));
+            if (!result.ShouldStop)
+            {
+                RequireStepRuntime().Resume();
+                return;
+            }
+            RaiseStopped(
+                BackendStopReason.Exception,
+                value.ThreadId,
+                exceptionInfo: result.ExceptionInfo);
         }
 
         private void ProcessDomainUnload(object? payload)

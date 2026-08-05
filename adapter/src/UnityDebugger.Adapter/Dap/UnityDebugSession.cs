@@ -23,6 +23,8 @@ namespace UnityDebugger.Adapter.Dap
             "#support-policy";
         private readonly Func<IDebuggerBackend> backendFactory;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
+        private readonly Dictionary<long, BackendExceptionInfo> exceptions =
+            new Dictionary<long, BackendExceptionInfo>();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
         private SourceMapper? sourceMapper;
@@ -180,7 +182,23 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            SendResponse(response, new ResponseBody());
+            var request = arguments as JObject;
+            var dapThreadId = request?["threadId"]?.Value<int>() ?? 0;
+            if (
+                !threadIds.TryGetBackendId(
+                    dapThreadId,
+                    out var backendThreadId) ||
+                !exceptions.TryGetValue(
+                    backendThreadId,
+                    out var exception))
+            {
+                SendResponse(response);
+                return;
+            }
+
+            SendResponse(
+                response,
+                new DapExceptionInfoResponseBody(exception));
         }
 
         protected override void SetVariable(
@@ -697,6 +715,7 @@ namespace UnityDebugger.Adapter.Dap
         private void ReleaseBackend()
         {
             threadIds.Reset();
+            exceptions.Clear();
             if (breakpointManager != null)
             {
                 breakpointManager.Changed -=
@@ -735,6 +754,12 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
+            exceptions.Clear();
+            if (arguments.ExceptionInfo != null)
+            {
+                exceptions[arguments.ThreadId] =
+                    arguments.ExceptionInfo;
+            }
             var dapThreadId =
                 threadIds.GetOrCreate(arguments.ThreadId);
             long[]? hitBreakpointIds = null;

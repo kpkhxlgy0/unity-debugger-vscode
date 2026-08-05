@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityDebugger.Adapter.Backend;
+using UnityDebugger.Adapter.Engine.Evaluation;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
 using UnityDebugger.Adapter.Engine.Source;
 using UnityDebugger.Adapter.Engine.State;
@@ -20,15 +21,18 @@ namespace UnityDebugger.Adapter.Engine.Breakpoints
     {
         public RuntimeBreakpointHit(
             object requestIdentity,
-            bool isDebuggable)
+            bool isDebuggable,
+            IFrameEvaluationEnvironment? frame = null)
         {
             RequestIdentity = requestIdentity ??
                 throw new ArgumentNullException(nameof(requestIdentity));
             IsDebuggable = isDebuggable;
+            Frame = frame;
         }
 
         public object RequestIdentity { get; }
         public bool IsDebuggable { get; }
+        public IFrameEvaluationEnvironment? Frame { get; }
     }
 
     internal sealed class BreakpointHitResult
@@ -54,6 +58,8 @@ namespace UnityDebugger.Adapter.Engine.Breakpoints
         private readonly object sync = new object();
         private readonly EngineSourceMapManager sources;
         private readonly IEngineBreakpointRuntime runtime;
+        private readonly IEngineExpressionEvaluator? evaluator;
+        private readonly int conditionTimeoutMilliseconds;
         private readonly Dictionary<long, PendingBreakpoint> pending =
             new Dictionary<long, PendingBreakpoint>();
         private readonly Dictionary<object, BoundBreakpoint> boundByRequest =
@@ -62,12 +68,17 @@ namespace UnityDebugger.Adapter.Engine.Breakpoints
 
         public EngineBreakpointManager(
             EngineSourceMapManager sources,
-            IEngineBreakpointRuntime runtime)
+            IEngineBreakpointRuntime runtime,
+            IEngineExpressionEvaluator? evaluator = null,
+            int conditionTimeoutMilliseconds = 1000)
         {
             this.sources = sources ??
                 throw new ArgumentNullException(nameof(sources));
             this.runtime = runtime ??
                 throw new ArgumentNullException(nameof(runtime));
+            this.evaluator = evaluator;
+            this.conditionTimeoutMilliseconds =
+                conditionTimeoutMilliseconds;
         }
 
         public event EventHandler<BackendBreakpointChangedEventArgs>?
@@ -121,6 +132,16 @@ namespace UnityDebugger.Adapter.Engine.Breakpoints
                 }
 
                 bound.HitCount++;
+                var condition = EvaluateCondition(bound, value.Frame);
+                if (condition != null)
+                    return condition;
+                if (!string.IsNullOrEmpty(bound.Pending.LogMessage))
+                {
+                    return EvaluateLogPoint(
+                        bound,
+                        value.Frame,
+                        bound.Pending.LogMessage!);
+                }
                 return new BreakpointHitResult(
                     BreakpointHitAction.Stop,
                     new[] { bound.Pending.Id });
@@ -207,6 +228,87 @@ namespace UnityDebugger.Adapter.Engine.Breakpoints
                         ToBackendBreakpoint(value)));
             }
         }
+
+        private BreakpointHitResult? EvaluateCondition(
+            BoundBreakpoint bound,
+            IFrameEvaluationEnvironment? frame)
+        {
+            if (string.IsNullOrWhiteSpace(bound.Pending.Condition))
+                return null;
+            if (frame == null || evaluator == null)
+            {
+                return ConditionError(
+                    bound,
+                    "The breakpoint frame is unavailable.");
+            }
+
+            var result = evaluator.EvaluateExpression(
+                frame,
+                bound.Pending.Condition!,
+                conditionTimeoutMilliseconds);
+            if (!result.Success)
+            {
+                return ConditionError(
+                    bound,
+                    result.Error ?? "Condition evaluation failed.");
+            }
+            if (
+                result.Value!.Kind != RuntimeValueKind.Primitive ||
+                !(result.Value.Primitive is bool current))
+            {
+                return ConditionError(
+                    bound,
+                    "The breakpoint condition did not return a Boolean value.");
+            }
+
+            if (string.Equals(
+                bound.Pending.HitCondition,
+                "changed",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                var previous = bound.PreviousConditionResult;
+                bound.PreviousConditionResult = current;
+                return previous.HasValue && previous.Value != current
+                    ? null
+                    : Resume();
+            }
+
+            return current ? null : Resume();
+        }
+
+        private BreakpointHitResult EvaluateLogPoint(
+            BoundBreakpoint bound,
+            IFrameEvaluationEnvironment? frame,
+            string format)
+        {
+            if (frame == null || evaluator == null)
+            {
+                return new BreakpointHitResult(
+                    BreakpointHitAction.LogPoint,
+                    Array.Empty<long>(),
+                    "Logpoint evaluation failed: frame unavailable.\r\n");
+            }
+            var result = new LogPointEvaluator(evaluator).Evaluate(
+                format,
+                frame,
+                conditionTimeoutMilliseconds);
+            return new BreakpointHitResult(
+                BreakpointHitAction.LogPoint,
+                Array.Empty<long>(),
+                result.Success
+                    ? result.Output + "\r\n"
+                    : "Logpoint evaluation failed: " +
+                        result.Output +
+                        "\r\n");
+        }
+
+        private static BreakpointHitResult ConditionError(
+            BoundBreakpoint bound,
+            string message) =>
+            new BreakpointHitResult(
+                BreakpointHitAction.Stop,
+                new[] { bound.Pending.Id },
+                "Breakpoint condition failed: " + message + "\r\n");
 
         private void RemovePendingLocked(PendingBreakpoint value)
         {

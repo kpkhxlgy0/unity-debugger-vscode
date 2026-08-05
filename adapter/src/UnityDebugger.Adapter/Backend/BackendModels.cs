@@ -203,6 +203,26 @@ namespace UnityDebugger.Adapter.Backend
         Entry,
     }
 
+    internal sealed class BackendExceptionInfo
+    {
+        public BackendExceptionInfo(
+            string exceptionId,
+            string description,
+            string breakMode,
+            string? stackTrace)
+        {
+            ExceptionId = exceptionId;
+            Description = description;
+            BreakMode = breakMode;
+            StackTrace = stackTrace;
+        }
+
+        public string ExceptionId { get; }
+        public string Description { get; }
+        public string BreakMode { get; }
+        public string? StackTrace { get; }
+    }
+
     internal enum ExceptionBreakMode
     {
         None,
@@ -216,14 +236,16 @@ namespace UnityDebugger.Adapter.Backend
             BackendStopReason reason,
             long threadId,
             string? description,
-            long? breakpointId = null)
+            long? breakpointId = null,
+            BackendExceptionInfo? exceptionInfo = null)
             : this(
                 reason,
                 threadId,
                 description,
                 breakpointId.HasValue
                     ? new[] { breakpointId.Value }
-                    : Array.Empty<long>())
+                    : Array.Empty<long>(),
+                exceptionInfo)
         {
         }
 
@@ -231,19 +253,22 @@ namespace UnityDebugger.Adapter.Backend
             BackendStopReason reason,
             long threadId,
             string? description,
-            IReadOnlyList<long> breakpointIds)
+            IReadOnlyList<long> breakpointIds,
+            BackendExceptionInfo? exceptionInfo = null)
         {
             Reason = reason;
             ThreadId = threadId;
             Description = description;
             BreakpointIds = breakpointIds ??
                 throw new ArgumentNullException(nameof(breakpointIds));
+            ExceptionInfo = exceptionInfo;
         }
 
         public BackendStopReason Reason { get; }
         public long ThreadId { get; }
         public string? Description { get; }
         public IReadOnlyList<long> BreakpointIds { get; }
+        public BackendExceptionInfo? ExceptionInfo { get; }
     }
 
     internal sealed class BackendThreadEventArgs : EventArgs

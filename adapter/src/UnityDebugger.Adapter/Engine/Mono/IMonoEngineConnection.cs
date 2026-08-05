@@ -29,4 +29,11 @@ namespace UnityDebugger.Adapter.Engine.Mono
             out IFrameEvaluationEnvironment environment,
             out IUnityEvaluationContext? unityContext);
     }
+
+    internal interface IMonoBreakpointEvaluationConnection
+    {
+        bool TryGetTopFrameEvaluation(
+            long threadId,
+            out IFrameEvaluationEnvironment? environment);
+    }
 }
