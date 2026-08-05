@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 
 namespace UnityDebugger.Adapter.Backend
@@ -199,17 +200,33 @@ namespace UnityDebugger.Adapter.Backend
             long threadId,
             string? description,
             long? breakpointId = null)
+            : this(
+                reason,
+                threadId,
+                description,
+                breakpointId.HasValue
+                    ? new[] { breakpointId.Value }
+                    : Array.Empty<long>())
+        {
+        }
+
+        public BackendStoppedEventArgs(
+            BackendStopReason reason,
+            long threadId,
+            string? description,
+            IReadOnlyList<long> breakpointIds)
         {
             Reason = reason;
             ThreadId = threadId;
             Description = description;
-            BreakpointId = breakpointId;
+            BreakpointIds = breakpointIds ??
+                throw new ArgumentNullException(nameof(breakpointIds));
         }
 
         public BackendStopReason Reason { get; }
         public long ThreadId { get; }
         public string? Description { get; }
-        public long? BreakpointId { get; }
+        public IReadOnlyList<long> BreakpointIds { get; }
     }
 
     internal sealed class BackendThreadEventArgs : EventArgs
@@ -222,6 +239,52 @@ namespace UnityDebugger.Adapter.Backend
 
         public long ThreadId { get; }
         public bool Started { get; }
+    }
+
+    internal sealed class BackendModule
+    {
+        public BackendModule(
+            string id,
+            string name,
+            string? path,
+            bool hasSymbols)
+        {
+            Id = id;
+            Name = name;
+            Path = path;
+            HasSymbols = hasSymbols;
+        }
+
+        public string Id { get; }
+        public string Name { get; }
+        public string? Path { get; }
+        public bool HasSymbols { get; }
+    }
+
+    internal sealed class BackendModuleChangedEventArgs : EventArgs
+    {
+        public BackendModuleChangedEventArgs(
+            BackendModule module,
+            bool loaded)
+        {
+            Module = module;
+            Loaded = loaded;
+        }
+
+        public BackendModule Module { get; }
+        public bool Loaded { get; }
+    }
+
+    internal sealed class BackendOutputEventArgs : EventArgs
+    {
+        public BackendOutputEventArgs(string category, string output)
+        {
+            Category = category;
+            Output = output;
+        }
+
+        public string Category { get; }
+        public string Output { get; }
     }
 
     internal sealed class BackendBreakpointChangedEventArgs : EventArgs

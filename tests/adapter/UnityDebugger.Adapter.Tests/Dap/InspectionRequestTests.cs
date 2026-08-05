@@ -18,25 +18,46 @@ namespace UnityDebugger.Adapter.Tests.Dap
         public void Inspection_requests_return_stable_safe_dap_models()
         {
             var fixture = Fixture();
-            var messages = Run(
+            AttachAndStop(fixture);
+            var threadMessages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request("threads", new { }),
-                Request("threads", new { }),
+                Request("threads", new { }));
+            var stackMessages = Run(
+                fixture.Session,
                 Request(
                     "stackTrace",
-                    new { threadId = 1, startFrame = 0, levels = 20 }),
-                Request("scopes", new { frameId = 1 }),
-                Request("variables", new { variablesReference = 1 }),
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+            var frameId = Required<int>(
+                Response(stackMessages, "stackTrace")
+                    .SelectToken("body.stackFrames[0].id"));
+            var scopeMessages = Run(
+                fixture.Session,
+                Request("scopes", new { frameId }));
+            var scopeReference = Required<int>(
+                Response(scopeMessages, "scopes")
+                    .SelectToken("body.scopes[0].variablesReference"));
+            var variableMessages = Run(
+                fixture.Session,
+                Request(
+                    "variables",
+                    new { variablesReference = scopeReference }));
+            var evaluationMessages = Run(
+                fixture.Session,
                 Request(
                     "evaluate",
                     new
                     {
-                        frameId = 1,
+                        frameId,
                         expression = "player.Health",
                         context = "watch",
                     }));
+            var messages = threadMessages
+                .Concat(stackMessages)
+                .Concat(scopeMessages)
+                .Concat(variableMessages)
+                .Concat(evaluationMessages)
+                .ToArray();
 
             var threadResponses = Responses(messages, "threads");
             Assert.Equal(2, threadResponses.Count);
@@ -60,9 +81,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     frame.SelectToken("source.path"))),
                 ignoreCase: true);
 
-            var scopeReference = Required<int>(
-                Response(messages, "scopes")
-                    .SelectToken("body.scopes[0].variablesReference"));
             Assert.True(scopeReference > 0);
 
             var variables = (JArray)Response(messages, "variables")
@@ -95,13 +113,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Unknown_handles_return_errors_without_backend_calls()
+        public void Stale_inspection_handles_are_ignored_without_backend_calls()
         {
             var fixture = Fixture();
+            AttachAndStop(fixture);
             var messages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request(
                     "stackTrace",
                     new { threadId = 999, startFrame = 0, levels = 20 }),
@@ -110,19 +127,167 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "variables",
                     new { variablesReference = 999 }));
 
-            Assert.All(
-                new[] { "stackTrace", "scopes", "variables" },
-                command =>
-                {
-                    var response = Response(messages, command);
-                    Assert.False(Required<bool>(response["success"]));
-                    Assert.Contains(
-                        "no longer available",
-                        Required<string>(response["message"]));
-                });
+            Assert.False(Required<bool>(
+                Response(messages, "stackTrace")["success"]));
+            var scopes = Response(messages, "scopes");
+            Assert.True(Required<bool>(scopes["success"]));
+            Assert.Empty((JArray)scopes.SelectToken("body.scopes")!);
+            var variables = Response(messages, "variables");
+            Assert.True(Required<bool>(variables["success"]));
+            Assert.Empty((JArray)variables.SelectToken("body.variables")!);
             Assert.Equal(0, fixture.Backend.StackTraceCount);
             Assert.Equal(0, fixture.Backend.ScopesCount);
             Assert.Equal(0, fixture.Backend.VariablesCount);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task Variables_from_an_old_stop_are_discarded_silently()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+            Run(fixture.Session, Request("threads", new { }));
+            var stackTrace = Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+            var frameId = Required<int>(
+                Response(stackTrace, "stackTrace")
+                    .SelectToken("body.stackFrames[0].id"));
+            var scopes = Run(
+                fixture.Session,
+                Request("scopes", new { frameId }));
+            var variablesReference = Required<int>(
+                Response(scopes, "scopes")
+                    .SelectToken("body.scopes[0].variablesReference"));
+            fixture.Backend.VariablesEnteredSignal =
+                new System.Threading.ManualResetEventSlim();
+            fixture.Backend.ContinueVariablesSignal =
+                new System.Threading.ManualResetEventSlim();
+            var request = System.Threading.Tasks.Task.Run(
+                () => Run(
+                    fixture.Session,
+                    Request(
+                        "variables",
+                        new { variablesReference })));
+            try
+            {
+                Assert.True(
+                    fixture.Backend.VariablesEnteredSignal.Wait(
+                        TimeSpan.FromSeconds(1)));
+                fixture.Backend.RaiseReloadStarted();
+                fixture.Backend.RaiseReloadCompleted();
+                fixture.Backend.RaiseStopped(
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Breakpoint,
+                        42,
+                        null));
+            }
+            finally
+            {
+                fixture.Backend.ContinueVariablesSignal.Set();
+            }
+
+            var messages = await request;
+            var response = Response(messages, "variables");
+            Assert.True(Required<bool>(response["success"]));
+            Assert.Empty((JArray)response.SelectToken("body.variables")!);
+        }
+
+        [Fact]
+        public void Scopes_and_parent_variables_are_loaded_lazily()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+            Run(
+                fixture.Session,
+                Request("threads", new { }));
+            var stackTrace = Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+            var frameId = Required<int>(
+                Response(stackTrace, "stackTrace")
+                    .SelectToken("body.stackFrames[0].id"));
+
+            var scopes = Run(
+                fixture.Session,
+                Request("scopes", new { frameId }));
+
+            Assert.Equal(0, fixture.Backend.VariablesCount);
+            var localsReference = Required<int>(
+                Response(scopes, "scopes")
+                    .SelectToken("body.scopes[0].variablesReference"));
+
+            var variables = Run(
+                fixture.Session,
+                Request(
+                    "variables",
+                    new { variablesReference = localsReference }));
+
+            Assert.Equal(1, fixture.Backend.VariablesCount);
+            var playerReference = Required<int>(
+                Response(variables, "variables")
+                    .SelectToken("body.variables[1].variablesReference"));
+            Assert.True(playerReference > 0);
+            Assert.Equal(1, fixture.Backend.VariablesCount);
+
+            Run(
+                fixture.Session,
+                Request(
+                    "variables",
+                    new { variablesReference = playerReference }));
+
+            Assert.Equal(2, fixture.Backend.VariablesCount);
+        }
+
+        [Fact]
+        public async System.Threading.Tasks.Task Slow_hover_does_not_block_step_over()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+            Run(fixture.Session, Request("threads", new { }));
+            var stackTrace = Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+            var frameId = Required<int>(
+                Response(stackTrace, "stackTrace")
+                    .SelectToken("body.stackFrames[0].id"));
+            fixture.Backend.EvaluateEnteredSignal =
+                new System.Threading.ManualResetEventSlim();
+            fixture.Backend.ContinueEvaluateSignal =
+                new System.Threading.ManualResetEventSlim();
+            System.Threading.Tasks.Task<IReadOnlyList<JObject>> run =
+                System.Threading.Tasks.Task.Run(
+                    () => Run(
+                        fixture.Session,
+                        Request(
+                            "evaluate",
+                            new
+                            {
+                                frameId,
+                                expression = "slow.Getter",
+                                context = "hover",
+                            }),
+                        Request("next", new { threadId = 1 })));
+            try
+            {
+                Assert.True(
+                    System.Threading.SpinWait.SpinUntil(
+                        () => fixture.Backend.StepOverCount == 1,
+                        TimeSpan.FromMilliseconds(500)));
+            }
+            finally
+            {
+                fixture.Backend.ContinueEvaluateSignal.Set();
+            }
+
+            var messages = await run;
+            Assert.True(Required<bool>(
+                Response(messages, "next")["success"]));
         }
 
         [Fact]
@@ -139,10 +304,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     0,
                     1));
 
+            AttachAndStop(fixture);
             var messages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
@@ -176,10 +340,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var expectedMode =
                 (BackendEvaluationMode)expectedModeValue;
             var fixture = Fixture();
+            AttachAndStop(fixture);
             var messages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
@@ -203,10 +366,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
         public void Disabled_implicit_evaluation_keeps_automatic_inspection_safe()
         {
             var fixture = Fixture();
+            AttachAndStop(fixture, false);
             var messages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace, false),
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
@@ -256,10 +418,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
         public void Unknown_evaluation_context_is_rejected_without_backend_call()
         {
             var fixture = Fixture();
+            AttachAndStop(fixture);
             var messages = Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
@@ -285,37 +446,91 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Continue_and_reload_invalidate_stop_scoped_handles()
+        public void Continue_preserves_handles_until_the_next_stop()
         {
             var fixture = Fixture();
+            AttachAndStop(fixture);
             Run(
                 fixture.Session,
-                Initialize(),
-                Attach(fixture.Workspace),
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
                     new { threadId = 1, startFrame = 0, levels = 20 }));
 
+            Run(
+                fixture.Session,
+                Request("continue", new { threadId = 1 }));
             fixture.Backend.RaiseContinued();
             var afterContinue = Run(
                 fixture.Session,
                 Request("scopes", new { frameId = 1 }));
-            Assert.False(Required<bool>(
+            Assert.True(Required<bool>(
                 Response(afterContinue, "scopes")["success"]));
 
+            var scopesBeforeNextStop = fixture.Backend.ScopesCount;
+            fixture.Backend.RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Breakpoint,
+                    42,
+                    null));
+            var afterNextStop = Run(
+                fixture.Session,
+                Request("scopes", new { frameId = 1 }));
+            var response = Response(afterNextStop, "scopes");
+            Assert.True(Required<bool>(response["success"]));
+            Assert.Empty(response["body"]!["scopes"]!);
+            Assert.Equal(
+                scopesBeforeNextStop,
+                fixture.Backend.ScopesCount);
+        }
+
+        [Fact]
+        public void Inspection_requests_after_resume_are_not_dap_state_gated()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
             Run(
                 fixture.Session,
                 Request("threads", new { }),
                 Request(
                     "stackTrace",
-                    new { threadId = 1, startFrame = 0, levels = 20 }));
-            fixture.Backend.RaiseReloadStarted();
-            var afterReload = Run(
-                fixture.Session,
+                    new { threadId = 1, startFrame = 0, levels = 20 }),
                 Request("scopes", new { frameId = 1 }));
-            Assert.False(Required<bool>(
-                Response(afterReload, "scopes")["success"]));
+            var stackTraceCount = fixture.Backend.StackTraceCount;
+            var scopesCount = fixture.Backend.ScopesCount;
+            var variablesCount = fixture.Backend.VariablesCount;
+            var evaluateCount = fixture.Backend.EvaluateCount;
+
+            var messages = Run(
+                fixture.Session,
+                Request("stepIn", new { threadId = 1 }),
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }),
+                Request("scopes", new { frameId = 1 }),
+                Request("variables", new { variablesReference = 1 }),
+                Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "player.Health",
+                        context = "hover",
+                    }));
+
+            Assert.True(Required<bool>(
+                Response(messages, "stepIn")["success"]));
+            Assert.All(
+                new[] { "stackTrace", "scopes", "variables", "evaluate" },
+                command =>
+                {
+                    var response = Response(messages, command);
+                    Assert.True(Required<bool>(response["success"]));
+                });
+            Assert.True(fixture.Backend.StackTraceCount > stackTraceCount);
+            Assert.True(fixture.Backend.ScopesCount > scopesCount);
+            Assert.True(fixture.Backend.VariablesCount > variablesCount);
+            Assert.True(fixture.Backend.EvaluateCount > evaluateCount);
         }
 
         private static InspectionFixture Fixture()
@@ -430,6 +645,21 @@ namespace UnityDebugger.Adapter.Tests.Dap
             return request;
         }
 
+        private static void AttachAndStop(
+            InspectionFixture fixture,
+            bool? enableImplicitEvaluation = null)
+        {
+            Run(
+                fixture.Session,
+                Initialize(),
+                Attach(fixture.Workspace, enableImplicitEvaluation));
+            fixture.Backend.RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Breakpoint,
+                    42,
+                    null));
+        }
+
         private static JObject Request(string command, object arguments) =>
             JObject.FromObject(
                 new
@@ -469,7 +699,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             params JObject[] requests)
         {
             using (var input = new MemoryStream())
-            using (var output = new MemoryStream())
+            using (var output = new SynchronizedMemoryStream())
             {
                 foreach (var request in requests)
                 {
@@ -482,7 +712,15 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 }
                 input.Position = 0;
                 session.Start(input, output).GetAwaiter().GetResult();
-                return ParseMessages(output.ToArray());
+                Assert.True(
+                    System.Threading.SpinWait.SpinUntil(
+                        () => ParseMessages(output.Snapshot()).Count(
+                            message =>
+                                OptionalText(message["type"]) ==
+                                "response") >= requests.Length,
+                        TimeSpan.FromSeconds(10)),
+                    "Timed out waiting for asynchronous DAP responses.");
+                return ParseMessages(output.Snapshot());
             }
         }
 
@@ -545,6 +783,27 @@ namespace UnityDebugger.Adapter.Tests.Dap
             public UnityDebugSession Session { get; }
             public string Workspace { get; }
             public string SourcePath { get; }
+        }
+
+        private sealed class SynchronizedMemoryStream : MemoryStream
+        {
+            private readonly object sync = new object();
+
+            public override void Write(byte[] buffer, int offset, int count)
+            {
+                lock (sync)
+                {
+                    base.Write(buffer, offset, count);
+                }
+            }
+
+            public byte[] Snapshot()
+            {
+                lock (sync)
+                {
+                    return base.ToArray();
+                }
+            }
         }
     }
 }

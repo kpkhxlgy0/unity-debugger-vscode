@@ -24,8 +24,11 @@ namespace UnityDebugger.TestAdapter
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
         public event EventHandler? Continued;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
+        public event EventHandler<BackendModuleChangedEventArgs>?
+            ModuleChanged;
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
+        public event EventHandler<BackendOutputEventArgs>? Output;
         public event EventHandler? ReloadStarted;
         public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;

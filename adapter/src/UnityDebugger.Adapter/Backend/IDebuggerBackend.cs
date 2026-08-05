@@ -6,14 +6,11 @@ namespace UnityDebugger.Adapter.Backend
     internal interface IDebuggerBackend : IDisposable
     {
         event EventHandler<BackendStoppedEventArgs>? Stopped;
-        event EventHandler? Continued;
         event EventHandler<BackendThreadEventArgs>? ThreadChanged;
+        event EventHandler<BackendModuleChangedEventArgs>? ModuleChanged;
         event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
-        event EventHandler? ReloadStarted;
-        event EventHandler? ReloadProgress;
-        event EventHandler? ReloadCompleted;
-        event EventHandler? ReconnectFailed;
+        event EventHandler<BackendOutputEventArgs>? Output;
         event EventHandler? Terminated;
 
         bool IsAttached { get; }

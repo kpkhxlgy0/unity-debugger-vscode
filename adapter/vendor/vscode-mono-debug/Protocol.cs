@@ -136,6 +136,7 @@ namespace VSCodeDebug
 
         private int _sequenceNumber;
         private Dictionary<int, TaskCompletionSource<Response>> _pendingRequests;
+        private readonly object _sendLock = new object();
 
         private Stream _outputStream;
 
@@ -196,7 +197,7 @@ namespace VSCodeDebug
             Request request = null;
             lock (_pendingRequests)
             {
-                request = new Request(_sequenceNumber++, command, args);
+                request = new Request(NextSequenceNumber(), command, args);
 
                 // wait for response
                 _pendingRequests.Add(request.seq, tcs);
@@ -291,20 +292,31 @@ namespace VSCodeDebug
 
         protected void SendMessage(ProtocolMessage message)
         {
-            if (message.seq == 0)
+            lock (_sendLock)
             {
-                message.seq = _sequenceNumber++;
-            }
+                if (message.seq == 0)
+                {
+                    message.seq = _sequenceNumber++;
+                }
 
-            var data = ConvertToBytes(message);
-            try
-            {
-                _outputStream.Write(data, 0, data.Length);
-                _outputStream.Flush();
+                var data = ConvertToBytes(message);
+                try
+                {
+                    _outputStream.Write(data, 0, data.Length);
+                    _outputStream.Flush();
+                }
+                catch (Exception)
+                {
+                    // ignore
+                }
             }
-            catch (Exception)
+        }
+
+        private int NextSequenceNumber()
+        {
+            lock (_sendLock)
             {
-                // ignore
+                return _sequenceNumber++;
             }
         }
 

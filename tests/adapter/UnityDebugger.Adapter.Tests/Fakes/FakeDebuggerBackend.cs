@@ -12,8 +12,11 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
         public event EventHandler? Continued;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
+        public event EventHandler<BackendModuleChangedEventArgs>?
+            ModuleChanged;
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
+        public event EventHandler<BackendOutputEventArgs>? Output;
         public event EventHandler? ReloadStarted;
         public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;
@@ -49,7 +52,13 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public ManualResetEventSlim? ContinueBindSignal { get; set; }
         public ManualResetEventSlim? RemoveEnteredSignal { get; set; }
         public ManualResetEventSlim? ContinueRemoveSignal { get; set; }
+        public ManualResetEventSlim? EvaluateEnteredSignal { get; set; }
+        public ManualResetEventSlim? ContinueEvaluateSignal { get; set; }
+        public ManualResetEventSlim? VariablesEnteredSignal { get; set; }
+        public ManualResetEventSlim? ContinueVariablesSignal { get; set; }
         public Exception? AttachException { get; set; }
+        public BackendStoppedEventArgs? AttachStoppedEvent { get; set; }
+        public BackendStoppedEventArgs? StepStoppedEvent { get; set; }
         public BackendEvaluationResult EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
         public string? LastExpression { get; private set; }
@@ -84,6 +93,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             if (AttachException != null)
                 throw AttachException;
             IsAttached = true;
+            if (AttachStoppedEvent != null)
+                RaiseStopped(AttachStoppedEvent);
         }
 
         public void Disconnect()
@@ -119,6 +130,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         {
             VariablesCount++;
             LastVariablesMode = mode;
+            VariablesEnteredSignal?.Set();
+            ContinueVariablesSignal?.Wait(TimeSpan.FromSeconds(5));
             return VariablesByReference.TryGetValue(
                 variablesReference,
                 out var values)
@@ -134,6 +147,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             EvaluateCount++;
             LastExpression = expression;
             LastEvaluationMode = mode;
+            EvaluateEnteredSignal?.Set();
+            ContinueEvaluateSignal?.Wait(TimeSpan.FromSeconds(5));
             return EvaluationResult;
         }
 
@@ -213,6 +228,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 throw ControlException;
             if (RaiseContinuedSynchronously)
                 RaiseContinued();
+            if (StepStoppedEvent != null)
+                RaiseStopped(StepStoppedEvent);
         }
 
         public void StepOver(long threadId)
@@ -223,6 +240,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 throw ControlException;
             if (RaiseContinuedSynchronously)
                 RaiseContinued();
+            if (StepStoppedEvent != null)
+                RaiseStopped(StepStoppedEvent);
         }
 
         public void StepOut(long threadId)
@@ -233,6 +252,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 throw ControlException;
             if (RaiseContinuedSynchronously)
                 RaiseContinued();
+            if (StepStoppedEvent != null)
+                RaiseStopped(StepStoppedEvent);
         }
 
         public void ConfigureExceptions(ExceptionBreakMode mode)
@@ -305,5 +326,12 @@ namespace UnityDebugger.Adapter.Tests.Fakes
 
         public void RaiseThreadChanged(BackendThreadEventArgs arguments) =>
             ThreadChanged?.Invoke(this, arguments);
+
+        public void RaiseModuleChanged(
+            BackendModuleChangedEventArgs arguments) =>
+            ModuleChanged?.Invoke(this, arguments);
+
+        public void RaiseOutput(BackendOutputEventArgs arguments) =>
+            Output?.Invoke(this, arguments);
     }
 }

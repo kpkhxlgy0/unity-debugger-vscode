@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Breakpoints;
@@ -23,26 +25,41 @@ namespace UnityDebugger.Adapter.Dap
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
         private readonly HandleTable<BackendStackFrame> frameHandles =
             new HandleTable<BackendStackFrame>();
-        private readonly HandleTable<BackendVariable[]> variableHandles =
-            new HandleTable<BackendVariable[]>();
-        private readonly ExecutionState executionState =
-            new ExecutionState();
+        private readonly HandleTable<long> variableHandles =
+            new HandleTable<long>();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
         private SourceMapper? sourceMapper;
         private bool terminatedSent;
-        private bool controlResponsePending;
-        private bool awaitingContinuedEvent;
-        private bool reloadRequiresRebind;
         private BackendEvaluationMode automaticEvaluationMode =
             BackendEvaluationMode.Explicit;
-        private int activeDapThreadId;
-        private Event? bufferedControlEvent;
+        private int inspectionGeneration;
 
         public UnityDebugSession(Func<IDebuggerBackend> backendFactory)
         {
             this.backendFactory = backendFactory ??
                 throw new ArgumentNullException(nameof(backendFactory));
+        }
+
+        protected override void DispatchRequest(
+            string command,
+            dynamic arguments,
+            Response response)
+        {
+            if (
+                string.Equals(command, "scopes", StringComparison.Ordinal) ||
+                string.Equals(command, "variables", StringComparison.Ordinal) ||
+                string.Equals(command, "evaluate", StringComparison.Ordinal))
+            {
+                Task.Run(
+                    () => base.DispatchRequest(
+                        command,
+                        (object)arguments,
+                        response));
+                return;
+            }
+
+            base.DispatchRequest(command, (object)arguments, response);
         }
 
         public override void Initialize(Response response, dynamic args)
@@ -106,13 +123,12 @@ namespace UnityDebugger.Adapter.Dap
                 var createdBackend = backendFactory();
                 backend = createdBackend;
                 Subscribe(createdBackend);
-                createdBackend.Attach(target);
-                executionState.Attached();
                 breakpointManager = new BreakpointManager(createdBackend);
                 breakpointManager.Changed += OnManagedBreakpointChanged;
                 sourceMapper = new SourceMapper(
                     target.WorkspaceRoot,
                     File.Exists);
+                createdBackend.Attach(target);
                 SendResponse(response);
 
                 if (!string.Equals(
@@ -376,24 +392,12 @@ namespace UnityDebugger.Adapter.Dap
             }
             try
             {
-                executionState.RequireRunning("Pause");
-            }
-            catch (InvalidOperationException exception)
-            {
-                SendErrorResponse(response, 2032, exception.Message);
-                return;
-            }
-            try
-            {
-                BeginControlResponse();
                 value.Pause(threadId);
                 SendResponse(response);
-                EndControlResponse();
             }
             catch (Exception exception)
                 when (IsControlFailure(exception))
             {
-                CancelControlResponse();
                 SendErrorResponse(
                     response,
                     2032,
@@ -463,36 +467,49 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
+            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
             if (!frameHandles.TryGet(frameHandle, out var frame))
             {
-                SendUnavailable(response, "Stack frame");
+                SendEmptyScopes(response);
                 return;
             }
 
             try
             {
-                var scopes = new List<Scope>();
-                foreach (var scope in value.GetScopes(
+                var backendScopes = value.GetScopes(
                     frame.Id,
-                    automaticEvaluationMode))
+                    automaticEvaluationMode).ToArray();
+                if (!IsCurrentInspectionGeneration(generation))
                 {
-                    var variables = value.GetVariables(
-                        scope.VariablesReference,
-                        automaticEvaluationMode);
+                    SendEmptyScopes(response);
+                    return;
+                }
+                var scopes = new List<Scope>();
+                foreach (var scope in backendScopes)
+                {
                     scopes.Add(
                         new Scope(
                             scope.Name,
-                            variableHandles.Create(variables.ToArray()),
+                            variableHandles.Create(
+                                scope.VariablesReference),
                             scope.Expensive));
+                }
+                if (!IsCurrentInspectionGeneration(generation))
+                {
+                    SendEmptyScopes(response);
+                    return;
                 }
                 SendResponse(response, new ScopesResponseBody(scopes));
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                SendInspectionFailure(response);
+                if (IsCurrentInspectionGeneration(generation))
+                    SendInspectionFailure(response);
+                else
+                    SendEmptyScopes(response);
             }
         }
 
@@ -502,12 +519,15 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
+            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var reference =
                 request?["variablesReference"]?.Value<int>() ?? 0;
-            if (!variableHandles.TryGet(reference, out var variables))
+            if (!variableHandles.TryGet(
+                reference,
+                out var backendReference))
             {
-                SendUnavailable(response, "Variable collection");
+                SendEmptyVariables(response);
                 return;
             }
 
@@ -515,17 +535,20 @@ namespace UnityDebugger.Adapter.Dap
             {
                 const int MaximumVariables = 100;
                 var dapVariables = new List<Variable>();
+                var variables = value.GetVariables(
+                    backendReference,
+                    automaticEvaluationMode);
+                if (!IsCurrentInspectionGeneration(generation))
+                {
+                    SendEmptyVariables(response);
+                    return;
+                }
                 foreach (var variable in variables.Take(MaximumVariables))
                 {
-                    var childReference = 0;
-                    if (variable.VariablesReference > 0)
-                    {
-                        var children = value.GetVariables(
-                            variable.VariablesReference,
-                            automaticEvaluationMode);
-                        childReference = variableHandles.Create(
-                            children.ToArray());
-                    }
+                    var childReference = variable.VariablesReference > 0
+                        ? variableHandles.Create(
+                            variable.VariablesReference)
+                        : 0;
                     dapVariables.Add(
                         new Variable(
                             variable.Name,
@@ -533,7 +556,7 @@ namespace UnityDebugger.Adapter.Dap
                             variable.TypeName,
                             childReference));
                 }
-                if (variables.Length > MaximumVariables)
+                if (variables.Count > MaximumVariables)
                 {
                     dapVariables.Add(
                         new Variable(
@@ -542,6 +565,11 @@ namespace UnityDebugger.Adapter.Dap
                             "",
                             0));
                 }
+                if (!IsCurrentInspectionGeneration(generation))
+                {
+                    SendEmptyVariables(response);
+                    return;
+                }
                 SendResponse(
                     response,
                     new VariablesResponseBody(dapVariables));
@@ -549,7 +577,10 @@ namespace UnityDebugger.Adapter.Dap
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                SendInspectionFailure(response);
+                if (IsCurrentInspectionGeneration(generation))
+                    SendInspectionFailure(response);
+                else
+                    SendEmptyVariables(response);
             }
         }
 
@@ -557,14 +588,6 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            if (executionState.Status == ExecutionStatus.Reloading)
-            {
-                SendResponse(
-                    response,
-                    new ThreadsResponseBody(
-                        new List<VSCodeDebug.Thread>()));
-                return;
-            }
             if (!TryGetInspectionBackend(response, out var value))
                 return;
             try
@@ -592,6 +615,7 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
+            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var context = request?["context"]?.Value<string>();
             BackendEvaluationMode mode;
@@ -626,7 +650,7 @@ namespace UnityDebugger.Adapter.Dap
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
             if (!frameHandles.TryGet(frameHandle, out var frame))
             {
-                SendUnavailable(response, "Stack frame");
+                SendEmptyEvaluation(response);
                 return;
             }
             var expression = request?["expression"]?.Value<string>();
@@ -645,13 +669,21 @@ namespace UnityDebugger.Adapter.Dap
                     frame.Id,
                     expression!,
                     mode);
+                if (!IsCurrentInspectionGeneration(generation))
+                {
+                    SendEmptyEvaluation(response);
+                    return;
+                }
                 var childReference = 0;
                 if (result.VariablesReference > 0)
                 {
                     childReference = variableHandles.Create(
-                        value.GetVariables(
-                            result.VariablesReference,
-                            mode).ToArray());
+                        result.VariablesReference);
+                }
+                if (!IsCurrentInspectionGeneration(generation))
+                {
+                    SendEmptyEvaluation(response);
+                    return;
                 }
                 SendResponse(
                     response,
@@ -662,10 +694,17 @@ namespace UnityDebugger.Adapter.Dap
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                SendErrorResponse(
-                    response,
-                    2026,
-                    "Expression evaluation failed.");
+                if (IsCurrentInspectionGeneration(generation))
+                {
+                    SendErrorResponse(
+                        response,
+                        2026,
+                        "Expression evaluation failed.");
+                }
+                else
+                {
+                    SendEmptyEvaluation(response);
+                }
             }
         }
 
@@ -677,35 +716,24 @@ namespace UnityDebugger.Adapter.Dap
         private void Subscribe(IDebuggerBackend value)
         {
             value.Stopped += OnStopped;
-            value.Continued += OnContinued;
             value.ThreadChanged += OnThreadChanged;
-            value.BreakpointChanged += OnBreakpointChanged;
-            value.ReloadStarted += OnReloadStarted;
-            value.ReloadProgress += OnReloadProgress;
-            value.ReloadCompleted += OnReloadCompleted;
-            value.ReconnectFailed += OnReconnectFailed;
+            value.ModuleChanged += OnModuleChanged;
+            value.Output += OnOutput;
             value.Terminated += OnTerminated;
         }
 
         private void Unsubscribe(IDebuggerBackend value)
         {
             value.Stopped -= OnStopped;
-            value.Continued -= OnContinued;
             value.ThreadChanged -= OnThreadChanged;
-            value.BreakpointChanged -= OnBreakpointChanged;
-            value.ReloadStarted -= OnReloadStarted;
-            value.ReloadProgress -= OnReloadProgress;
-            value.ReloadCompleted -= OnReloadCompleted;
-            value.ReconnectFailed -= OnReconnectFailed;
+            value.ModuleChanged -= OnModuleChanged;
+            value.Output -= OnOutput;
             value.Terminated -= OnTerminated;
         }
 
         private void ReleaseBackend()
         {
             ResetInspectionState(resetThreads: true);
-            executionState.Disconnected();
-            CancelControlResponse();
-            activeDapThreadId = 0;
             if (breakpointManager != null)
             {
                 breakpointManager.Changed -=
@@ -744,56 +772,37 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
-            if (executionState.Status != ExecutionStatus.Running)
-                return;
-            executionState.Stopped();
-            awaitingContinuedEvent = false;
             ResetInspectionState(resetThreads: false);
-            activeDapThreadId =
+            var dapThreadId =
                 threadIds.GetOrCreate(arguments.ThreadId);
             long[]? hitBreakpointIds = null;
             if (
                 arguments.Reason == BackendStopReason.Breakpoint &&
-                arguments.BreakpointId.HasValue &&
-                breakpointManager != null &&
-                breakpointManager.TryGetLogicalId(
-                    arguments.BreakpointId.Value,
-                    out var logicalId))
+                arguments.BreakpointIds.Count > 0 &&
+                breakpointManager != null)
             {
-                hitBreakpointIds = new[] { logicalId };
+                var logicalIds = new List<long>();
+                foreach (var breakpointId in arguments.BreakpointIds)
+                {
+                    if (
+                        breakpointManager.TryGetLogicalId(
+                            breakpointId,
+                            out var logicalId))
+                    {
+                        logicalIds.Add(logicalId);
+                    }
+                }
+                if (logicalIds.Count > 0)
+                    hitBreakpointIds = logicalIds.Distinct().ToArray();
             }
-            SendOrBufferControlEvent(
+            SendEvent(
                 new Event(
                     "stopped",
                     new DapStoppedEventBody(
-                        activeDapThreadId,
+                        dapThreadId,
                         ToDapStopReason(arguments.Reason),
                         arguments.Description,
                         hitBreakpointIds)));
-        }
-
-        private void OnContinued(object sender, EventArgs arguments)
-        {
-            ResetInspectionState(resetThreads: false);
-            if (executionState.Status == ExecutionStatus.Stopped)
-            {
-                executionState.Continued();
-            }
-            else if (
-                executionState.Status != ExecutionStatus.Running ||
-                !awaitingContinuedEvent)
-            {
-                return;
-            }
-            awaitingContinuedEvent = false;
-            SendOrBufferControlEvent(
-                new Event(
-                    "continued",
-                    new
-                    {
-                        threadId = activeDapThreadId,
-                        allThreadsContinued = true,
-                    }));
         }
 
         private void OnThreadChanged(
@@ -814,10 +823,37 @@ namespace UnityDebugger.Adapter.Dap
             threadIds.Remove(arguments.ThreadId);
         }
 
-        private void OnBreakpointChanged(
+        private void OnModuleChanged(
             object sender,
-            BackendBreakpointChangedEventArgs arguments)
+            BackendModuleChangedEventArgs arguments)
         {
+            var module = arguments.Module;
+            SendEvent(
+                new Event(
+                    "module",
+                    new
+                    {
+                        reason = arguments.Loaded ? "new" : "removed",
+                        module = new
+                        {
+                            id = module.Id,
+                            name = module.Name,
+                            path = module.Path,
+                            symbolStatus = module.HasSymbols
+                                ? "Symbols loaded."
+                                : "Symbols not loaded.",
+                        },
+                    }));
+        }
+
+        private void OnOutput(
+            object sender,
+            BackendOutputEventArgs arguments)
+        {
+            SendEvent(
+                new OutputEvent(
+                    arguments.Category,
+                    arguments.Output));
         }
 
         private void OnManagedBreakpointChanged(
@@ -856,93 +892,10 @@ namespace UnityDebugger.Adapter.Dap
                 item.Line,
                 1);
 
-        private void OnReloadStarted(object sender, EventArgs arguments)
-        {
-            bool wasStopped;
-            try
-            {
-                wasStopped = executionState.ReloadStarted();
-            }
-            catch (InvalidOperationException)
-            {
-                return;
-            }
-            reloadRequiresRebind =
-                sender is IDebuggerBackend value &&
-                !value.IsAttached;
-            awaitingContinuedEvent = false;
-            ResetInspectionState(resetThreads: true);
-            if (wasStopped)
-            {
-                SendEvent(
-                    new Event(
-                        "continued",
-                        new
-                        {
-                            threadId = activeDapThreadId,
-                            allThreadsContinued = true,
-                        }));
-            }
-            breakpointManager?.BeginReload(
-                preserveVerified: !reloadRequiresRebind,
-                "Waiting for assemblies after Domain Reload.");
-            SendEvent(
-                new OutputEvent(
-                    "console",
-                    "Domain Reload detected; waiting for assemblies." +
-                    Environment.NewLine));
-        }
-
-        private void OnReloadProgress(
-            object sender,
-            EventArgs arguments)
-        {
-            if (executionState.Status != ExecutionStatus.Reloading)
-                return;
-        }
-
-        private void OnReloadCompleted(object sender, EventArgs arguments)
-        {
-            if (!executionState.ReloadCompleted())
-                return;
-            var reboundBindings = reloadRequiresRebind;
-            if (reboundBindings)
-                breakpointManager?.RebindAll();
-            breakpointManager?.CompleteReload();
-            reloadRequiresRebind = false;
-            var verified = breakpointManager?.VerifiedCount ?? 0;
-            var pending = breakpointManager?.PendingCount ?? 0;
-            InternalDebuggerLog.Write(
-                pending == 0 && verified > 0
-                    ? "unity-debugger.reload.complete.bound"
-                    : "unity-debugger.reload.complete.pending");
-            SendEvent(
-                new OutputEvent(
-                    "console",
-                    $"Domain Reload complete; {verified} " +
-                    (reboundBindings ? "rebound" : "verified") +
-                    ", " +
-                    $"{pending} pending." +
-                    Environment.NewLine));
-        }
-
         private void OnTerminated(object sender, EventArgs arguments)
         {
             ReleaseBackend();
             SendTerminatedOnce();
-        }
-
-        private void OnReconnectFailed(
-            object sender,
-            EventArgs arguments)
-        {
-            SendEvent(
-                new OutputEvent(
-                    "console",
-                    "Lost connection to the local Editor and could not " +
-                    "reconnect within 10 seconds. Check Code " +
-                    "Optimization and the local firewall." +
-                    Environment.NewLine));
         }
 
         private bool TryGetBackend(
@@ -961,18 +914,8 @@ namespace UnityDebugger.Adapter.Dap
 
         private bool TryGetInspectionBackend(
             Response response,
-            out IDebuggerBackend value)
-        {
-            if (!TryGetBackend(response, out value))
-                return false;
-            if (executionState.Status != ExecutionStatus.Reloading)
-                return true;
-            SendErrorResponse(
-                response,
-                2027,
-                "Managed inspection is unavailable during Domain Reload.");
-            return false;
-        }
+            out IDebuggerBackend value) =>
+            TryGetBackend(response, out value);
 
         private static bool IsInspectionFailure(Exception exception) =>
             exception is InvalidOperationException ||
@@ -1007,11 +950,30 @@ namespace UnityDebugger.Adapter.Dap
 
         private void ResetInspectionState(bool resetThreads)
         {
+            Interlocked.Increment(ref inspectionGeneration);
             frameHandles.Reset();
             variableHandles.Reset();
             if (resetThreads)
                 threadIds.Reset();
         }
+
+        private bool IsCurrentInspectionGeneration(int generation) =>
+            Volatile.Read(ref inspectionGeneration) == generation;
+
+        private void SendEmptyScopes(Response response) =>
+            SendResponse(
+                response,
+                new ScopesResponseBody(new List<Scope>()));
+
+        private void SendEmptyVariables(Response response) =>
+            SendResponse(
+                response,
+                new VariablesResponseBody(new List<Variable>()));
+
+        private void SendEmptyEvaluation(Response response) =>
+            SendResponse(
+                response,
+                new EvaluateResponseBody(string.Empty, 0));
 
         private bool TryGetDapThreadId(
             long backendThreadId,
@@ -1053,32 +1015,12 @@ namespace UnityDebugger.Adapter.Dap
             }
             try
             {
-                executionState.RequireStopped(operation);
-            }
-            catch (InvalidOperationException exception)
-            {
-                SendErrorResponse(response, 2033, exception.Message);
-                return;
-            }
-            try
-            {
-                threadIds.TryGetDapId(
-                    threadId,
-                    out activeDapThreadId);
-                executionState.Continued();
-                awaitingContinuedEvent = true;
-                BeginControlResponse();
                 action(value, threadId);
                 SendResponse(response, body);
-                EndControlResponse();
             }
             catch (Exception exception)
                 when (IsControlFailure(exception))
             {
-                CancelControlResponse();
-                awaitingContinuedEvent = false;
-                if (executionState.Status == ExecutionStatus.Running)
-                    executionState.Stopped();
                 SendErrorResponse(
                     response,
                     2033,
@@ -1108,36 +1050,5 @@ namespace UnityDebugger.Adapter.Dap
         private static bool IsControlFailure(Exception exception) =>
             exception is InvalidOperationException ||
             exception is DebuggerBackendException;
-
-        private void BeginControlResponse()
-        {
-            controlResponsePending = true;
-            bufferedControlEvent = null;
-        }
-
-        private void EndControlResponse()
-        {
-            controlResponsePending = false;
-            var value = bufferedControlEvent;
-            bufferedControlEvent = null;
-            if (value != null)
-                SendEvent(value);
-        }
-
-        private void CancelControlResponse()
-        {
-            controlResponsePending = false;
-            bufferedControlEvent = null;
-        }
-
-        private void SendOrBufferControlEvent(Event value)
-        {
-            if (controlResponsePending)
-            {
-                bufferedControlEvent = value;
-                return;
-            }
-            SendEvent(value);
-        }
     }
 }

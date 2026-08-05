@@ -64,7 +64,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Step_while_running_fails_without_calling_backend()
+        public void Step_request_is_forwarded_without_dap_running_state()
         {
             var backend = new FakeDebuggerBackend();
             var session = AttachedSession(backend);
@@ -76,16 +76,42 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     new { threadId = 1 }));
 
             var response = DapTestProtocol.Response(messages, "next");
-            Assert.False(DapTestProtocol.Required<bool>(
+            Assert.True(DapTestProtocol.Required<bool>(
                 response["success"]));
-            Assert.Contains(
-                "requires a stopped target",
-                DapTestProtocol.Required<string>(response["message"]));
-            Assert.Equal(0, backend.StepOverCount);
+            Assert.Equal(1, backend.StepOverCount);
         }
 
         [Fact]
-        public void Synchronous_continued_event_is_sent_after_response()
+        public void Duplicate_step_requests_are_both_forwarded()
+        {
+            var backend = new FakeDebuggerBackend();
+            var session = AttachedSession(backend);
+            backend.RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Breakpoint,
+                    42,
+                    null));
+
+            var messages = DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "next",
+                    new { threadId = 1 }),
+                DapTestProtocol.Request(
+                    "next",
+                    new { threadId = 1 }));
+
+            var responses = DapTestProtocol.Responses(messages, "next");
+            Assert.Equal(2, responses.Count);
+            Assert.All(
+                responses,
+                item => Assert.True(
+                    DapTestProtocol.Required<bool>(item["success"])));
+            Assert.Equal(2, backend.StepOverCount);
+        }
+
+        [Fact]
+        public void Synchronous_backend_continued_event_is_not_forwarded()
         {
             var backend = new FakeDebuggerBackend
             {
@@ -104,31 +130,136 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "continue",
                     new { threadId = 1 }));
 
-            var responseIndex = messages
-                .Select((message, index) => new { message, index })
-                .Single(
-                    item =>
-                        item.message["type"]?.Value<string>() ==
-                            "response" &&
-                        item.message["command"]?.Value<string>() ==
-                            "continue")
-                .index;
-            var eventIndex = messages
-                .Select((message, index) => new { message, index })
-                .Single(
-                    item =>
-                        item.message["event"]?.Value<string>() ==
-                            "continued")
-                .index;
-            Assert.True(responseIndex < eventIndex);
-            Assert.Equal(
-                1,
-                DapTestProtocol.Required<int>(
-                    messages[eventIndex].SelectToken("body.threadId")));
+            Assert.True(DapTestProtocol.Required<bool>(
+                DapTestProtocol.Response(
+                    messages,
+                    "continue")["success"]));
+            Assert.Empty(DapTestProtocol.Events(messages, "continued"));
         }
 
         [Fact]
-        public void Duplicate_backend_events_are_suppressed()
+        public void Late_continued_event_does_not_overwrite_new_step_stop()
+        {
+            var backend = new FakeDebuggerBackend();
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            backend.Frames.Add(
+                new BackendStackFrame(
+                    3001,
+                    42,
+                    "Player.Update()",
+                    @"H:\fixture\Assets\Player.cs",
+                    12,
+                    1));
+            var session = new UnityDebugSession(() => backend);
+            using (var recorder = new DapTestProtocol.Recorder(session))
+            {
+                recorder.Send(
+                    DapTestProtocol.Request(
+                        "initialize",
+                        new
+                        {
+                            linesStartAt1 = true,
+                            pathFormat = "path",
+                        }),
+                    DapTestProtocol.Request(
+                        "attach",
+                        new
+                        {
+                            __processId = 1234,
+                            __host = "127.0.0.1",
+                            __port = 56234,
+                            __workspaceRoot = @"H:\fixture",
+                            __projectVersion = "2022.3.62t11",
+                        }),
+                    DapTestProtocol.Request("threads", new { }));
+                backend.RaiseStopped(
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Breakpoint,
+                        42,
+                        null));
+                recorder.Capture();
+                recorder.Send(
+                    DapTestProtocol.Request(
+                        "next",
+                        new { threadId = 1 }));
+                backend.RaiseStopped(
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Step,
+                        42,
+                        null));
+                Assert.Single(
+                    recorder.Capture(),
+                    item => item["event"]?.Value<string>() == "stopped");
+
+                backend.RaiseContinued();
+                Assert.DoesNotContain(
+                    recorder.Capture(),
+                    item => item["event"]?.Value<string>() == "continued");
+                var inspected = recorder.Send(
+                    DapTestProtocol.Request(
+                        "stackTrace",
+                        new
+                        {
+                            threadId = 1,
+                            startFrame = 0,
+                            levels = 20,
+                        }));
+
+                Assert.True(DapTestProtocol.Required<bool>(
+                    DapTestProtocol.Response(
+                        inspected,
+                        "stackTrace")["success"]));
+            }
+        }
+
+        [Fact]
+        public void Stop_arriving_during_attach_is_forwarded()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                AttachStoppedEvent = new BackendStoppedEventArgs(
+                    BackendStopReason.Breakpoint,
+                    42,
+                    null),
+            };
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            var session = new UnityDebugSession(() => backend);
+
+            var messages = DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "initialize",
+                    new
+                    {
+                        linesStartAt1 = true,
+                        pathFormat = "path",
+                    }),
+                DapTestProtocol.Request(
+                    "attach",
+                    new
+                    {
+                        __processId = 1234,
+                        __host = "127.0.0.1",
+                        __port = 56234,
+                        __workspaceRoot = @"H:\fixture",
+                        __projectVersion = "2022.3.62t11",
+                    }));
+
+            var stopped = Assert.Single(
+                messages,
+                item => item["event"]?.Value<string>() == "stopped");
+            Assert.Equal(
+                "breakpoint",
+                DapTestProtocol.Required<string>(
+                    stopped.SelectToken("body.reason")));
+            Assert.Equal(
+                1,
+                DapTestProtocol.Required<int>(
+                    stopped.SelectToken("body.threadId")));
+        }
+
+        [Fact]
+        public void Duplicate_backend_stops_are_forwarded()
         {
             var backend = new FakeDebuggerBackend
             {
@@ -141,10 +272,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "pause",
                     new { threadId = 1 }));
 
-            Assert.Single(
-                messages,
-                item =>
-                    item["event"]?.Value<string>() == "stopped");
+            Assert.Equal(
+                2,
+                DapTestProtocol.Events(messages, "stopped").Count);
         }
 
         [Fact]
@@ -296,7 +426,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Pause_while_stopped_fails_without_backend_call()
+        public void Pause_while_stopped_is_forwarded_without_dap_state_gate()
         {
             var backend = new FakeDebuggerBackend();
             var session = AttachedSession(backend);
@@ -312,9 +442,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "pause",
                     new { threadId = 1 }));
 
-            Assert.False(DapTestProtocol.Required<bool>(
+            Assert.True(DapTestProtocol.Required<bool>(
                 DapTestProtocol.Response(messages, "pause")["success"]));
-            Assert.Equal(0, backend.PauseCount);
+            Assert.Equal(1, backend.PauseCount);
         }
 
         private static UnityDebugSession AttachedSession(

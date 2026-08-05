@@ -34,6 +34,15 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     item["command"]?.Value<string>() == command)
                 .ToArray();
 
+        public static IReadOnlyList<JObject> Events(
+            IReadOnlyList<JObject> messages,
+            string eventName) =>
+            messages.Where(
+                item =>
+                    item["type"]?.Value<string>() == "event" &&
+                    item["event"]?.Value<string>() == eventName)
+                .ToArray();
+
         public static T Required<T>(JToken? token)
         {
             if (token == null)

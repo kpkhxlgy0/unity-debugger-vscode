@@ -7,34 +7,44 @@ namespace UnityDebugger.Adapter.State
     {
         private readonly Dictionary<int, T> values =
             new Dictionary<int, T>();
+        private readonly object sync = new object();
         private int next = 1;
 
         public int Create(T value)
         {
-            if (next == int.MaxValue)
-                throw new InvalidOperationException(
-                    "DAP handle space is exhausted.");
-            var handle = next++;
-            values.Add(handle, value);
-            return handle;
+            lock (sync)
+            {
+                if (next == int.MaxValue)
+                    throw new InvalidOperationException(
+                        "DAP handle space is exhausted.");
+                var handle = next++;
+                values.Add(handle, value);
+                return handle;
+            }
         }
 
         public bool TryGet(int handle, out T value)
         {
-            if (values.TryGetValue(handle, out var found))
+            lock (sync)
             {
-                value = found;
-                return true;
-            }
+                if (values.TryGetValue(handle, out var found))
+                {
+                    value = found;
+                    return true;
+                }
 
-            value = default!;
-            return false;
+                value = default!;
+                return false;
+            }
         }
 
         public void Reset()
         {
-            values.Clear();
-            next = 1;
+            lock (sync)
+            {
+                values.Clear();
+                next = 1;
+            }
         }
     }
 }

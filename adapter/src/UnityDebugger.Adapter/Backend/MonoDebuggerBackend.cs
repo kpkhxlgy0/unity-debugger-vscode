@@ -69,8 +69,15 @@ namespace UnityDebugger.Adapter.Backend
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
         public event EventHandler? Continued;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
+#pragma warning disable CS0067
+        public event EventHandler<BackendModuleChangedEventArgs>?
+            ModuleChanged;
+#pragma warning restore CS0067
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
+#pragma warning disable CS0067
+        public event EventHandler<BackendOutputEventArgs>? Output;
+#pragma warning restore CS0067
         public event EventHandler? ReloadStarted;
         public event EventHandler? ReloadProgress;
         public event EventHandler? ReloadCompleted;
