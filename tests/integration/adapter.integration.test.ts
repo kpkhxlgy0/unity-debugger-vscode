@@ -108,7 +108,7 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("preserves a logical breakpoint id across backend status changes", async () => {
+  it("preserves a logical breakpoint id across a domain reload rebind", async () => {
     const client = await start("reload");
     await initialize(client);
     await attach(client);

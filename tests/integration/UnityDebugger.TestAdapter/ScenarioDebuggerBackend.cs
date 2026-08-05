@@ -201,24 +201,14 @@ namespace UnityDebugger.TestAdapter
                 if (scenario == "reload")
                 {
                     Schedule(
-                        () => ReloadStarted?.Invoke(
-                            this,
-                            EventArgs.Empty),
-                        30);
-                    Schedule(
                         () => BreakpointChanged?.Invoke(
                             this,
                             new BackendBreakpointChangedEventArgs(
                                 new BackendBoundBreakpoint(
                                     id,
-                                    false,
+                                    true,
                                     breakpoint.Line,
-                                    "Symbols are not loaded."))),
-                        70);
-                    Schedule(
-                        () => ReloadCompleted?.Invoke(
-                            this,
-                            EventArgs.Empty),
+                                    null))),
                         100);
                     ScheduleBreakpointStop(id, 130);
                 }
