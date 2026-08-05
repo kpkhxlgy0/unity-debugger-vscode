@@ -8,6 +8,61 @@ using Xunit.Sdk;
 
 namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
 {
+    internal sealed class FakeRuntimeType : IRuntimeType
+    {
+        private readonly Dictionary<string, object> enumConstants =
+            new Dictionary<string, object>();
+
+        public FakeRuntimeType(string name, string? fullName = null)
+        {
+            Name = name;
+            FullName = fullName ?? name;
+        }
+
+        public string Name { get; }
+        public string FullName { get; }
+        public bool IsEnum { get; private set; }
+        public bool IsPrimitive { get; set; }
+        public bool IsValueType { get; set; }
+        public bool IsArray { get; set; }
+        public IRuntimeType? BaseType { get; set; }
+        public IReadOnlyList<RuntimeField> Fields { get; set; } =
+            Array.Empty<RuntimeField>();
+        public IReadOnlyList<RuntimeProperty> Properties { get; set; } =
+            Array.Empty<RuntimeProperty>();
+        public IReadOnlyList<RuntimeMethod> Methods { get; set; } =
+            Array.Empty<RuntimeMethod>();
+        public IReadOnlyDictionary<string, object> EnumConstants =>
+            enumConstants;
+
+        public static FakeRuntimeType Enum(
+            string name,
+            params (string Name, object Value)[] constants)
+        {
+            var type = new FakeRuntimeType(name)
+            {
+                IsEnum = true,
+                IsValueType = true,
+            };
+            foreach (var constant in constants)
+                type.enumConstants.Add(constant.Name, constant.Value);
+            return type;
+        }
+
+        public FakeRuntimeValue EnumValue(string name)
+        {
+            if (!enumConstants.TryGetValue(name, out var value))
+                throw new XunitException($"Unknown fake enum constant '{name}'.");
+            return new FakeRuntimeValue()
+                .WithKind(RuntimeValueKind.Enum)
+                .WithType(this)
+                .WithPrimitive(value);
+        }
+
+        public bool IsAssignableFrom(IRuntimeType candidate) =>
+            ReferenceEquals(this, candidate) || FullName == candidate.FullName;
+    }
+
     internal sealed class FakeRuntimeValue : IRuntimeValue
     {
         private RuntimeValueKind? kind;
