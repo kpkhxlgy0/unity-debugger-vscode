@@ -28,13 +28,6 @@ const sourceOrigins = new Map([
   ["UnityDebuggerPure.exe", ["project", "MIT"]],
   ["VSCodeDebug.dll", ["source-built:vscode-mono-debug", "MIT"]],
   ["Mono.Debugger.Soft.dll", ["source-built:debugger-libs", "MIT"]],
-  ["Mono.Debugging.dll", ["source-built:debugger-libs", "MIT"]],
-  ["Mono.Debugging.Soft.dll", ["source-built:debugger-libs", "MIT"]],
-  ["ICSharpCode.NRefactory.dll", ["source-built:nrefactory", "MIT"]],
-  [
-    "ICSharpCode.NRefactory.CSharp.dll",
-    ["source-built:nrefactory", "MIT"],
-  ],
 ]);
 const packageAssemblies = new Map([
   ["Microsoft.CodeAnalysis.dll", "Microsoft.CodeAnalysis.Common"],
@@ -43,11 +36,19 @@ const packageAssemblies = new Map([
     "Microsoft.CodeAnalysis.CSharp",
   ],
   ["Mono.Cecil.dll", "Mono.Cecil"],
-  ["Mono.Posix.dll", "Mono.Posix-4.5"],
+  ["Mono.Cecil.Mdb.dll", "Mono.Cecil"],
+  ["Mono.Cecil.Pdb.dll", "Mono.Cecil"],
+  ["Mono.Cecil.Rocks.dll", "Mono.Cecil"],
   ["Newtonsoft.Json.dll", "Newtonsoft.Json"],
   ["System.Buffers.dll", "System.Buffers"],
   ["System.Collections.Immutable.dll", "System.Collections.Immutable"],
+  ["System.Memory.dll", "System.Memory"],
+  ["System.Numerics.Vectors.dll", "System.Numerics.Vectors"],
   ["System.Reflection.Metadata.dll", "System.Reflection.Metadata"],
+  [
+    "System.Runtime.CompilerServices.Unsafe.dll",
+    "System.Runtime.CompilerServices.Unsafe",
+  ],
   ["System.Text.Encoding.CodePages.dll", "System.Text.Encoding.CodePages"],
   [
     "System.Threading.Tasks.Extensions.dll",
@@ -55,7 +56,12 @@ const packageAssemblies = new Map([
   ],
 ]);
 const packageVersions = await readPackageVersions(
-  path.join(repositoryRoot, "adapter"),
+  path.join(
+    repositoryRoot,
+    "adapter",
+    "src",
+    "UnityDebugger.Adapter",
+  ),
 );
 
 const names = (await fs.readdir(stagingDirectory))

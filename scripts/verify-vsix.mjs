@@ -54,6 +54,7 @@ for (const entry of archive.getEntries()) {
 const required = [
   "extension/dist/extension.cjs",
   "extension/adapter/win32-x64/UnityDebuggerPure.exe",
+  "extension/adapter/win32-x64/build-info.json",
   "extension/LICENSE.txt",
   "extension/README.md",
   "extension/CHANGELOG.md",
@@ -88,10 +89,24 @@ const manifest = JSON.parse(
 if (
   manifest.publisher !== "kpk" ||
   manifest.name !== "unity-debugger-pure" ||
+  manifest.version !== "0.3.0" ||
   manifest.displayName !== "Unity Debugger Pure" ||
   manifest.icon !== "images/icon.png"
 ) {
   throw new Error("Packaged manifest has the wrong product identity.");
+}
+const buildInfo = JSON.parse(
+  files
+    .get("extension/adapter/win32-x64/build-info.json")
+    .bytes.toString("utf8"),
+);
+if (
+  buildInfo.version !== "0.3.0" ||
+  !/^[0-9a-f]{40}$/.test(buildInfo.commit) ||
+  !/^0\.3\.0\+g[0-9a-f]{12}$/.test(buildInfo.buildId) ||
+  buildInfo.buildId !== `0.3.0+g${buildInfo.commit.slice(0, 12)}`
+) {
+  throw new Error("Packaged build identity is invalid.");
 }
 const debuggerContribution = manifest.contributes?.debuggers?.find(
   (entry) => entry.type === "unity-debugger-pure",
@@ -250,6 +265,7 @@ function isAllowedPackagedPath(filePath) {
   }
   return (
     filePath.startsWith("extension/adapter/win32-x64/") &&
-    /\.(?:dll|exe|config)$/i.test(filePath)
+    (/\.(?:dll|exe|config)$/i.test(filePath) ||
+      filePath === "extension/adapter/win32-x64/build-info.json")
   );
 }

@@ -23,6 +23,7 @@ namespace UnityDebugger.Adapter.Diagnostics
                 new[]
                 {
                     "adapterVersion",
+                    "buildId",
                     "event",
                     "processId",
                     "host",

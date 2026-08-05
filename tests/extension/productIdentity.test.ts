@@ -12,7 +12,7 @@ describe("PRODUCT_IDENTITY", () => {
     expect(PRODUCT_IDENTITY.displayName).toBe(manifest.displayName);
     expect(PRODUCT_IDENTITY.description).toBe(manifest.description);
     expect(PRODUCT_IDENTITY.vsixFileName).toBe(
-      "unity-debugger-pure-0.2.0.vsix",
+      "unity-debugger-pure-0.3.0.vsix",
     );
     expect(PRODUCT_IDENTITY.debugType).toBe(contribution.type);
     expect(PRODUCT_IDENTITY.defaultConfigurationName).toBe(

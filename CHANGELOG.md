@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.0
+
+- Replace the MonoDevelop debugger backend with a direct Mono soft-debugger
+  engine aligned to the installed Unity debugger's stop, step, breakpoint,
+  exception, and evaluation behavior.
+- Preserve pending breakpoints across Unity Domain Reload and report the first
+  stopped location correctly to Cursor.
+- Enable implicit Getter and `ToString()` evaluation by default for Hover,
+  Locals, and variable expansion, with workspace and user settings support.
+- Add a packaged build identity to diagnostics and remove obsolete
+  Mono.Debugging and NRefactory runtime dependencies.
+
 ## 0.2.0
 
 - Expose a versioned local extension API for trusted local clients; public API

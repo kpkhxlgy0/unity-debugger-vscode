@@ -12,7 +12,7 @@ test("manifest defines an independent attach-only debugger", () => {
     "Pure managed C# debugging for local Unity 2022 and Tuanjie Editors, " +
       "without C# Dev Kit or Microsoft's Unity extension.",
   );
-  assert.equal(manifest.version, "0.2.0");
+  assert.equal(manifest.version, "0.3.0");
   assert.equal(manifest.engines.vscode, "^1.95.0");
   assert.equal(manifest.icon, "images/icon.png");
 

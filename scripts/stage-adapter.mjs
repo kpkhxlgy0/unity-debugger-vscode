@@ -1,6 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
+const version = "0.3.0";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -58,8 +61,26 @@ for (const name of selected) {
     path.join(stagingDirectory, name),
   );
 }
+const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+  cwd: repositoryRoot,
+  encoding: "utf8",
+  windowsHide: true,
+}).trim();
+if (!/^[0-9a-f]{40}$/.test(commit)) {
+  throw new Error("Git HEAD is not a 40-character lowercase commit ID.");
+}
+const buildInfo = {
+  version,
+  commit,
+  buildId: `${version}+g${commit.slice(0, 12)}`,
+};
+await fs.writeFile(
+  path.join(stagingDirectory, "build-info.json"),
+  `${JSON.stringify(buildInfo, null, 2)}\n`,
+  "utf8",
+);
 
 console.log(
   `Staged ${selected.length} production Adapter files in ` +
-    "adapter/win32-x64.",
+    `adapter/win32-x64 (${buildInfo.buildId}).`,
 );

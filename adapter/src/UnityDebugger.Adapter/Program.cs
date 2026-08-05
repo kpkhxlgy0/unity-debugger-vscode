@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reflection;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Diagnostics;
@@ -19,16 +18,15 @@ namespace UnityDebugger.Adapter
             try
             {
                 log = DiagnosticLog.CreateDefault();
+                var buildId = BuildIdentity.ReadFromDirectory(
+                    AppContext.BaseDirectory);
                 SafeWrite(
                     log,
                     "adapter.start",
                     new Dictionary<string, object>
                     {
-                        ["adapterVersion"] =
-                            Assembly.GetExecutingAssembly()
-                                .GetName()
-                                .Version?
-                                .ToString() ?? "0.0.0.0",
+                        ["adapterVersion"] = BuildIdentity.Version,
+                        ["buildId"] = buildId,
                         ["processId"] =
                             Process.GetCurrentProcess().Id,
                     });

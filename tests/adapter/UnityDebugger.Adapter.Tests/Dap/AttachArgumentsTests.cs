@@ -117,7 +117,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var error = Assert.Throws<AttachArgumentException>(
                 () => AttachArguments.Parse(json));
             Assert.Contains(
-                "outside the version 0.2.0 compatibility policy",
+                "outside the version 0.3.0 compatibility policy",
                 error.Message);
         }
 

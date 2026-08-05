@@ -163,7 +163,7 @@ describe("DebugConfigurationProvider", () => {
       label: "unsupported",
       projectVersion: "2021.3.45f1",
       expectedVersion: undefined,
-      expectedError: "outside the version 0.2.0",
+      expectedError: "outside the version 0.3.0",
     },
     {
       label: "malformed",
@@ -353,7 +353,7 @@ describe("DebugConfigurationProvider", () => {
       configurationProvider.resolveDebugConfiguration(folder, attach),
     ).resolves.toBeUndefined();
     expect(configurationUi.showError).toHaveBeenCalledWith(
-      expect.stringContaining("outside the version 0.2.0"),
+      expect.stringContaining("outside the version 0.3.0"),
     );
   });
 });
