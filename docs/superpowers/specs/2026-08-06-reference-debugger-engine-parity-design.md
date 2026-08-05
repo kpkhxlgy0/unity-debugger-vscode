@@ -111,9 +111,12 @@ breaking events with Mono suspend-count semantics. It preserves the order of
 Step, Breakpoint, Exception, UserBreak, type-load, domain, assembly, and VM
 events.
 
-Only real Step, Breakpoint, Exception, and UserBreak events create DAP
-`stopped` events. A DAP request response never creates an optimistic stop or
-running state.
+Real Step, Breakpoint, Exception, and UserBreak events create ordinary DAP
+`stopped` events. The only control-path exceptions are the ones implemented by
+the reference debugger: Pause suspends the VM and reports a Pause stop for each
+mapped thread, and a successful Goto reports a Goto stop after changing the
+instruction pointer. No other DAP request response creates an optimistic stop
+or running state.
 
 ### StepManager
 
@@ -131,8 +134,9 @@ coalescing, delayed retry, or fixed cancellation wait.
 
 `SuspendedState` owns frame, property, code-path, and code-context handles for
 the current stop generation. Matching the reference debugger, handles are
-reset when the next real stop arrives, not when a Step or Continue request is
-accepted.
+reset when the next real breaking event or Pause stop arrives, not when a Step
+or Continue request is accepted. A successful Goto reports a stop without
+resetting the current handles.
 
 Missing or stale handles produce the same empty successful DAP response as the
 reference debugger. Handle IDs never drive execution state.
@@ -169,7 +173,7 @@ A breakpoint that arrives immediately during Attach is emitted as a normal
 `stopped` event even if the Attach response has not yet been processed by the
 client. No independent DAP-side state gate may drop it.
 
-Each real stop:
+Each real breaking-event stop and each Pause stop:
 
 1. resets `SuspendedState`;
 2. maps the real Mono thread;
@@ -189,9 +193,12 @@ Rapid Step requests pass through the same ordered control path. A request may
 replace the current Mono step request exactly as in the reference engine, but
 the adapter does not invent queued future steps.
 
-Continue cancels an active step and resumes. Pause suspends the VM and emits a
-Pause stop using real threads. Benign already-running/already-resumed states
-are ignored only where the reference engine ignores them.
+Continue cancels an active step and resumes. Pause suspends the VM, enumerates
+the mapped threads, resets suspended state for each Pause notification, and
+emits the reference-compatible Pause stops. A successful Goto changes the
+instruction pointer and emits a Goto stop without resetting suspended state.
+Benign already-running/already-resumed states are ignored only where the
+reference engine ignores them.
 
 ## Evaluation and Variable Semantics
 
@@ -323,4 +330,3 @@ No intermediate build is installed into Cursor. After all automated gates
 pass, one VSIX is packaged and installed. Cursor must reload before the new
 adapter is considered active. Installed files and startup diagnostics must
 confirm both semantic version and build ID before real-editor acceptance.
-
