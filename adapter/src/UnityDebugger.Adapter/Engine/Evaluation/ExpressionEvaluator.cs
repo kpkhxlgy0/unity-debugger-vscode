@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
@@ -22,6 +23,7 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
     internal sealed class ExpressionEvaluator
     {
         private readonly IFrameEvaluationEnvironment environment;
+        private readonly RuntimeInvoker runtimeInvoker = new RuntimeInvoker();
 
         public ExpressionEvaluator(IFrameEvaluationEnvironment environment)
         {
@@ -48,7 +50,19 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                 case BinaryExpressionSyntax binary:
                     return EvaluateBinary(binary, cancellationToken);
                 case MemberAccessExpressionSyntax member:
-                    return EvaluateEnumMember(member);
+                    return EvaluateMember(member, cancellationToken);
+                case ElementAccessExpressionSyntax element:
+                    return EvaluateElement(element, cancellationToken);
+                case InvocationExpressionSyntax invocation:
+                    return EvaluateInvocation(invocation, cancellationToken);
+                case CastExpressionSyntax cast:
+                    return EvaluateCast(cast, cancellationToken);
+                case ConditionalExpressionSyntax conditional:
+                    return EvaluateConditional(conditional, cancellationToken);
+                case ThisExpressionSyntax _:
+                    return EvaluateFrameKeyword("this");
+                case BaseExpressionSyntax _:
+                    return EvaluateFrameKeyword("base");
                 default:
                     throw Unsupported(expression);
             }
@@ -77,39 +91,76 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                 $"The name '{name}' is not available in the current context.");
         }
 
-        private IRuntimeValue EvaluateEnumMember(
-            MemberAccessExpressionSyntax member)
+        private IRuntimeValue EvaluateMember(
+            MemberAccessExpressionSyntax member,
+            CancellationToken cancellationToken)
         {
             var typeName = member.Expression.ToString();
             var memberName = member.Name.Identifier.ValueText;
-            if (!environment.TryGetType(typeName, out var type))
+            if (
+                environment.TryGetType(typeName, out var enumType) &&
+                enumType.IsEnum)
             {
-                throw new ExpressionEvaluationException(
-                    $"The type '{typeName}' is not available in the current context.");
-            }
-            if (!type.IsEnum)
-            {
-                throw new ExpressionEvaluationException(
-                    $"The type '{typeName}' is not an enum.");
-            }
-            if (!type.EnumConstants.TryGetValue(memberName, out var constant))
-            {
-                throw new ExpressionEvaluationException(
-                    $"The enum '{typeName}' does not contain '{memberName}'.");
+                if (
+                    !enumType.EnumConstants.TryGetValue(
+                        memberName,
+                        out var constant))
+                {
+                    throw new ExpressionEvaluationException(
+                        $"The enum '{typeName}' does not contain '{memberName}'.");
+                }
+
+                return EvaluationRuntimeValue.CreateEnum(enumType, constant);
             }
 
-            return EvaluationRuntimeValue.CreateEnum(type, constant);
+            var target = Evaluate(member.Expression, cancellationToken);
+            var field = FindFields(target.Type)
+                .FirstOrDefault(value => value.Name == memberName);
+            if (field != null)
+                return target.GetField(field);
+
+            var property = FindProperties(target.Type)
+                .FirstOrDefault(value => value.Name == memberName);
+            if (property?.Getter != null)
+            {
+                return runtimeInvoker.InvokeAsync(
+                        target,
+                        property.Getter,
+                        Array.Empty<IRuntimeValue>(),
+                        cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+
+            throw new ExpressionEvaluationException(
+                $"The member '{memberName}' is not available on '{target.Type.Name}'.");
         }
 
         private IRuntimeValue EvaluateUnary(
             PrefixUnaryExpressionSyntax unary,
             CancellationToken cancellationToken)
         {
-            if (!unary.IsKind(SyntaxKind.LogicalNotExpression))
-                throw Unsupported(unary);
             var operand = Evaluate(unary.Operand, cancellationToken);
-            return EvaluationRuntimeValue.CreatePrimitive(
-                !RequireBoolean(operand));
+            if (unary.IsKind(SyntaxKind.LogicalNotExpression))
+            {
+                return EvaluationRuntimeValue.CreatePrimitive(
+                    !RequireBoolean(operand));
+            }
+            if (unary.IsKind(SyntaxKind.UnaryPlusExpression))
+                return CreateNumericResult(operand.Primitive, value => +(dynamic)value);
+            if (unary.IsKind(SyntaxKind.UnaryMinusExpression))
+                return CreateNumericResult(operand.Primitive, value => -(dynamic)value);
+            if (unary.IsKind(SyntaxKind.BitwiseNotExpression))
+            {
+                var result = ApplyDynamicUnary(
+                    operand.Primitive,
+                    value => ~(dynamic)value);
+                if (operand.Kind == RuntimeValueKind.Enum)
+                    return EvaluationRuntimeValue.CreateEnum(operand.Type, result);
+                return EvaluationRuntimeValue.CreatePrimitive(result);
+            }
+
+            throw Unsupported(unary);
         }
 
         private IRuntimeValue EvaluateBinary(
@@ -148,8 +199,481 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                     !AreEqual(leftValue, rightValue));
             }
 
+            if (
+                binary.IsKind(SyntaxKind.AddExpression) &&
+                (leftValue.Kind == RuntimeValueKind.String ||
+                    rightValue.Kind == RuntimeValueKind.String))
+            {
+                return EvaluationRuntimeValue.CreateString(
+                    GetConcatenationValue(leftValue) +
+                    GetConcatenationValue(rightValue));
+            }
+            if (IsArithmetic(binary.Kind()))
+            {
+                return EvaluationRuntimeValue.CreatePrimitive(
+                    ApplyArithmetic(
+                        binary.Kind(),
+                        leftValue.Primitive,
+                        rightValue.Primitive));
+            }
+            if (IsComparison(binary.Kind()))
+            {
+                return EvaluationRuntimeValue.CreatePrimitive(
+                    ApplyComparison(
+                        binary.Kind(),
+                        leftValue.Primitive,
+                        rightValue.Primitive));
+            }
+            if (IsBitwise(binary.Kind()))
+            {
+                var result = ApplyBitwise(
+                    binary.Kind(),
+                    leftValue.Primitive,
+                    rightValue.Primitive);
+                if (
+                    leftValue.Kind == RuntimeValueKind.Enum ||
+                    rightValue.Kind == RuntimeValueKind.Enum)
+                {
+                    RequireCompatibleEnums(leftValue, rightValue);
+                    return EvaluationRuntimeValue.CreateEnum(
+                        leftValue.Kind == RuntimeValueKind.Enum
+                            ? leftValue.Type
+                            : rightValue.Type,
+                        result);
+                }
+
+                return EvaluationRuntimeValue.CreatePrimitive(result);
+            }
+
             throw Unsupported(binary);
         }
+
+        private IRuntimeValue EvaluateElement(
+            ElementAccessExpressionSyntax element,
+            CancellationToken cancellationToken)
+        {
+            if (element.ArgumentList.Arguments.Count != 1)
+                throw Unsupported(element);
+            var target = Evaluate(element.Expression, cancellationToken);
+            var indexValue = Evaluate(
+                element.ArgumentList.Arguments[0].Expression,
+                cancellationToken);
+            var index = Convert.ToInt32(
+                indexValue.Primitive,
+                CultureInfo.InvariantCulture);
+            return target.GetElement(index);
+        }
+
+        private IRuntimeValue EvaluateInvocation(
+            InvocationExpressionSyntax invocation,
+            CancellationToken cancellationToken)
+        {
+            if (!(invocation.Expression is MemberAccessExpressionSyntax member))
+                throw Unsupported(invocation);
+
+            var target = Evaluate(member.Expression, cancellationToken);
+            var arguments = invocation.ArgumentList.Arguments
+                .Select(value => Evaluate(value.Expression, cancellationToken))
+                .ToArray();
+            var methodName = member.Name.Identifier.ValueText;
+            var method = FindMethods(target.Type)
+                .Where(value => value.Name == methodName)
+                .Where(value => value.Parameters.Count == arguments.Length)
+                .FirstOrDefault(value => ParametersAccept(
+                    value.Parameters,
+                    arguments));
+            if (method == null)
+            {
+                throw new ExpressionEvaluationException(
+                    $"No compatible overload of '{methodName}' is available.");
+            }
+
+            return runtimeInvoker.InvokeAsync(
+                    target,
+                    method,
+                    arguments,
+                    cancellationToken)
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        private IRuntimeValue EvaluateCast(
+            CastExpressionSyntax cast,
+            CancellationToken cancellationToken)
+        {
+            var value = Evaluate(cast.Expression, cancellationToken);
+            var targetType = ResolveType(cast.Type.ToString());
+            if (targetType.IsEnum)
+            {
+                if (
+                    value.Kind == RuntimeValueKind.Enum &&
+                    value.Type.FullName == targetType.FullName)
+                {
+                    return value;
+                }
+                if (value.Primitive == null)
+                {
+                    throw new ExpressionEvaluationException(
+                        "A null value cannot be converted to an enum.");
+                }
+                return EvaluationRuntimeValue.CreateEnum(
+                    targetType,
+                    value.Primitive);
+            }
+
+            if (TryGetSystemType(targetType.FullName, out var systemType))
+            {
+                if (value.Primitive == null)
+                {
+                    throw new ExpressionEvaluationException(
+                        $"A null value cannot be converted to '{targetType.Name}'.");
+                }
+                try
+                {
+                    var converted = Convert.ChangeType(
+                        value.Primitive,
+                        systemType,
+                        CultureInfo.InvariantCulture);
+                    return EvaluationRuntimeValue.CreatePrimitive(converted);
+                }
+                catch (Exception exception)
+                {
+                    throw new ExpressionEvaluationException(
+                        $"The value cannot be converted to '{targetType.Name}': " +
+                        exception.Message);
+                }
+            }
+
+            if (
+                value.Kind == RuntimeValueKind.Null &&
+                !targetType.IsValueType)
+            {
+                return value;
+            }
+            if (targetType.IsAssignableFrom(value.Type))
+                return value;
+            throw new ExpressionEvaluationException(
+                $"The value cannot be converted to '{targetType.Name}'.");
+        }
+
+        private IRuntimeValue EvaluateConditional(
+            ConditionalExpressionSyntax conditional,
+            CancellationToken cancellationToken)
+        {
+            var condition = RequireBoolean(
+                Evaluate(conditional.Condition, cancellationToken));
+            return Evaluate(
+                condition ? conditional.WhenTrue : conditional.WhenFalse,
+                cancellationToken);
+        }
+
+        private IRuntimeValue EvaluateFrameKeyword(string name)
+        {
+            if (environment.TryGetValue(name, out var value))
+                return value;
+            throw new ExpressionEvaluationException(
+                $"'{name}' is not available in the current frame.");
+        }
+
+        private IRuntimeType ResolveType(string name)
+        {
+            if (environment.TryGetType(name, out var runtimeType))
+                return runtimeType;
+            var systemType = GetAliasType(name);
+            if (systemType != null)
+                return EvaluationRuntimeType.From(systemType);
+            throw new ExpressionEvaluationException(
+                $"The type '{name}' is not available in the current context.");
+        }
+
+        private static Type? GetAliasType(string name)
+        {
+            switch (name)
+            {
+                case "bool":
+                    return typeof(bool);
+                case "byte":
+                    return typeof(byte);
+                case "sbyte":
+                    return typeof(sbyte);
+                case "short":
+                    return typeof(short);
+                case "ushort":
+                    return typeof(ushort);
+                case "int":
+                    return typeof(int);
+                case "uint":
+                    return typeof(uint);
+                case "long":
+                    return typeof(long);
+                case "ulong":
+                    return typeof(ulong);
+                case "char":
+                    return typeof(char);
+                case "float":
+                    return typeof(float);
+                case "double":
+                    return typeof(double);
+                case "decimal":
+                    return typeof(decimal);
+                case "string":
+                    return typeof(string);
+                case "object":
+                    return typeof(object);
+                default:
+                    return null;
+            }
+        }
+
+        private static bool TryGetSystemType(
+            string fullName,
+            out Type type)
+        {
+            type = Type.GetType(fullName, throwOnError: false)!;
+            return type != null &&
+                (type.IsPrimitive ||
+                    type == typeof(decimal) ||
+                    type == typeof(string));
+        }
+
+        private static IEnumerable<RuntimeField> FindFields(IRuntimeType type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                foreach (var runtimeField in current.Fields)
+                    yield return runtimeField;
+            }
+        }
+
+        private static IEnumerable<RuntimeProperty> FindProperties(
+            IRuntimeType type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                foreach (var property in current.Properties)
+                    yield return property;
+            }
+        }
+
+        private static IEnumerable<RuntimeMethod> FindMethods(IRuntimeType type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                foreach (var method in current.Methods)
+                    yield return method;
+            }
+        }
+
+        private static bool ParametersAccept(
+            IReadOnlyList<RuntimeParameter> parameters,
+            IReadOnlyList<IRuntimeValue> arguments)
+        {
+            for (var index = 0; index < parameters.Count; index++)
+            {
+                var argument = arguments[index];
+                if (
+                    argument.Kind == RuntimeValueKind.Null &&
+                    !parameters[index].Type.IsValueType)
+                {
+                    continue;
+                }
+                if (
+                    parameters[index].Type.FullName == argument.Type.FullName ||
+                    parameters[index].Type.IsAssignableFrom(argument.Type))
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsArithmetic(SyntaxKind kind) =>
+            kind == SyntaxKind.AddExpression ||
+            kind == SyntaxKind.SubtractExpression ||
+            kind == SyntaxKind.MultiplyExpression ||
+            kind == SyntaxKind.DivideExpression ||
+            kind == SyntaxKind.ModuloExpression;
+
+        private static bool IsComparison(SyntaxKind kind) =>
+            kind == SyntaxKind.LessThanExpression ||
+            kind == SyntaxKind.LessThanOrEqualExpression ||
+            kind == SyntaxKind.GreaterThanExpression ||
+            kind == SyntaxKind.GreaterThanOrEqualExpression;
+
+        private static bool IsBitwise(SyntaxKind kind) =>
+            kind == SyntaxKind.BitwiseAndExpression ||
+            kind == SyntaxKind.BitwiseOrExpression ||
+            kind == SyntaxKind.ExclusiveOrExpression ||
+            kind == SyntaxKind.LeftShiftExpression ||
+            kind == SyntaxKind.RightShiftExpression;
+
+        private static object ApplyArithmetic(
+            SyntaxKind kind,
+            object? left,
+            object? right)
+        {
+            try
+            {
+                dynamic dynamicLeft = left ?? throw NonNumeric();
+                dynamic dynamicRight = right ?? throw NonNumeric();
+                checked
+                {
+                    switch (kind)
+                    {
+                        case SyntaxKind.AddExpression:
+                            return dynamicLeft + dynamicRight;
+                        case SyntaxKind.SubtractExpression:
+                            return dynamicLeft - dynamicRight;
+                        case SyntaxKind.MultiplyExpression:
+                            return dynamicLeft * dynamicRight;
+                        case SyntaxKind.DivideExpression:
+                            return dynamicLeft / dynamicRight;
+                        case SyntaxKind.ModuloExpression:
+                            return dynamicLeft % dynamicRight;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+            }
+            catch (ExpressionEvaluationException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw OperationFailed(kind, exception);
+            }
+        }
+
+        private static bool ApplyComparison(
+            SyntaxKind kind,
+            object? left,
+            object? right)
+        {
+            try
+            {
+                dynamic dynamicLeft = left ?? throw NonNumeric();
+                dynamic dynamicRight = right ?? throw NonNumeric();
+                switch (kind)
+                {
+                    case SyntaxKind.LessThanExpression:
+                        return dynamicLeft < dynamicRight;
+                    case SyntaxKind.LessThanOrEqualExpression:
+                        return dynamicLeft <= dynamicRight;
+                    case SyntaxKind.GreaterThanExpression:
+                        return dynamicLeft > dynamicRight;
+                    case SyntaxKind.GreaterThanOrEqualExpression:
+                        return dynamicLeft >= dynamicRight;
+                    default:
+                        throw new InvalidOperationException();
+                }
+            }
+            catch (ExpressionEvaluationException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw OperationFailed(kind, exception);
+            }
+        }
+
+        private static object ApplyBitwise(
+            SyntaxKind kind,
+            object? left,
+            object? right)
+        {
+            try
+            {
+                dynamic dynamicLeft = left ?? throw NonNumeric();
+                dynamic dynamicRight = right ?? throw NonNumeric();
+                switch (kind)
+                {
+                    case SyntaxKind.BitwiseAndExpression:
+                        return dynamicLeft & dynamicRight;
+                    case SyntaxKind.BitwiseOrExpression:
+                        return dynamicLeft | dynamicRight;
+                    case SyntaxKind.ExclusiveOrExpression:
+                        return dynamicLeft ^ dynamicRight;
+                    case SyntaxKind.LeftShiftExpression:
+                        return dynamicLeft << dynamicRight;
+                    case SyntaxKind.RightShiftExpression:
+                        return dynamicLeft >> dynamicRight;
+                    default:
+                        throw new InvalidOperationException();
+                }
+            }
+            catch (ExpressionEvaluationException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw OperationFailed(kind, exception);
+            }
+        }
+
+        private static IRuntimeValue CreateNumericResult(
+            object? value,
+            Func<object, object> operation) =>
+            EvaluationRuntimeValue.CreatePrimitive(
+                ApplyDynamicUnary(value, operation));
+
+        private static object ApplyDynamicUnary(
+            object? value,
+            Func<object, object> operation)
+        {
+            if (value == null)
+                throw NonNumeric();
+            try
+            {
+                return operation(value);
+            }
+            catch (Exception exception)
+            {
+                throw new ExpressionEvaluationException(
+                    "The unary operation failed: " + exception.Message);
+            }
+        }
+
+        private static void RequireCompatibleEnums(
+            IRuntimeValue left,
+            IRuntimeValue right)
+        {
+            if (
+                left.Kind != RuntimeValueKind.Enum ||
+                right.Kind != RuntimeValueKind.Enum ||
+                left.Type.FullName != right.Type.FullName)
+            {
+                throw new ExpressionEvaluationException(
+                    "Enum values must have compatible types.");
+            }
+        }
+
+        private static string GetConcatenationValue(IRuntimeValue value)
+        {
+            if (value.Kind == RuntimeValueKind.Null)
+                return string.Empty;
+            if (value.Kind == RuntimeValueKind.String)
+                return value.String ?? string.Empty;
+            return Convert.ToString(
+                    value.Primitive,
+                    CultureInfo.InvariantCulture) ??
+                string.Empty;
+        }
+
+        private static ExpressionEvaluationException NonNumeric() =>
+            new ExpressionEvaluationException(
+                "The expression requires numeric operands.");
+
+        private static ExpressionEvaluationException OperationFailed(
+            SyntaxKind kind,
+            Exception exception) =>
+            new ExpressionEvaluationException(
+                $"The '{kind}' operation failed: {exception.Message}");
 
         private static bool AreEqual(
             IRuntimeValue left,
