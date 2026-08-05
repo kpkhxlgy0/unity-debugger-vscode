@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using Mono.Debugger.Soft;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
+using UnityDebugger.Adapter.Engine.Source;
 
 namespace UnityDebugger.Adapter.Engine.Mono
 {
-    internal sealed class MonoRuntimeType : IRuntimeType
+    internal sealed class MonoRuntimeType : IRuntimeType, IRuntimeSourceType
     {
         private readonly TypeMirror type;
 
@@ -77,6 +78,59 @@ namespace UnityDebugger.Adapter.Engine.Mono
                     TypeMirror proxyType
                 ? new MonoRuntimeType(proxyType)
                 : null;
+
+        public object RuntimeIdentity => type;
+        public object DomainIdentity
+        {
+            get
+            {
+                try
+                {
+                    return type.Assembly.Domain;
+                }
+                catch (NotSupportedException)
+                {
+                    return type.Assembly;
+                }
+            }
+        }
+
+        public RuntimeModuleDescriptor RuntimeModule
+        {
+            get
+            {
+                var assembly = type.Assembly;
+                var name = assembly.GetName();
+                return new RuntimeModuleDescriptor(
+                    name.FullName ?? name.Name ?? assembly.Location,
+                    name.Name ?? assembly.Location,
+                    assembly.Location ?? string.Empty);
+            }
+        }
+
+        public IReadOnlyList<RuntimeSourceLocation> SourceLocations => type
+            .GetMethods()
+            .SelectMany(method => method.Locations)
+            .Where(location =>
+                !string.IsNullOrWhiteSpace(location.SourceFile) &&
+                location.LineNumber > 0)
+            .Select(location => new RuntimeSourceLocation(
+                location.SourceFile,
+                location.LineNumber,
+                Math.Max(1, location.ColumnNumber),
+                location.EndLineNumber > 0
+                    ? location.EndLineNumber
+                    : location.LineNumber,
+                location.EndColumnNumber > 0
+                    ? location.EndColumnNumber
+                    : Math.Max(1, location.ColumnNumber),
+                location))
+            .ToArray();
+
+        public IReadOnlyList<IRuntimeType> NestedTypes => type
+            .GetNestedTypes()
+            .Select(value => (IRuntimeType)new MonoRuntimeType(value))
+            .ToArray();
 
         internal TypeMirror Mirror => type;
 

@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Mono.Debugger.Soft;
+using UnityDebugger.Adapter.Engine.Source;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
 using Xunit.Sdk;
 
 namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
 {
-    internal sealed class FakeRuntimeType : IRuntimeType
+    internal sealed class FakeRuntimeType : IRuntimeType, IRuntimeSourceType
     {
         private readonly Dictionary<string, object> enumConstants =
             new Dictionary<string, object>();
@@ -49,6 +50,44 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
         public string? DebuggerDisplay { get; set; }
         public IRuntimeType? DebuggerProxyType { get; set; }
         public int FieldsAccessCount { get; private set; }
+        public object RuntimeIdentity { get; set; } = new object();
+        public object DomainIdentity { get; set; } = "domain";
+        public RuntimeModuleDescriptor RuntimeModule { get; set; } =
+            new RuntimeModuleDescriptor(
+                "module",
+                "Assembly-CSharp",
+                "Assembly-CSharp.dll");
+        public IReadOnlyList<RuntimeSourceLocation> SourceLocations { get; set; } =
+            Array.Empty<RuntimeSourceLocation>();
+        public IReadOnlyList<IRuntimeType> NestedTypes { get; set; } =
+            Array.Empty<IRuntimeType>();
+
+        public FakeRuntimeType WithSource(
+            object domainIdentity,
+            RuntimeModuleDescriptor module,
+            string sourcePath,
+            int line)
+        {
+            DomainIdentity = domainIdentity;
+            RuntimeModule = module;
+            SourceLocations = new[]
+            {
+                new RuntimeSourceLocation(
+                    sourcePath,
+                    line,
+                    1,
+                    line,
+                    120,
+                    new object()),
+            };
+            return this;
+        }
+
+        public FakeRuntimeType WithNested(params IRuntimeType[] nested)
+        {
+            NestedTypes = nested;
+            return this;
+        }
 
         public static FakeRuntimeType Enum(
             string name,
