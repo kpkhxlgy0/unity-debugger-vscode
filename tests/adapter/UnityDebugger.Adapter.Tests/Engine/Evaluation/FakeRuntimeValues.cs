@@ -12,6 +12,8 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
     {
         private readonly Dictionary<string, object> enumConstants =
             new Dictionary<string, object>();
+        private IReadOnlyList<RuntimeField> fields =
+            Array.Empty<RuntimeField>();
 
         public FakeRuntimeType(string name, string? fullName = null)
         {
@@ -26,14 +28,22 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
         public bool IsValueType { get; set; }
         public bool IsArray { get; set; }
         public IRuntimeType? BaseType { get; set; }
-        public IReadOnlyList<RuntimeField> Fields { get; set; } =
-            Array.Empty<RuntimeField>();
+        public IReadOnlyList<RuntimeField> Fields
+        {
+            get
+            {
+                FieldsAccessCount++;
+                return fields;
+            }
+            set => fields = value;
+        }
         public IReadOnlyList<RuntimeProperty> Properties { get; set; } =
             Array.Empty<RuntimeProperty>();
         public IReadOnlyList<RuntimeMethod> Methods { get; set; } =
             Array.Empty<RuntimeMethod>();
         public IReadOnlyDictionary<string, object> EnumConstants =>
             enumConstants;
+        public int FieldsAccessCount { get; private set; }
 
         public static FakeRuntimeType Enum(
             string name,

@@ -326,6 +326,8 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
                 return this;
             }
 
+            public FrameValues GetFrameValues() => FrameValues.Empty;
+
             public bool TryGetValue(string name, out IRuntimeValue value) =>
                 values.TryGetValue(name, out value!);
 
