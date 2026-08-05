@@ -108,6 +108,39 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
             Assert.Equal(expected, result);
         }
 
+        [Fact]
+        public async Task DebuggerDisplayUsesFieldAndNoQuotesSpecifier()
+        {
+            var stringType = new FakeRuntimeType("String", "System.String");
+            var nameField = new RuntimeField(
+                "Name",
+                stringType,
+                isStatic: false,
+                isPublic: true,
+                isLiteral: false,
+                source: new object());
+            var playerType = new FakeRuntimeType("Player")
+            {
+                DebuggerDisplay = "Player {Name,nq}",
+                Fields = new[] { nameField },
+            };
+            var player = new FakeRuntimeValue()
+                .WithKind(RuntimeValueKind.Object)
+                .WithType(playerType);
+            player.GetFieldHandler = field =>
+            {
+                Assert.Same(nameField, field);
+                return String("Alice");
+            };
+
+            var result = await new ValueFormatter().FormatAsync(
+                player,
+                EvaluationPolicy.Safe,
+                CancellationToken.None);
+
+            Assert.Equal("Player Alice", result);
+        }
+
         private static (
             FakeRuntimeValue Target,
             Func<InvokeOptions?> ReceivedOptions) ToStringFixture()

@@ -201,6 +201,55 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 TaskScheduler.Default);
         }
 
+        public Task<IRuntimeValue> CreateInstanceAsync(
+            IRuntimeType runtimeType,
+            RuntimeMethod constructor,
+            IReadOnlyList<IRuntimeValue> arguments,
+            InvokeOptions options,
+            CancellationToken cancellationToken)
+        {
+            if (thread == null)
+                throw new InvalidOperationException(
+                    "A stopped thread is required for target invocation.");
+            if (!(runtimeType is MonoRuntimeType monoType))
+            {
+                throw new ArgumentException(
+                    "The type does not belong to the Mono runtime.",
+                    nameof(runtimeType));
+            }
+            if (!(constructor.Source is MethodMirror monoConstructor))
+            {
+                throw new ArgumentException(
+                    "The constructor does not belong to the Mono runtime.",
+                    nameof(constructor));
+            }
+
+            var monoArguments = arguments.Select(GetMonoValue).ToArray();
+            return Task.Factory.StartNew<IRuntimeValue>(
+                () =>
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    Value result;
+                    try
+                    {
+                        result = monoType.Mirror.NewInstance(
+                            thread,
+                            monoConstructor,
+                            monoArguments,
+                            options);
+                    }
+                    catch (InvocationException exception)
+                    {
+                        throw CreateInvocationException(exception);
+                    }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return new MonoRuntimeValue(result, thread);
+                },
+                cancellationToken,
+                TaskCreationOptions.DenyChildAttach,
+                TaskScheduler.Default);
+        }
+
         private static RuntimeInvocationException CreateInvocationException(
             InvocationException exception)
         {

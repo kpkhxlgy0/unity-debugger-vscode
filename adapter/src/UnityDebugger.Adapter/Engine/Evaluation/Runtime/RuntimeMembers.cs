@@ -128,13 +128,18 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
         public bool IsPrimitive => false;
         public bool IsValueType => false;
         public bool IsArray => false;
+        public IRuntimeType? ElementType => null;
         public IRuntimeType? BaseType => null;
+        public IReadOnlyList<IRuntimeType> Interfaces =>
+            Array.Empty<IRuntimeType>();
         public IReadOnlyList<RuntimeField> Fields => Array.Empty<RuntimeField>();
         public IReadOnlyList<RuntimeProperty> Properties =>
             Array.Empty<RuntimeProperty>();
         public IReadOnlyList<RuntimeMethod> Methods => Array.Empty<RuntimeMethod>();
         public IReadOnlyDictionary<string, object> EnumConstants =>
             new Dictionary<string, object>();
+        public string? DebuggerDisplay => null;
+        public IRuntimeType? DebuggerProxyType => null;
 
         public bool IsAssignableFrom(IRuntimeType candidate) =>
             ReferenceEquals(this, candidate);

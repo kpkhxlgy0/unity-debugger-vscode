@@ -52,6 +52,18 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Values
                         : "0x0";
             }
 
+            if (!string.IsNullOrEmpty(value.Type.DebuggerDisplay))
+            {
+                var display = await TryFormatDebuggerDisplayAsync(
+                        value,
+                        value.Type.DebuggerDisplay!,
+                        policy,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (display != null)
+                    return display;
+            }
+
             var fallback = $"{{{value.Type.Name}}}";
             if (!policy.AllowTargetInvoke || !policy.AllowToString)
                 return fallback;
@@ -94,6 +106,132 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Values
             method.Parameters.Count == 0 &&
             method.DeclaringTypeName != "System.Object" &&
             method.DeclaringTypeName != "System.ValueType";
+
+        private async Task<string?> TryFormatDebuggerDisplayAsync(
+            IRuntimeValue value,
+            string format,
+            EvaluationPolicy policy,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var result = new StringBuilder(format.Length);
+                for (var index = 0; index < format.Length; index++)
+                {
+                    if (format[index] != '{')
+                    {
+                        result.Append(format[index]);
+                        continue;
+                    }
+                    if (index + 1 < format.Length && format[index + 1] == '{')
+                    {
+                        result.Append('{');
+                        index++;
+                        continue;
+                    }
+
+                    var end = format.IndexOf('}', index + 1);
+                    if (end < 0)
+                        return null;
+                    var expression = format.Substring(
+                        index + 1,
+                        end - index - 1);
+                    var parts = expression.Split(',');
+                    var member = await EvaluateDisplayMemberAsync(
+                            value,
+                            parts[0].Trim(),
+                            policy,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    var noQuotes = parts.Skip(1).Any(part =>
+                        string.Equals(
+                            part.Trim(),
+                            "nq",
+                            StringComparison.OrdinalIgnoreCase));
+                    if (noQuotes && member.Kind == RuntimeValueKind.String)
+                        result.Append(member.String ?? string.Empty);
+                    else
+                    {
+                        result.Append(await FormatAsync(
+                                member,
+                                policy,
+                                cancellationToken)
+                            .ConfigureAwait(false));
+                    }
+                    index = end;
+                }
+
+                return result.ToString();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private async Task<IRuntimeValue> EvaluateDisplayMemberAsync(
+            IRuntimeValue value,
+            string expression,
+            EvaluationPolicy policy,
+            CancellationToken cancellationToken)
+        {
+            var current = value;
+            var members = expression.Split('.');
+            foreach (var memberName in members)
+            {
+                if (memberName == "this" || memberName.Length == 0)
+                    continue;
+                var runtimeField = FindFields(current.Type)
+                    .FirstOrDefault(field => field.Name == memberName);
+                if (runtimeField != null)
+                {
+                    current = current.GetField(runtimeField);
+                    continue;
+                }
+
+                var property = FindProperties(current.Type)
+                    .FirstOrDefault(candidate => candidate.Name == memberName);
+                if (
+                    property?.Getter == null ||
+                    !policy.AllowTargetInvoke ||
+                    !policy.AllowGetters)
+                {
+                    throw new InvalidOperationException(
+                        $"DebuggerDisplay member '{memberName}' is unavailable.");
+                }
+                current = await invoker.InvokeAsync(
+                        current,
+                        property.Getter,
+                        Array.Empty<IRuntimeValue>(),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            return current;
+        }
+
+        private static IEnumerable<RuntimeField> FindFields(IRuntimeType type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                foreach (var runtimeField in current.Fields)
+                    yield return runtimeField;
+            }
+        }
+
+        private static IEnumerable<RuntimeProperty> FindProperties(
+            IRuntimeType type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                foreach (var property in current.Properties)
+                    yield return property;
+            }
+        }
 
         private static string FormatPrimitive(object? value)
         {

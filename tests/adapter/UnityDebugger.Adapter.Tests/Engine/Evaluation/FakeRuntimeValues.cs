@@ -27,7 +27,10 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
         public bool IsPrimitive { get; set; }
         public bool IsValueType { get; set; }
         public bool IsArray { get; set; }
+        public IRuntimeType? ElementType { get; set; }
         public IRuntimeType? BaseType { get; set; }
+        public IReadOnlyList<IRuntimeType> Interfaces { get; set; } =
+            Array.Empty<IRuntimeType>();
         public IReadOnlyList<RuntimeField> Fields
         {
             get
@@ -43,6 +46,8 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
             Array.Empty<RuntimeMethod>();
         public IReadOnlyDictionary<string, object> EnumConstants =>
             enumConstants;
+        public string? DebuggerDisplay { get; set; }
+        public IRuntimeType? DebuggerProxyType { get; set; }
         public int FieldsAccessCount { get; private set; }
 
         public static FakeRuntimeType Enum(
@@ -112,6 +117,13 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
             InvokeOptions,
             CancellationToken,
             Task<IRuntimeValue>>? InvokeHandler { get; set; }
+        public Func<
+            IRuntimeType,
+            RuntimeMethod,
+            IReadOnlyList<IRuntimeValue>,
+            InvokeOptions,
+            CancellationToken,
+            Task<IRuntimeValue>>? CreateInstanceHandler { get; set; }
 
         public int Length =>
             ConfiguredLength ?? throw Unconfigured(nameof(Length));
@@ -175,6 +187,20 @@ namespace UnityDebugger.Adapter.Tests.Engine.Evaluation
                 options,
                 cancellationToken) ??
             throw Unconfigured(nameof(InvokeAsync));
+
+        public Task<IRuntimeValue> CreateInstanceAsync(
+            IRuntimeType type,
+            RuntimeMethod constructor,
+            IReadOnlyList<IRuntimeValue> arguments,
+            InvokeOptions options,
+            CancellationToken cancellationToken) =>
+            CreateInstanceHandler?.Invoke(
+                type,
+                constructor,
+                arguments,
+                options,
+                cancellationToken) ??
+            throw Unconfigured(nameof(CreateInstanceAsync));
 
         private static XunitException Unconfigured(string member) =>
             new XunitException($"Fake runtime member '{member}' was not configured.");

@@ -842,6 +842,14 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                 CancellationToken cancellationToken) =>
                 throw UnsupportedValue();
 
+            public Task<IRuntimeValue> CreateInstanceAsync(
+                IRuntimeType type,
+                RuntimeMethod constructor,
+                IReadOnlyList<IRuntimeValue> arguments,
+                InvokeOptions options,
+                CancellationToken cancellationToken) =>
+                throw UnsupportedValue();
+
             private static InvalidOperationException UnsupportedValue() =>
                 new InvalidOperationException(
                     "A computed value does not expose target runtime members.");
@@ -875,12 +883,17 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
             public bool IsPrimitive { get; }
             public bool IsValueType { get; }
             public bool IsArray => false;
+            public IRuntimeType? ElementType => null;
             public IRuntimeType? BaseType => null;
+            public IReadOnlyList<IRuntimeType> Interfaces =>
+                Array.Empty<IRuntimeType>();
             public IReadOnlyList<RuntimeField> Fields => NoFields;
             public IReadOnlyList<RuntimeProperty> Properties => NoProperties;
             public IReadOnlyList<RuntimeMethod> Methods => NoMethods;
             public IReadOnlyDictionary<string, object> EnumConstants =>
                 NoConstants;
+            public string? DebuggerDisplay => null;
+            public IRuntimeType? DebuggerProxyType => null;
 
             public static IRuntimeType From(Type type) =>
                 new EvaluationRuntimeType(type);

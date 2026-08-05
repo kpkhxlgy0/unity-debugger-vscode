@@ -21,8 +21,16 @@ namespace UnityDebugger.Adapter.Engine.Mono
         public bool IsPrimitive => type.IsPrimitive;
         public bool IsValueType => type.IsValueType;
         public bool IsArray => type.IsArray;
+        public IRuntimeType? ElementType => type.HasElementType
+            ? new MonoRuntimeType(type.GetElementType())
+            : null;
         public IRuntimeType? BaseType =>
             type.BaseType == null ? null : new MonoRuntimeType(type.BaseType);
+
+        public IReadOnlyList<IRuntimeType> Interfaces => type
+            .GetInterfaces()
+            .Select(value => (IRuntimeType)new MonoRuntimeType(value))
+            .ToArray();
 
         public IReadOnlyList<RuntimeField> Fields => type
             .GetFields()
@@ -59,6 +67,17 @@ namespace UnityDebugger.Adapter.Engine.Mono
             }
         }
 
+        public string? DebuggerDisplay =>
+            GetAttributeArgument(
+                "System.Diagnostics.DebuggerDisplayAttribute") as string;
+
+        public IRuntimeType? DebuggerProxyType =>
+            GetAttributeArgument(
+                "System.Diagnostics.DebuggerTypeProxyAttribute") is
+                    TypeMirror proxyType
+                ? new MonoRuntimeType(proxyType)
+                : null;
+
         internal TypeMirror Mirror => type;
 
         public bool IsAssignableFrom(IRuntimeType candidate)
@@ -66,6 +85,20 @@ namespace UnityDebugger.Adapter.Engine.Mono
             if (!(candidate is MonoRuntimeType monoCandidate))
                 return false;
             return type.IsAssignableFrom(monoCandidate.type);
+        }
+
+        private object? GetAttributeArgument(string attributeType)
+        {
+            var attribute = type.GetCustomAttributes(inherit: false)
+                .FirstOrDefault(value =>
+                    value.Constructor.DeclaringType.FullName == attributeType &&
+                    value.ConstructorArguments.Count == 1);
+            if (attribute == null)
+                return null;
+            var value = attribute.ConstructorArguments[0].Value;
+            return value is StringMirror stringValue
+                ? stringValue.Value
+                : value;
         }
 
         private static RuntimeField CreateField(FieldInfoMirror field) =>

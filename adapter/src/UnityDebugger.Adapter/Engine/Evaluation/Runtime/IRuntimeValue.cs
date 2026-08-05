@@ -33,5 +33,11 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
             IReadOnlyList<IRuntimeValue> arguments,
             InvokeOptions options,
             CancellationToken cancellationToken);
+        Task<IRuntimeValue> CreateInstanceAsync(
+            IRuntimeType type,
+            RuntimeMethod constructor,
+            IReadOnlyList<IRuntimeValue> arguments,
+            InvokeOptions options,
+            CancellationToken cancellationToken);
     }
 }
