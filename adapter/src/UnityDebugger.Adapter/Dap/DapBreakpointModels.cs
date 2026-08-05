@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json;
 using VSCodeDebug;
 
 namespace UnityDebugger.Adapter.Dap
@@ -56,5 +57,30 @@ namespace UnityDebugger.Adapter.Dap
         }
 
         public DapBreakpoint[] breakpoints { get; }
+    }
+
+    internal sealed class DapStoppedEventBody
+    {
+        public DapStoppedEventBody(
+            int threadId,
+            string reason,
+            string? text,
+            long[]? hitBreakpointIds)
+        {
+            this.threadId = threadId;
+            this.reason = reason;
+            this.text = text;
+            this.hitBreakpointIds = hitBreakpointIds;
+        }
+
+        public int threadId { get; }
+        public string reason { get; }
+
+        public string? text { get; }
+
+        public bool allThreadsStopped => true;
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public long[]? hitBreakpointIds { get; }
     }
 }

@@ -275,7 +275,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 new BackendStoppedEventArgs(
                     BackendStopReason.Breakpoint,
                     threadId,
-                    null));
+                    null,
+                    backendBreakpointId));
             return true;
         }
 

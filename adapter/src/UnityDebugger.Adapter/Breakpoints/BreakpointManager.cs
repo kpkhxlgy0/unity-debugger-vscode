@@ -176,6 +176,22 @@ namespace UnityDebugger.Adapter.Breakpoints
             return result;
         }
 
+        public bool TryGetLogicalId(
+            long backendId,
+            out long logicalId)
+        {
+            lock (bindingLock)
+            {
+                if (backendEntries.TryGetValue(backendId, out var entry))
+                {
+                    logicalId = entry.Id;
+                    return true;
+                }
+            }
+            logicalId = 0;
+            return false;
+        }
+
         public void MarkAllPending(string reason)
         {
             ManagedBreakpoint[] changed;

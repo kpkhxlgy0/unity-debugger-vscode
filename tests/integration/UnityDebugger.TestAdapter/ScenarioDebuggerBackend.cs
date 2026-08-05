@@ -185,7 +185,7 @@ namespace UnityDebugger.TestAdapter
                 }
                 else if (scenario != "exception")
                 {
-                    ScheduleStop(BackendStopReason.Breakpoint, 30);
+                    ScheduleBreakpointStop(id, 30);
                 }
             }
             return new BackendBoundBreakpoint(
@@ -273,7 +273,8 @@ namespace UnityDebugger.TestAdapter
                         new BackendStoppedEventArgs(
                             BackendStopReason.Breakpoint,
                             1,
-                            null));
+                            null,
+                            backendBreakpointId));
                 },
                 delayMilliseconds);
         }

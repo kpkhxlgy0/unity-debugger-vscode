@@ -194,16 +194,19 @@ namespace UnityDebugger.Adapter.Backend
         public BackendStoppedEventArgs(
             BackendStopReason reason,
             long threadId,
-            string? description)
+            string? description,
+            long? breakpointId = null)
         {
             Reason = reason;
             ThreadId = threadId;
             Description = description;
+            BreakpointId = breakpointId;
         }
 
         public BackendStopReason Reason { get; }
         public long ThreadId { get; }
         public string? Description { get; }
+        public long? BreakpointId { get; }
     }
 
     internal sealed class BackendThreadEventArgs : EventArgs

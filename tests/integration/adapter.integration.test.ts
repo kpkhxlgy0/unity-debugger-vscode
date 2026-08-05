@@ -69,6 +69,7 @@ describe("Unity debug adapter process", () => {
     });
 
     const stopped = await client.waitForEvent("stopped");
+    expect(stopped.body.hitBreakpointIds).toEqual([1]);
     const threads = await client.request("threads", {});
     expect(threads.body.threads).toEqual([
       { id: stopped.body.threadId, name: "Main Thread" },
@@ -209,6 +210,7 @@ describe("Unity debug adapter process", () => {
     await client.request("pause", { threadId });
     const stopped = await client.waitForEvent("stopped");
     expect(stopped.body.reason).toBe("pause");
+    expect(stopped.body).not.toHaveProperty("hitBreakpointIds");
 
     const stack = await client.request("stackTrace", {
       threadId,

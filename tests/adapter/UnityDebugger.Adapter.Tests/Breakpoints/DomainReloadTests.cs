@@ -181,7 +181,9 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                     item =>
                         item["event"]?.Value<string>() == "stopped" &&
                         item.SelectToken("body.reason")?.Value<string>() ==
-                            "breakpoint");
+                            "breakpoint" &&
+                        item.SelectToken("body.hitBreakpointIds[0]")?
+                            .Value<long>() == 1);
             }
         }
     }

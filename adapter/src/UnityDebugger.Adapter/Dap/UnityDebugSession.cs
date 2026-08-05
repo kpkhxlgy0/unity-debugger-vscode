@@ -703,11 +703,25 @@ namespace UnityDebugger.Adapter.Dap
             ResetInspectionState(resetThreads: false);
             activeDapThreadId =
                 threadIds.GetOrCreate(arguments.ThreadId);
+            long[]? hitBreakpointIds = null;
+            if (
+                arguments.Reason == BackendStopReason.Breakpoint &&
+                arguments.BreakpointId.HasValue &&
+                breakpointManager != null &&
+                breakpointManager.TryGetLogicalId(
+                    arguments.BreakpointId.Value,
+                    out var logicalId))
+            {
+                hitBreakpointIds = new[] { logicalId };
+            }
             SendOrBufferControlEvent(
-                new StoppedEvent(
-                    activeDapThreadId,
-                    ToDapStopReason(arguments.Reason),
-                    arguments.Description));
+                new Event(
+                    "stopped",
+                    new DapStoppedEventBody(
+                        activeDapThreadId,
+                        ToDapStopReason(arguments.Reason),
+                        arguments.Description,
+                        hitBreakpointIds)));
         }
 
         private void OnContinued(object sender, EventArgs arguments)

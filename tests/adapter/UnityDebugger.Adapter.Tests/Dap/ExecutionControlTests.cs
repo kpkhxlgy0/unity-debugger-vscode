@@ -148,6 +148,116 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
+        public void Breakpoint_stop_reports_logical_hit_id_for_client_highlight()
+        {
+            var backend = new FakeDebuggerBackend();
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            var session = new UnityDebugSession(() => backend);
+            using (var recorder = new DapTestProtocol.Recorder(session))
+            {
+                recorder.Send(
+                    DapTestProtocol.Request(
+                        "initialize",
+                        new
+                        {
+                            linesStartAt1 = true,
+                            pathFormat = "path",
+                        }),
+                    DapTestProtocol.Request(
+                        "attach",
+                        new
+                        {
+                            __processId = 1234,
+                            __host = "127.0.0.1",
+                            __port = 56234,
+                            __workspaceRoot = @"H:\fixture",
+                            __projectVersion = "2022.3.62t11",
+                        }),
+                    DapTestProtocol.Request(
+                        "setBreakpoints",
+                        new
+                        {
+                            source = new
+                            {
+                                path = @"H:\fixture\Assets\Player.cs",
+                            },
+                            breakpoints = new[]
+                            {
+                                new { line = 12, condition = "ready" },
+                            },
+                        }),
+                    DapTestProtocol.Request(
+                        "setBreakpoints",
+                        new
+                        {
+                            source = new
+                            {
+                                path = @"H:\fixture\Assets\Player.cs",
+                            },
+                            breakpoints = new[]
+                            {
+                                new { line = 12, condition = "!ready" },
+                            },
+                        }));
+
+                Assert.True(backend.RaiseBreakpointHit(2, 42));
+                var stopped = recorder.Capture().Single(
+                    item =>
+                        item["event"]?.Value<string>() == "stopped");
+
+                Assert.Equal(
+                    1,
+                    DapTestProtocol.Required<int>(
+                        stopped.SelectToken("body.hitBreakpointIds[0]")));
+                Assert.Equal(
+                    JTokenType.Null,
+                    stopped.SelectToken("body.text")?.Type);
+            }
+        }
+
+        [Fact]
+        public void Unmapped_breakpoint_stop_omits_hit_ids()
+        {
+            var backend = new FakeDebuggerBackend();
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            var session = new UnityDebugSession(() => backend);
+            using (var recorder = new DapTestProtocol.Recorder(session))
+            {
+                recorder.Send(
+                    DapTestProtocol.Request(
+                        "initialize",
+                        new
+                        {
+                            linesStartAt1 = true,
+                            pathFormat = "path",
+                        }),
+                    DapTestProtocol.Request(
+                        "attach",
+                        new
+                        {
+                            __processId = 1234,
+                            __host = "127.0.0.1",
+                            __port = 56234,
+                            __workspaceRoot = @"H:\fixture",
+                            __projectVersion = "2022.3.62t11",
+                        }));
+
+                backend.RaiseStopped(
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Breakpoint,
+                        42,
+                        null,
+                        999));
+                var stopped = recorder.Capture().Single(
+                    item =>
+                        item["event"]?.Value<string>() == "stopped");
+
+                Assert.Null(
+                    stopped.SelectToken("body.hitBreakpointIds"));
+            }
+        }
+
+        [Fact]
         public void Failed_resume_restores_stopped_state_and_redacts_error()
         {
             var backend = new FakeDebuggerBackend

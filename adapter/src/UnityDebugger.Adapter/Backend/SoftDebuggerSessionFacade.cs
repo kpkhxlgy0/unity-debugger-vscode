@@ -589,12 +589,26 @@ namespace UnityDebugger.Adapter.Backend
             TargetEventArgs arguments,
             BackendStopReason reason)
         {
+            long? breakpointId = null;
+            if (arguments.BreakEvent != null)
+            {
+                lock (breakpointLock)
+                {
+                    if (breakpointIds.TryGetValue(
+                        arguments.BreakEvent,
+                        out var value))
+                    {
+                        breakpointId = value;
+                    }
+                }
+            }
             TargetStopped?.Invoke(
                 this,
                 new BackendStoppedEventArgs(
                     reason,
                     arguments.Thread?.Id ?? 0,
-                    null));
+                    null,
+                    breakpointId));
         }
 
         private void RaiseThread(
