@@ -45,6 +45,31 @@ function provider(
 }
 
 describe("DebugConfigurationProvider", () => {
+  it("passes the default enabled implicit evaluation policy", async () => {
+    const resolved = await provider(async () => [candidate])
+      .resolveDebugConfiguration(folder, attach);
+
+    expect(resolved?.__enableImplicitEvaluation).toBe(true);
+  });
+
+  it("passes the resource-resolved disabled implicit evaluation policy", async () => {
+    const configurationProvider = new DebugConfigurationProvider(
+      { discover: async () => [candidate] },
+      ui(),
+      (currentFolder) => [currentFolder],
+      undefined,
+      (workspaceRoot) => {
+        expect(workspaceRoot).toBe("H:\\fixture");
+        return false;
+      },
+    );
+
+    const resolved =
+      await configurationProvider.resolveDebugConfiguration(folder, attach);
+
+    expect(resolved?.__enableImplicitEvaluation).toBe(false);
+  });
+
   it("resolves a single local target without copying unknown fields", async () => {
     const configurationProvider = provider(async () => [candidate]);
 

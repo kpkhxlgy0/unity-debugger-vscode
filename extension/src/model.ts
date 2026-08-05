@@ -30,5 +30,6 @@ export interface UnityAttachConfiguration {
   readonly __port: number;
   readonly __workspaceRoot: string;
   readonly __projectVersion: string;
+  readonly __enableImplicitEvaluation: boolean;
   readonly __apiAttachRequestId?: string;
 }

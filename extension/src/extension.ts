@@ -34,6 +34,13 @@ export function activate(
     ui,
     listWorkspaceRoots,
     attachRequests,
+    (workspaceRoot) =>
+      vscode.workspace
+        .getConfiguration(
+          "unityDebuggerPure",
+          vscode.Uri.file(workspaceRoot),
+        )
+        .get<boolean>("enableImplicitEvaluation", true),
   );
   const launcher = new AdapterLauncher();
 

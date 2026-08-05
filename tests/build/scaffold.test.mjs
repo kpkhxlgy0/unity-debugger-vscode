@@ -76,6 +76,15 @@ test("manifest defines an independent attach-only debugger", () => {
     ],
   );
 
+  const implicitEvaluation =
+    manifest.contributes.configuration.properties[
+      "unityDebuggerPure.enableImplicitEvaluation"
+    ];
+  assert.equal(implicitEvaluation.type, "boolean");
+  assert.equal(implicitEvaluation.default, true);
+  assert.equal(implicitEvaluation.scope, "resource");
+  assert.match(implicitEvaluation.description, /execute.*target code/i);
+
   assert.match(
     manifest.scripts["build:adapter"],
     /dotnet restore UnityDebugger\.sln --locked-mode/,
