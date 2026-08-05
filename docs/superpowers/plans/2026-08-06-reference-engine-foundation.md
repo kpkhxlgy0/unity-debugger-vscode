@@ -1,5 +1,7 @@
 # Reference Engine Foundation Implementation Plan
 
+**Checkpoint:** Completed on 2026-08-06. Focused foundation tests: 60 passed. Full adapter suite: 183 passed. No foundation build was installed.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task in the current checkout. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace UnityDebuggerPure's duplicated DAP/Mono execution state with a reference-compatible event dispatcher, step manager, and suspended-handle lifecycle built directly on `Mono.Debugger.Soft`.
