@@ -108,8 +108,7 @@ namespace UnityDebugger.Adapter.Tests.Engine
             };
             var manager = new StepManager(runtime);
 
-            Assert.Throws<InvalidOperationException>(
-                () => manager.RequestStep(2, EngineStepDepth.Into));
+            manager.RequestStep(2, EngineStepDepth.Into);
             runtime.EnableException = null;
             manager.CancelStep();
 

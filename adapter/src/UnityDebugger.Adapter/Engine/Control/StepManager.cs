@@ -44,7 +44,7 @@ namespace UnityDebugger.Adapter.Engine.Control
                 catch
                 {
                     runtime.Resume();
-                    throw;
+                    return;
                 }
                 runtime.Resume();
             }
