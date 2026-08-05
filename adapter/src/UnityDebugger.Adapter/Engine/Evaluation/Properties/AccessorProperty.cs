@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
+using UnityDebugger.Adapter.Engine.Evaluation.Values;
 
 namespace UnityDebugger.Adapter.Engine.Evaluation.Properties
 {
@@ -36,6 +37,26 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Properties
                 property.Getter,
                 Array.Empty<IRuntimeValue>(),
                 cancellationToken);
+        }
+
+        public override async Task<DebugValue> GetDebugValueAsync(
+            EvaluationPolicy policy,
+            CancellationToken cancellationToken)
+        {
+            if (!policy.AllowTargetInvoke || !policy.AllowGetters)
+                return DebugValue.NotEvaluated("{get;}");
+
+            try
+            {
+                return DebugValue.FromValue(
+                    await GetValueAsync(cancellationToken).ConfigureAwait(false));
+            }
+            catch (RuntimeInvocationException exception)
+            {
+                return DebugValue.Error(
+                    $"{exception.TargetExceptionType}: " +
+                    exception.TargetMessage);
+            }
         }
 
         public override Task SetValueAsync(

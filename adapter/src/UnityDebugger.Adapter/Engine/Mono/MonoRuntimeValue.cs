@@ -180,17 +180,64 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 () =>
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var result = invokable.InvokeMethod(
-                        thread,
-                        monoMethod,
-                        monoArguments,
-                        options);
+                    Value result;
+                    try
+                    {
+                        result = invokable.InvokeMethod(
+                            thread,
+                            monoMethod,
+                            monoArguments,
+                            options);
+                    }
+                    catch (InvocationException exception)
+                    {
+                        throw CreateInvocationException(exception);
+                    }
                     cancellationToken.ThrowIfCancellationRequested();
                     return new MonoRuntimeValue(result, thread);
                 },
                 cancellationToken,
                 TaskCreationOptions.DenyChildAttach,
                 TaskScheduler.Default);
+        }
+
+        private static RuntimeInvocationException CreateInvocationException(
+            InvocationException exception)
+        {
+            var targetException = exception.Exception;
+            var typeName = targetException.Type.FullName;
+            var message = GetTargetExceptionMessage(targetException);
+            return new RuntimeInvocationException(typeName, message);
+        }
+
+        private static string GetTargetExceptionMessage(
+            ObjectMirror targetException)
+        {
+            try
+            {
+                for (
+                    var current = targetException.Type;
+                    current != null;
+                    current = current.BaseType)
+                {
+                    var messageField = current.GetFields().FirstOrDefault(
+                        candidate =>
+                            !candidate.IsStatic &&
+                            (candidate.Name == "_message" ||
+                                candidate.Name == "message"));
+                    if (
+                        messageField != null &&
+                        targetException.GetValue(messageField) is StringMirror value)
+                    {
+                        return value.Value;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return string.Empty;
         }
 
         private static FieldInfoMirror GetMonoField(RuntimeField field)

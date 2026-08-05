@@ -106,7 +106,8 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 method.IsPublic,
                 method.IsVirtual,
                 method.IsSpecialName,
-                method);
+                method,
+                method.DeclaringType.FullName);
         }
     }
 }

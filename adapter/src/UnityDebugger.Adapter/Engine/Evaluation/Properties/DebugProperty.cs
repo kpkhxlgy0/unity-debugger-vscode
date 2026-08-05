@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
+using UnityDebugger.Adapter.Engine.Evaluation.Values;
 
 namespace UnityDebugger.Adapter.Engine.Evaluation.Properties
 {
@@ -15,6 +16,12 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Properties
         public abstract Task SetValueAsync(
             IRuntimeValue value,
             CancellationToken cancellationToken);
+
+        public virtual async Task<DebugValue> GetDebugValueAsync(
+            EvaluationPolicy policy,
+            CancellationToken cancellationToken) =>
+            DebugValue.FromValue(
+                await GetValueAsync(cancellationToken).ConfigureAwait(false));
 
         public virtual Task<IReadOnlyList<DebugProperty>> GetChildrenAsync(
             CancellationToken cancellationToken) =>

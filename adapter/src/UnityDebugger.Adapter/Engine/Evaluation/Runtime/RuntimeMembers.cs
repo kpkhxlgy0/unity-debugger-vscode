@@ -62,7 +62,8 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
             bool isPublic,
             bool isVirtual,
             bool isSpecialName,
-            object source)
+            object source,
+            string? declaringTypeName = null)
         {
             Name = name;
             ReturnType = returnType;
@@ -72,6 +73,7 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
             IsVirtual = isVirtual;
             IsSpecialName = isSpecialName;
             Source = source;
+            DeclaringTypeName = declaringTypeName ?? string.Empty;
         }
 
         public string Name { get; }
@@ -81,6 +83,7 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
         public bool IsPublic { get; }
         public bool IsVirtual { get; }
         public bool IsSpecialName { get; }
+        public string DeclaringTypeName { get; }
         internal object Source { get; }
     }
 
@@ -94,6 +97,21 @@ namespace UnityDebugger.Adapter.Engine.Evaluation.Runtime
 
         public string Name { get; }
         public IRuntimeType Type { get; }
+    }
+
+    internal sealed class RuntimeInvocationException : Exception
+    {
+        public RuntimeInvocationException(
+            string targetExceptionType,
+            string targetMessage)
+            : base($"{targetExceptionType}: {targetMessage}")
+        {
+            TargetExceptionType = targetExceptionType;
+            TargetMessage = targetMessage;
+        }
+
+        public string TargetExceptionType { get; }
+        public string TargetMessage { get; }
     }
 
     internal sealed class NullRuntimeType : IRuntimeType
