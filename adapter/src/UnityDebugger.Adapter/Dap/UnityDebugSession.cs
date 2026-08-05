@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Breakpoints;
@@ -16,6 +15,7 @@ namespace UnityDebugger.Adapter.Dap
 {
     internal sealed class UnityDebugSession : DebugSession
     {
+        private const int DefaultInspectionTimeoutMilliseconds = 10000;
         private const string SupportedVersion = "2022.3.62t11";
         private const string SupportPolicyUrl =
             "https://marketplace.visualstudio.com/items?itemName=" +
@@ -23,43 +23,17 @@ namespace UnityDebugger.Adapter.Dap
             "#support-policy";
         private readonly Func<IDebuggerBackend> backendFactory;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
-        private readonly HandleTable<BackendStackFrame> frameHandles =
-            new HandleTable<BackendStackFrame>();
-        private readonly HandleTable<long> variableHandles =
-            new HandleTable<long>();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
         private SourceMapper? sourceMapper;
         private bool terminatedSent;
         private BackendEvaluationMode automaticEvaluationMode =
             BackendEvaluationMode.Explicit;
-        private int inspectionGeneration;
 
         public UnityDebugSession(Func<IDebuggerBackend> backendFactory)
         {
             this.backendFactory = backendFactory ??
                 throw new ArgumentNullException(nameof(backendFactory));
-        }
-
-        protected override void DispatchRequest(
-            string command,
-            dynamic arguments,
-            Response response)
-        {
-            if (
-                string.Equals(command, "scopes", StringComparison.Ordinal) ||
-                string.Equals(command, "variables", StringComparison.Ordinal) ||
-                string.Equals(command, "evaluate", StringComparison.Ordinal))
-            {
-                Task.Run(
-                    () => base.DispatchRequest(
-                        command,
-                        (object)arguments,
-                        response));
-                return;
-            }
-
-            base.DispatchRequest(command, (object)arguments, response);
         }
 
         public override void Initialize(Response response, dynamic args)
@@ -213,9 +187,58 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             object args)
         {
-            SendResponse(
-                response,
-                new SetVariablesResponseBody("", "", 0));
+            if (!TryGetInspectionBackend(response, out var value))
+                return;
+            var request = args as JObject;
+            var reference =
+                request?["variablesReference"]?.Value<int>() ?? 0;
+            var name = request?["name"]?.Value<string>();
+            var expression = request?["value"]?.Value<string>();
+            if (
+                reference <= 0 ||
+                string.IsNullOrEmpty(name) ||
+                string.IsNullOrWhiteSpace(expression))
+            {
+                SendErrorResponse(
+                    response,
+                    2027,
+                    "A variable reference, name, and value are required.");
+                return;
+            }
+
+            try
+            {
+                var result = value.SetVariable(
+                    reference,
+                    name!,
+                    expression!,
+                    BackendEvaluationMode.Explicit,
+                    GetTimeoutMilliseconds(request),
+                    CancellationToken.None);
+                if (result == null)
+                {
+                    SendResponse(response);
+                    return;
+                }
+                SendResponse(
+                    response,
+                    new SetVariablesResponseBody(
+                        result.DisplayValue,
+                        result.TypeName,
+                        ToDapHandle(result.VariablesReference)));
+            }
+            catch (OperationCanceledException)
+            {
+                SendResponse(response);
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendErrorResponse(
+                    response,
+                    2028,
+                    "Set Variable failed.");
+            }
         }
 
         public override void Source(
@@ -441,7 +464,7 @@ namespace UnityDebugger.Adapter.Dap
                     var source = ToDapSource(mapped);
                     dapFrames.Add(
                         new DapStackFrame(
-                            frameHandles.Create(frame),
+                            ToDapHandle(frame.Id),
                             frame.Name,
                             source,
                             frame.Line,
@@ -467,49 +490,35 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
-            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
-            if (!frameHandles.TryGet(frameHandle, out var frame))
-            {
-                SendEmptyScopes(response);
-                return;
-            }
 
             try
             {
                 var backendScopes = value.GetScopes(
-                    frame.Id,
-                    automaticEvaluationMode).ToArray();
-                if (!IsCurrentInspectionGeneration(generation))
-                {
-                    SendEmptyScopes(response);
-                    return;
-                }
+                    frameHandle,
+                    automaticEvaluationMode,
+                    GetTimeoutMilliseconds(request),
+                    CancellationToken.None).ToArray();
                 var scopes = new List<Scope>();
                 foreach (var scope in backendScopes)
                 {
                     scopes.Add(
                         new Scope(
                             scope.Name,
-                            variableHandles.Create(
-                                scope.VariablesReference),
+                            ToDapHandle(scope.VariablesReference),
                             scope.Expensive));
                 }
-                if (!IsCurrentInspectionGeneration(generation))
-                {
-                    SendEmptyScopes(response);
-                    return;
-                }
                 SendResponse(response, new ScopesResponseBody(scopes));
+            }
+            catch (OperationCanceledException)
+            {
+                SendEmptyScopes(response);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                if (IsCurrentInspectionGeneration(generation))
-                    SendInspectionFailure(response);
-                else
-                    SendEmptyScopes(response);
+                SendInspectionFailure(response);
             }
         }
 
@@ -519,68 +528,40 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
-            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var reference =
                 request?["variablesReference"]?.Value<int>() ?? 0;
-            if (!variableHandles.TryGet(
-                reference,
-                out var backendReference))
-            {
-                SendEmptyVariables(response);
-                return;
-            }
 
             try
             {
-                const int MaximumVariables = 100;
                 var dapVariables = new List<Variable>();
                 var variables = value.GetVariables(
-                    backendReference,
-                    automaticEvaluationMode);
-                if (!IsCurrentInspectionGeneration(generation))
+                    reference,
+                    automaticEvaluationMode,
+                    GetTimeoutMilliseconds(request),
+                    CancellationToken.None);
+                foreach (var variable in variables)
                 {
-                    SendEmptyVariables(response);
-                    return;
-                }
-                foreach (var variable in variables.Take(MaximumVariables))
-                {
-                    var childReference = variable.VariablesReference > 0
-                        ? variableHandles.Create(
-                            variable.VariablesReference)
-                        : 0;
                     dapVariables.Add(
                         new Variable(
                             variable.Name,
                             variable.DisplayValue,
                             variable.TypeName,
-                            childReference));
-                }
-                if (variables.Count > MaximumVariables)
-                {
-                    dapVariables.Add(
-                        new Variable(
-                            "...",
-                            "More variables are not shown.",
-                            "",
-                            0));
-                }
-                if (!IsCurrentInspectionGeneration(generation))
-                {
-                    SendEmptyVariables(response);
-                    return;
+                            ToDapHandle(
+                                variable.VariablesReference)));
                 }
                 SendResponse(
                     response,
                     new VariablesResponseBody(dapVariables));
             }
+            catch (OperationCanceledException)
+            {
+                SendEmptyVariables(response);
+            }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                if (IsCurrentInspectionGeneration(generation))
-                    SendInspectionFailure(response);
-                else
-                    SendEmptyVariables(response);
+                SendInspectionFailure(response);
             }
         }
 
@@ -615,7 +596,6 @@ namespace UnityDebugger.Adapter.Dap
         {
             if (!TryGetInspectionBackend(response, out var value))
                 return;
-            var generation = Volatile.Read(ref inspectionGeneration);
             var request = arguments as JObject;
             var context = request?["context"]?.Value<string>();
             BackendEvaluationMode mode;
@@ -648,11 +628,6 @@ namespace UnityDebugger.Adapter.Dap
             }
 
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
-            if (!frameHandles.TryGet(frameHandle, out var frame))
-            {
-                SendEmptyEvaluation(response);
-                return;
-            }
             var expression = request?["expression"]?.Value<string>();
             if (string.IsNullOrWhiteSpace(expression))
             {
@@ -666,21 +641,12 @@ namespace UnityDebugger.Adapter.Dap
             try
             {
                 var result = value.Evaluate(
-                    frame.Id,
+                    frameHandle,
                     expression!,
-                    mode);
-                if (!IsCurrentInspectionGeneration(generation))
-                {
-                    SendEmptyEvaluation(response);
-                    return;
-                }
-                var childReference = 0;
-                if (result.VariablesReference > 0)
-                {
-                    childReference = variableHandles.Create(
-                        result.VariablesReference);
-                }
-                if (!IsCurrentInspectionGeneration(generation))
+                    mode,
+                    GetTimeoutMilliseconds(request),
+                    CancellationToken.None);
+                if (result == null)
                 {
                     SendEmptyEvaluation(response);
                     return;
@@ -689,22 +655,19 @@ namespace UnityDebugger.Adapter.Dap
                     response,
                     new EvaluateResponseBody(
                         result.DisplayValue,
-                        childReference));
+                        ToDapHandle(result.VariablesReference)));
+            }
+            catch (OperationCanceledException)
+            {
+                SendEmptyEvaluation(response);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                if (IsCurrentInspectionGeneration(generation))
-                {
-                    SendErrorResponse(
-                        response,
-                        2026,
-                        "Expression evaluation failed.");
-                }
-                else
-                {
-                    SendEmptyEvaluation(response);
-                }
+                SendErrorResponse(
+                    response,
+                    2026,
+                    "Expression evaluation failed.");
             }
         }
 
@@ -733,7 +696,7 @@ namespace UnityDebugger.Adapter.Dap
 
         private void ReleaseBackend()
         {
-            ResetInspectionState(resetThreads: true);
+            threadIds.Reset();
             if (breakpointManager != null)
             {
                 breakpointManager.Changed -=
@@ -772,7 +735,6 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
-            ResetInspectionState(resetThreads: false);
             var dapThreadId =
                 threadIds.GetOrCreate(arguments.ThreadId);
             long[]? hitBreakpointIds = null;
@@ -948,18 +910,6 @@ namespace UnityDebugger.Adapter.Dap
                 mapped.SourceReference);
         }
 
-        private void ResetInspectionState(bool resetThreads)
-        {
-            Interlocked.Increment(ref inspectionGeneration);
-            frameHandles.Reset();
-            variableHandles.Reset();
-            if (resetThreads)
-                threadIds.Reset();
-        }
-
-        private bool IsCurrentInspectionGeneration(int generation) =>
-            Volatile.Read(ref inspectionGeneration) == generation;
-
         private void SendEmptyScopes(Response response) =>
             SendResponse(
                 response,
@@ -971,9 +921,21 @@ namespace UnityDebugger.Adapter.Dap
                 new VariablesResponseBody(new List<Variable>()));
 
         private void SendEmptyEvaluation(Response response) =>
-            SendResponse(
-                response,
-                new EvaluateResponseBody(string.Empty, 0));
+            SendResponse(response);
+
+        private static int GetTimeoutMilliseconds(JObject? request)
+        {
+            var timeout = request?["timeout"]?.Value<int>() ??
+                DefaultInspectionTimeoutMilliseconds;
+            return timeout > 0
+                ? timeout
+                : DefaultInspectionTimeoutMilliseconds;
+        }
+
+        private static int ToDapHandle(long handle) =>
+            handle > 0 && handle <= int.MaxValue
+                ? (int)handle
+                : 0;
 
         private bool TryGetDapThreadId(
             long backendThreadId,

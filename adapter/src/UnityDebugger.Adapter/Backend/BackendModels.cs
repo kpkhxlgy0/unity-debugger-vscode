@@ -128,6 +128,23 @@ namespace UnityDebugger.Adapter.Backend
         public long VariablesReference { get; }
     }
 
+    internal sealed class BackendSetVariableResult
+    {
+        public BackendSetVariableResult(
+            string displayValue,
+            string typeName,
+            long variablesReference)
+        {
+            DisplayValue = displayValue;
+            TypeName = typeName;
+            VariablesReference = variablesReference;
+        }
+
+        public string DisplayValue { get; }
+        public string TypeName { get; }
+        public long VariablesReference { get; }
+    }
+
     internal sealed class LogicalBreakpoint
     {
         public LogicalBreakpoint(

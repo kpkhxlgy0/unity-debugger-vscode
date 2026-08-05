@@ -108,8 +108,11 @@ namespace UnityDebugger.TestAdapter
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfCrashScenario();
             return new[]
             {
@@ -119,8 +122,11 @@ namespace UnityDebugger.TestAdapter
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfCrashScenario();
             var displayValue = scenario == "pause-source"
                 ? ToImplicitEvaluationDisplay(mode)
@@ -135,11 +141,14 @@ namespace UnityDebugger.TestAdapter
             };
         }
 
-        public BackendEvaluationResult Evaluate(
+        public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ThrowIfCrashScenario();
             if (
                 scenario == "pause-source" &&
@@ -155,6 +164,22 @@ namespace UnityDebugger.TestAdapter
             }
             return new BackendEvaluationResult(
                 "0",
+                "System.Int32",
+                0);
+        }
+
+        public BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ThrowIfCrashScenario();
+            return new BackendSetVariableResult(
+                expression,
                 "System.Int32",
                 0);
         }

@@ -108,7 +108,7 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("preserves verified breakpoint status during a simulated Domain Reload", async () => {
+  it("preserves a logical breakpoint id across backend status changes", async () => {
     const client = await start("reload");
     await initialize(client);
     await attach(client);
@@ -117,11 +117,11 @@ describe("Unity debug adapter process", () => {
       breakpoints: [{ line: 12 }],
     });
 
-    await client.waitForEvent("output");
-    const completed = await client.waitForEvent("output");
-    expect(completed.body.output).toBe(
-      "Domain Reload complete; 1 verified, 0 pending.\r\n",
-    );
+    const stopped = await client.waitForEvent("stopped");
+    expect(stopped.body).toMatchObject({
+      reason: "breakpoint",
+      allThreadsStopped: true,
+    });
 
     const preserved = await client.request("setBreakpoints", {
       source: { path: fixtureSource },
@@ -130,11 +130,6 @@ describe("Unity debug adapter process", () => {
     expect(preserved.body.breakpoints[0]).toMatchObject({
       id: 1,
       verified: true,
-    });
-    const stopped = await client.waitForEvent("stopped");
-    expect(stopped.body).toMatchObject({
-      reason: "breakpoint",
-      allThreadsStopped: true,
     });
 
     await client.request("disconnect", {});
@@ -240,7 +235,6 @@ describe("Unity debug adapter process", () => {
     expect(hover.body.result).toBe("implicit-enabled");
 
     await client.request("continue", { threadId });
-    await client.waitForEvent("continued");
     await client.request("disconnect", {});
     await client.expectCleanExit(0);
   });

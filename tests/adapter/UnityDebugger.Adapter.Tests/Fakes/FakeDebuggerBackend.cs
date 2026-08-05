@@ -59,12 +59,22 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public Exception? AttachException { get; set; }
         public BackendStoppedEventArgs? AttachStoppedEvent { get; set; }
         public BackendStoppedEventArgs? StepStoppedEvent { get; set; }
-        public BackendEvaluationResult EvaluationResult { get; set; } =
+        public BackendEvaluationResult? EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
+        public BackendSetVariableResult? SetVariableResult { get; set; } =
+            new BackendSetVariableResult("", "", 0);
+        public Exception? VariablesException { get; set; }
         public string? LastExpression { get; private set; }
         public BackendEvaluationMode? LastEvaluationMode { get; private set; }
         public BackendEvaluationMode? LastScopesMode { get; private set; }
         public BackendEvaluationMode? LastVariablesMode { get; private set; }
+        public int? LastScopesTimeoutMilliseconds { get; private set; }
+        public int? LastVariablesTimeoutMilliseconds { get; private set; }
+        public int? LastEvaluateTimeoutMilliseconds { get; private set; }
+        public int? LastSetVariableTimeoutMilliseconds { get; private set; }
+        public long? LastSetVariableReference { get; private set; }
+        public string? LastSetVariableName { get; private set; }
+        public string? LastSetVariableExpression { get; private set; }
         public int StackTraceCount { get; private set; }
         public int ScopesCount { get; private set; }
         public int VariablesCount { get; private set; }
@@ -117,19 +127,27 @@ namespace UnityDebugger.Adapter.Tests.Fakes
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             ScopesCount++;
             LastScopesMode = mode;
+            LastScopesTimeoutMilliseconds = timeoutMilliseconds;
             return Scopes;
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             VariablesCount++;
             LastVariablesMode = mode;
+            LastVariablesTimeoutMilliseconds = timeoutMilliseconds;
+            if (VariablesException != null)
+                throw VariablesException;
             VariablesEnteredSignal?.Set();
             ContinueVariablesSignal?.Wait(TimeSpan.FromSeconds(5));
             return VariablesByReference.TryGetValue(
@@ -139,17 +157,35 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                     : Variables;
         }
 
-        public BackendEvaluationResult Evaluate(
+        public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             EvaluateCount++;
             LastExpression = expression;
             LastEvaluationMode = mode;
+            LastEvaluateTimeoutMilliseconds = timeoutMilliseconds;
             EvaluateEnteredSignal?.Set();
             ContinueEvaluateSignal?.Wait(TimeSpan.FromSeconds(5));
             return EvaluationResult;
+        }
+
+        public BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            LastSetVariableReference = variablesReference;
+            LastSetVariableName = name;
+            LastSetVariableExpression = expression;
+            LastSetVariableTimeoutMilliseconds = timeoutMilliseconds;
+            return SetVariableResult;
         }
 
         public BackendBoundBreakpoint BindBreakpoint(

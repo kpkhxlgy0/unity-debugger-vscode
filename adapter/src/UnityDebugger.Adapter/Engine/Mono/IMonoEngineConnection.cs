@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Engine.Control;
+using UnityDebugger.Adapter.Engine.Evaluation;
+using UnityDebugger.Adapter.Engine.Evaluation.Values;
 using UnityDebugger.Adapter.Engine.Events;
 
 namespace UnityDebugger.Adapter.Engine.Mono
@@ -18,5 +20,13 @@ namespace UnityDebugger.Adapter.Engine.Mono
             int levels);
         void Suspend();
         void Disconnect();
+    }
+
+    internal interface IMonoEvaluationConnection
+    {
+        bool TryGetFrameEvaluation(
+            long frameId,
+            out IFrameEvaluationEnvironment environment,
+            out IUnityEvaluationContext? unityContext);
     }
 }

@@ -198,7 +198,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [Theory]
         [InlineData("launch", false)]
         [InlineData("setFunctionBreakpoints", true)]
-        [InlineData("setVariable", true)]
         [InlineData("source", true)]
         public void Temporary_handlers_send_exactly_one_response(
             string command,

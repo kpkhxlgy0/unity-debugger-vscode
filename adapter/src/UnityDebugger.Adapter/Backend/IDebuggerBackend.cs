@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace UnityDebugger.Adapter.Backend
 {
@@ -23,14 +24,27 @@ namespace UnityDebugger.Adapter.Backend
             int levels);
         IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode);
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken);
         IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode);
-        BackendEvaluationResult Evaluate(
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken);
+        BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode);
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken);
+        BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken);
         BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint);
         void RemoveBreakpoint(long backendBreakpointId);

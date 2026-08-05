@@ -85,11 +85,10 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             var variables = (JArray)Response(messages, "variables")
                 .SelectToken("body.variables")!;
-            Assert.Equal(101, variables.Count);
-            Assert.Equal("...", Required<string>(variables[100]["name"]));
-            Assert.Equal(
-                0,
-                Required<int>(variables[100]["variablesReference"]));
+            Assert.Equal(102, variables.Count);
+            Assert.DoesNotContain(
+                variables,
+                variable => OptionalText(variable["name"]) == "...");
             Assert.True(Required<int>(
                 variables[1]["variablesReference"]) > 0);
 
@@ -113,7 +112,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Stale_inspection_handles_are_ignored_without_backend_calls()
+        public void Inspection_handles_are_resolved_by_the_backend()
         {
             var fixture = Fixture();
             AttachAndStop(fixture);
@@ -131,17 +130,17 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Response(messages, "stackTrace")["success"]));
             var scopes = Response(messages, "scopes");
             Assert.True(Required<bool>(scopes["success"]));
-            Assert.Empty((JArray)scopes.SelectToken("body.scopes")!);
+            Assert.Single((JArray)scopes.SelectToken("body.scopes")!);
             var variables = Response(messages, "variables");
             Assert.True(Required<bool>(variables["success"]));
             Assert.Empty((JArray)variables.SelectToken("body.variables")!);
             Assert.Equal(0, fixture.Backend.StackTraceCount);
-            Assert.Equal(0, fixture.Backend.ScopesCount);
-            Assert.Equal(0, fixture.Backend.VariablesCount);
+            Assert.Equal(1, fixture.Backend.ScopesCount);
+            Assert.Equal(1, fixture.Backend.VariablesCount);
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task Variables_from_an_old_stop_are_discarded_silently()
+        public async System.Threading.Tasks.Task In_flight_variables_are_not_discarded_by_dap_state()
         {
             var fixture = Fixture();
             AttachAndStop(fixture);
@@ -191,7 +190,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var messages = await request;
             var response = Response(messages, "variables");
             Assert.True(Required<bool>(response["success"]));
-            Assert.Empty((JArray)response.SelectToken("body.variables")!);
+            Assert.NotEmpty((JArray)response.SelectToken("body.variables")!);
         }
 
         [Fact]
@@ -243,7 +242,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public async System.Threading.Tasks.Task Slow_hover_does_not_block_step_over()
+        public async System.Threading.Tasks.Task Inspection_requests_follow_protocol_order()
         {
             var fixture = Fixture();
             AttachAndStop(fixture);
@@ -275,10 +274,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         Request("next", new { threadId = 1 })));
             try
             {
-                Assert.True(
-                    System.Threading.SpinWait.SpinUntil(
-                        () => fixture.Backend.StepOverCount == 1,
-                        TimeSpan.FromMilliseconds(500)));
+                Assert.Equal(0, fixture.Backend.StepOverCount);
             }
             finally
             {
@@ -288,6 +284,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var messages = await run;
             Assert.True(Required<bool>(
                 Response(messages, "next")["success"]));
+            Assert.Equal(1, fixture.Backend.StepOverCount);
         }
 
         [Fact]
@@ -446,7 +443,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Continue_preserves_handles_until_the_next_stop()
+        public void Dap_does_not_own_backend_handle_lifetime()
         {
             var fixture = Fixture();
             AttachAndStop(fixture);
@@ -478,9 +475,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Request("scopes", new { frameId = 1 }));
             var response = Response(afterNextStop, "scopes");
             Assert.True(Required<bool>(response["success"]));
-            Assert.Empty(response["body"]!["scopes"]!);
+            Assert.NotEmpty(response["body"]!["scopes"]!);
             Assert.Equal(
-                scopesBeforeNextStop,
+                scopesBeforeNextStop + 1,
                 fixture.Backend.ScopesCount);
         }
 

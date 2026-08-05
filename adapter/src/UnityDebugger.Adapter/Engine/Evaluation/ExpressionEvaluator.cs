@@ -9,6 +9,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Mono.Debugger.Soft;
 using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
+using UnityDebugger.Adapter.Engine.Evaluation.Values;
 
 namespace UnityDebugger.Adapter.Engine.Evaluation
 {
@@ -23,12 +24,16 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
     internal sealed class ExpressionEvaluator
     {
         private readonly IFrameEvaluationEnvironment environment;
+        private readonly EvaluationPolicy policy;
         private readonly RuntimeInvoker runtimeInvoker = new RuntimeInvoker();
 
-        public ExpressionEvaluator(IFrameEvaluationEnvironment environment)
+        public ExpressionEvaluator(
+            IFrameEvaluationEnvironment environment,
+            EvaluationPolicy? policy = null)
         {
             this.environment = environment ??
                 throw new ArgumentNullException(nameof(environment));
+            this.policy = policy ?? EvaluationPolicy.Explicit;
         }
 
         public IRuntimeValue Evaluate(
@@ -123,6 +128,11 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
                 .FirstOrDefault(value => value.Name == memberName);
             if (property?.Getter != null)
             {
+                if (!policy.AllowTargetInvoke || !policy.AllowGetters)
+                {
+                    throw new ExpressionEvaluationException(
+                        $"The property '{memberName}' was not evaluated.");
+                }
                 return runtimeInvoker.InvokeAsync(
                         target,
                         property.Getter,
@@ -268,6 +278,11 @@ namespace UnityDebugger.Adapter.Engine.Evaluation
             InvocationExpressionSyntax invocation,
             CancellationToken cancellationToken)
         {
+            if (!policy.AllowTargetInvoke)
+            {
+                throw new ExpressionEvaluationException(
+                    "Method invocation is disabled for this evaluation.");
+            }
             if (!(invocation.Expression is MemberAccessExpressionSyntax member))
                 throw Unsupported(invocation);
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace UnityDebugger.Adapter.Backend
 {
@@ -43,17 +44,31 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode) =>
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) =>
             throw NotAttached();
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode) => throw NotAttached();
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) => throw NotAttached();
 
-        public BackendEvaluationResult Evaluate(
+        public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode) => throw NotAttached();
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) => throw NotAttached();
+
+        public BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) => throw NotAttached();
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint) => throw NotAttached();

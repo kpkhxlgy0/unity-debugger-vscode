@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Engine.Control;
+using UnityDebugger.Adapter.Engine.Evaluation;
 using UnityDebugger.Adapter.Engine.Events;
 using UnityDebugger.Adapter.Engine.Mono;
 using UnityDebugger.Adapter.Engine.State;
@@ -21,6 +22,7 @@ namespace UnityDebugger.Adapter.Engine
         private IStepRuntime? stepRuntime;
         private StepManager? stepManager;
         private SuspendedState? suspendedState;
+        private EvaluationService? evaluationService;
         private int terminated;
         private bool disposed;
 
@@ -80,6 +82,7 @@ namespace UnityDebugger.Adapter.Engine
 
                     connection = createdConnection;
                     suspendedState = createdState;
+                    evaluationService = new EvaluationService(createdState);
                     dispatcher = createdDispatcher;
                     stepRuntime = createdStepRuntime;
                     stepManager = createdStepManager;
@@ -108,6 +111,7 @@ namespace UnityDebugger.Adapter.Engine
                 stepRuntime = null;
                 stepManager = null;
                 suspendedState = null;
+                evaluationService = null;
                 IsAttached = false;
             }
             if (value == null)
@@ -129,24 +133,86 @@ namespace UnityDebugger.Adapter.Engine
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels) =>
-            RequireConnection().GetStackTrace(
+            int levels)
+        {
+            var value = RequireConnection();
+            var frames = value.GetStackTrace(
                 threadId,
                 startFrame,
                 levels);
+            if (!(value is IMonoEvaluationConnection evaluationConnection))
+                return frames;
+
+            var mapped = new List<BackendStackFrame>(frames.Count);
+            foreach (var frame in frames)
+            {
+                if (evaluationConnection.TryGetFrameEvaluation(
+                    frame.Id,
+                    out var environment,
+                    out var unityContext))
+                {
+                    mapped.Add(RequireEvaluationService().RegisterFrame(
+                        frame,
+                        environment,
+                        unityContext));
+                }
+                else
+                {
+                    mapped.Add(frame);
+                }
+            }
+            return mapped;
+        }
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode) => throw MigrationIncomplete();
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) =>
+            RequireEvaluationService().GetScopes(
+                frameId,
+                mode,
+                timeoutMilliseconds,
+                cancellationToken);
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode) => throw MigrationIncomplete();
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) =>
+            RequireEvaluationService().GetVariables(
+                variablesReference,
+                mode,
+                timeoutMilliseconds,
+                cancellationToken);
 
-        public BackendEvaluationResult Evaluate(
+        public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode) => throw MigrationIncomplete();
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) =>
+            RequireEvaluationService().Evaluate(
+                frameId,
+                expression,
+                mode,
+                timeoutMilliseconds,
+                cancellationToken);
+
+        public BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) =>
+            RequireEvaluationService().SetVariable(
+                variablesReference,
+                name,
+                expression,
+                mode,
+                timeoutMilliseconds,
+                cancellationToken);
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint) => throw MigrationIncomplete();
@@ -280,6 +346,11 @@ namespace UnityDebugger.Adapter.Engine
 
         private StepManager RequireStepManager() =>
             stepManager ??
+            throw new InvalidOperationException(
+                "The debugger engine is not attached.");
+
+        private EvaluationService RequireEvaluationService() =>
+            evaluationService ??
             throw new InvalidOperationException(
                 "The debugger engine is not attached.");
 

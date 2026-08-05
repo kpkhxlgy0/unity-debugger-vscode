@@ -159,16 +159,36 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode) =>
+            GetScopes(frameId, mode, 10000, CancellationToken.None);
+
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RequireAttached();
             return facade!.GetScopes(frameId, mode);
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode) =>
+            GetVariables(
+                variablesReference,
+                mode,
+                10000,
+                CancellationToken.None);
+
+        public IReadOnlyList<BackendVariable> GetVariables(
+            long variablesReference,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RequireAttached();
             return facade!.GetVariables(variablesReference, mode);
         }
@@ -176,10 +196,38 @@ namespace UnityDebugger.Adapter.Backend
         public BackendEvaluationResult Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode)
+            BackendEvaluationMode mode) =>
+            Evaluate(
+                frameId,
+                expression,
+                mode,
+                10000,
+                CancellationToken.None)!;
+
+        public BackendEvaluationResult? Evaluate(
+            long frameId,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RequireAttached();
             return facade!.Evaluate(frameId, expression, mode);
+        }
+
+        public BackendSetVariableResult? SetVariable(
+            long variablesReference,
+            string name,
+            string expression,
+            BackendEvaluationMode mode,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RequireAttached();
+            throw new DebuggerBackendException(
+                "Set Variable is unavailable in the legacy backend.");
         }
 
         public BackendBoundBreakpoint BindBreakpoint(
