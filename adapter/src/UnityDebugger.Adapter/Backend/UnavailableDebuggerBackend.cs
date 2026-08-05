@@ -38,11 +38,14 @@ namespace UnityDebugger.Adapter.Backend
             int startFrame,
             int levels) => throw NotAttached();
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId) =>
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode) =>
             throw NotAttached();
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference) => throw NotAttached();
+            long variablesReference,
+            BackendEvaluationMode mode) => throw NotAttached();
 
         public BackendEvaluationResult Evaluate(
             long frameId,

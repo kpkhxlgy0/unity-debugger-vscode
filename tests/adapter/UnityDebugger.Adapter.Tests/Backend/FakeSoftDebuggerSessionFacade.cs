@@ -53,6 +53,8 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public BackendEvaluationResult EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
         public BackendEvaluationMode? LastEvaluationMode { get; private set; }
+        public BackendEvaluationMode? LastScopesMode { get; private set; }
+        public BackendEvaluationMode? LastVariablesMode { get; private set; }
 
         public Task ConnectAsync(
             IPAddress address,
@@ -117,11 +119,21 @@ namespace UnityDebugger.Adapter.Tests.Backend
             int startFrame,
             int levels) => Frames;
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId) =>
-            Scopes;
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode)
+        {
+            LastScopesMode = mode;
+            return Scopes;
+        }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference) => Variables;
+            long variablesReference,
+            BackendEvaluationMode mode)
+        {
+            LastVariablesMode = mode;
+            return Variables;
+        }
 
         public BackendEvaluationResult Evaluate(
             long frameId,

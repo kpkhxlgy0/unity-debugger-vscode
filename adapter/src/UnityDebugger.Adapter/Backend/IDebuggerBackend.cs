@@ -24,9 +24,12 @@ namespace UnityDebugger.Adapter.Backend
             long threadId,
             int startFrame,
             int levels);
-        IReadOnlyList<BackendScope> GetScopes(long frameId);
+        IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode);
         IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference);
+            long variablesReference,
+            BackendEvaluationMode mode);
         BackendEvaluationResult Evaluate(
             long frameId,
             string expression,

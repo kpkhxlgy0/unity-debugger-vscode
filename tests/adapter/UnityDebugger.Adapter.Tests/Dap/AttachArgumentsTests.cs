@@ -21,6 +21,30 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Path.GetFullPath(@"H:\fixture"),
                 target.WorkspaceRoot);
             Assert.Equal("2022.3.62t11", target.ProjectVersion);
+            Assert.True(target.EnableImplicitEvaluation);
+        }
+
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public void Parse_accepts_boolean_implicit_evaluation(bool enabled)
+        {
+            var json = ValidArguments();
+            json["__enableImplicitEvaluation"] = enabled;
+
+            Assert.Equal(
+                enabled,
+                AttachArguments.Parse(json).EnableImplicitEvaluation);
+        }
+
+        [Fact]
+        public void Parse_rejects_non_boolean_implicit_evaluation()
+        {
+            var json = ValidArguments();
+            json["__enableImplicitEvaluation"] = "true";
+
+            Assert.Throws<AttachArgumentException>(
+                () => AttachArguments.Parse(json));
         }
 
         [Theory]

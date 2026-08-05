@@ -16,13 +16,15 @@ namespace UnityDebugger.Adapter.Backend
             IPAddress address,
             int port,
             string workspaceRoot,
-            string projectVersion)
+            string projectVersion,
+            bool enableImplicitEvaluation = true)
         {
             ProcessId = processId;
             Address = address;
             Port = port;
             WorkspaceRoot = workspaceRoot;
             ProjectVersion = projectVersion;
+            EnableImplicitEvaluation = enableImplicitEvaluation;
         }
 
         public int ProcessId { get; }
@@ -30,6 +32,7 @@ namespace UnityDebugger.Adapter.Backend
         public int Port { get; }
         public string WorkspaceRoot { get; }
         public string ProjectVersion { get; }
+        public bool EnableImplicitEvaluation { get; }
     }
 
     internal sealed class BackendThread

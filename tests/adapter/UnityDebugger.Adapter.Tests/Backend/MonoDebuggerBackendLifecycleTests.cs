@@ -194,10 +194,22 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 Assert.Same(
                     facade.Frames,
                     backend.GetStackTrace(42, 0, 20));
-                Assert.Same(facade.Scopes, backend.GetScopes(5));
+                Assert.Same(
+                    facade.Scopes,
+                    backend.GetScopes(
+                        5,
+                        BackendEvaluationMode.Explicit));
                 Assert.Same(
                     facade.Variables,
-                    backend.GetVariables(8));
+                    backend.GetVariables(
+                        8,
+                        BackendEvaluationMode.Safe));
+                Assert.Equal(
+                    BackendEvaluationMode.Explicit,
+                    facade.LastScopesMode);
+                Assert.Equal(
+                    BackendEvaluationMode.Safe,
+                    facade.LastVariablesMode);
                 Assert.Same(
                     facade.EvaluationResult,
                     backend.Evaluate(

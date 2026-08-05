@@ -103,7 +103,9 @@ namespace UnityDebugger.TestAdapter
             };
         }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode)
         {
             ThrowIfCrashScenario();
             return new[]
@@ -113,7 +115,8 @@ namespace UnityDebugger.TestAdapter
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference)
+            long variablesReference,
+            BackendEvaluationMode mode)
         {
             ThrowIfCrashScenario();
             return new[]

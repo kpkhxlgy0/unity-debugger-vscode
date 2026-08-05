@@ -34,6 +34,8 @@ namespace UnityDebugger.Adapter.Dap
         private bool controlResponsePending;
         private bool awaitingContinuedEvent;
         private bool reloadRequiresRebind;
+        private BackendEvaluationMode automaticEvaluationMode =
+            BackendEvaluationMode.Explicit;
         private int activeDapThreadId;
         private Event? bufferedControlEvent;
 
@@ -94,6 +96,9 @@ namespace UnityDebugger.Adapter.Dap
             try
             {
                 var target = AttachArguments.Parse((JObject)arguments);
+                automaticEvaluationMode = target.EnableImplicitEvaluation
+                    ? BackendEvaluationMode.Explicit
+                    : BackendEvaluationMode.Safe;
                 var createdBackend = backendFactory();
                 backend = createdBackend;
                 Subscribe(createdBackend);
@@ -431,10 +436,13 @@ namespace UnityDebugger.Adapter.Dap
             try
             {
                 var scopes = new List<Scope>();
-                foreach (var scope in value.GetScopes(frame.Id))
+                foreach (var scope in value.GetScopes(
+                    frame.Id,
+                    automaticEvaluationMode))
                 {
                     var variables = value.GetVariables(
-                        scope.VariablesReference);
+                        scope.VariablesReference,
+                        automaticEvaluationMode);
                     scopes.Add(
                         new Scope(
                             scope.Name,
@@ -475,7 +483,8 @@ namespace UnityDebugger.Adapter.Dap
                     if (variable.VariablesReference > 0)
                     {
                         var children = value.GetVariables(
-                            variable.VariablesReference);
+                            variable.VariablesReference,
+                            automaticEvaluationMode);
                         childReference = variableHandles.Create(
                             children.ToArray());
                     }
@@ -553,7 +562,7 @@ namespace UnityDebugger.Adapter.Dap
                 "hover",
                 StringComparison.Ordinal))
             {
-                mode = BackendEvaluationMode.Safe;
+                mode = automaticEvaluationMode;
             }
             else if (
                 string.Equals(
@@ -603,7 +612,8 @@ namespace UnityDebugger.Adapter.Dap
                 {
                     childReference = variableHandles.Create(
                         value.GetVariables(
-                            result.VariablesReference).ToArray());
+                            result.VariablesReference,
+                            mode).ToArray());
                 }
                 SendResponse(
                     response,

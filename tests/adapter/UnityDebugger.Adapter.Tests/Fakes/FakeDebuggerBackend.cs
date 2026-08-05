@@ -54,6 +54,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new BackendEvaluationResult("", "", 0);
         public string? LastExpression { get; private set; }
         public BackendEvaluationMode? LastEvaluationMode { get; private set; }
+        public BackendEvaluationMode? LastScopesMode { get; private set; }
+        public BackendEvaluationMode? LastVariablesMode { get; private set; }
         public int StackTraceCount { get; private set; }
         public int ScopesCount { get; private set; }
         public int VariablesCount { get; private set; }
@@ -102,16 +104,21 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             return Frames;
         }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode)
         {
             ScopesCount++;
+            LastScopesMode = mode;
             return Scopes;
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference)
+            long variablesReference,
+            BackendEvaluationMode mode)
         {
             VariablesCount++;
+            LastVariablesMode = mode;
             return VariablesByReference.TryGetValue(
                 variablesReference,
                 out var values)

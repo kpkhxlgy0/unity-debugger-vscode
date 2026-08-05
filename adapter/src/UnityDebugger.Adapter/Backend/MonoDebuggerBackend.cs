@@ -150,17 +150,20 @@ namespace UnityDebugger.Adapter.Backend
                 levels);
         }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode)
         {
             RequireAttached();
-            return facade!.GetScopes(frameId);
+            return facade!.GetScopes(frameId, mode);
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference)
+            long variablesReference,
+            BackendEvaluationMode mode)
         {
             RequireAttached();
-            return facade!.GetVariables(variablesReference);
+            return facade!.GetVariables(variablesReference, mode);
         }
 
         public BackendEvaluationResult Evaluate(

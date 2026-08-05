@@ -257,7 +257,9 @@ namespace UnityDebugger.Adapter.Backend
             return result;
         }
 
-        public IReadOnlyList<BackendScope> GetScopes(long frameId)
+        public IReadOnlyList<BackendScope> GetScopes(
+            long frameId,
+            BackendEvaluationMode mode)
         {
             ThrowIfDisposed();
             Mono.Debugging.Client.StackFrame frame;
@@ -270,7 +272,9 @@ namespace UnityDebugger.Adapter.Backend
                 }
             }
 
-            var options = SafeEvaluationOptions();
+            var options = EvaluationOptionsPolicy.Create(
+                session.EvaluationOptions,
+                mode);
             var values = new List<ObjectValue>();
             var thisReference = frame.GetThisReference(options);
             if (thisReference != null)
@@ -289,7 +293,8 @@ namespace UnityDebugger.Adapter.Backend
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
-            long variablesReference)
+            long variablesReference,
+            BackendEvaluationMode mode)
         {
             ThrowIfDisposed();
             ObjectValue[] values;
@@ -303,7 +308,10 @@ namespace UnityDebugger.Adapter.Backend
                         "The requested variables are unavailable.");
                 }
             }
-            return ConvertVariables(values, SafeEvaluationOptions());
+            var options = EvaluationOptionsPolicy.Create(
+                session.EvaluationOptions,
+                mode);
+            return ConvertVariables(values, options);
         }
 
         public BackendEvaluationResult Evaluate(

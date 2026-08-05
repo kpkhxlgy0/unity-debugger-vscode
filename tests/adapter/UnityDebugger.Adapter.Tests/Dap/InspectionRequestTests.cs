@@ -86,6 +86,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "body.variablesReference")) > 0);
             Assert.Equal(1, fixture.Backend.EvaluateCount);
             Assert.Equal("player.Health", fixture.Backend.LastExpression);
+            Assert.Equal(
+                BackendEvaluationMode.Explicit,
+                fixture.Backend.LastScopesMode);
+            Assert.Equal(
+                BackendEvaluationMode.Explicit,
+                fixture.Backend.LastVariablesMode);
         }
 
         [Fact]
@@ -160,7 +166,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Theory]
-        [InlineData("hover", (int)BackendEvaluationMode.Safe)]
+        [InlineData("hover", (int)BackendEvaluationMode.Explicit)]
         [InlineData("watch", (int)BackendEvaluationMode.Explicit)]
         [InlineData("repl", (int)BackendEvaluationMode.Explicit)]
         public void Evaluation_context_selects_backend_mode(
@@ -191,6 +197,59 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Response(messages, "evaluate")["success"]));
             Assert.Equal(1, fixture.Backend.EvaluateCount);
             Assert.Equal(expectedMode, fixture.Backend.LastEvaluationMode);
+        }
+
+        [Fact]
+        public void Disabled_implicit_evaluation_keeps_automatic_inspection_safe()
+        {
+            var fixture = Fixture();
+            var messages = Run(
+                fixture.Session,
+                Initialize(),
+                Attach(fixture.Workspace, false),
+                Request("threads", new { }),
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }),
+                Request("scopes", new { frameId = 1 }),
+                Request("variables", new { variablesReference = 1 }),
+                Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "player.Health",
+                        context = "hover",
+                    }));
+
+            Assert.True(Required<bool>(
+                Response(messages, "evaluate")["success"]));
+            Assert.Equal(
+                BackendEvaluationMode.Safe,
+                fixture.Backend.LastScopesMode);
+            Assert.Equal(
+                BackendEvaluationMode.Safe,
+                fixture.Backend.LastVariablesMode);
+            Assert.Equal(
+                BackendEvaluationMode.Safe,
+                fixture.Backend.LastEvaluationMode);
+
+            var watch = Run(
+                fixture.Session,
+                Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "player.Health",
+                        context = "watch",
+                    }));
+
+            Assert.True(Required<bool>(
+                Response(watch, "evaluate")["success"]));
+            Assert.Equal(
+                BackendEvaluationMode.Explicit,
+                fixture.Backend.LastEvaluationMode);
         }
 
         [Fact]
@@ -349,8 +408,11 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     pathFormat = "path",
                 });
 
-        private static JObject Attach(string workspace) =>
-            Request(
+        private static JObject Attach(
+            string workspace,
+            bool? enableImplicitEvaluation = null)
+        {
+            var request = Request(
                 "attach",
                 new
                 {
@@ -360,6 +422,13 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     __workspaceRoot = workspace,
                     __projectVersion = "2022.3.62t11",
                 });
+            if (enableImplicitEvaluation.HasValue)
+            {
+                request["arguments"]!["__enableImplicitEvaluation"] =
+                    enableImplicitEvaluation.Value;
+            }
+            return request;
+        }
 
         private static JObject Request(string command, object arguments) =>
             JObject.FromObject(
