@@ -119,11 +119,14 @@ namespace UnityDebugger.TestAdapter
             BackendEvaluationMode mode)
         {
             ThrowIfCrashScenario();
+            var displayValue = scenario == "pause-source"
+                ? ToImplicitEvaluationDisplay(mode)
+                : "0";
             return new[]
             {
                 new BackendVariable(
                     "health",
-                    "0",
+                    displayValue,
                     "System.Int32",
                     0),
             };
@@ -140,12 +143,11 @@ namespace UnityDebugger.TestAdapter
                 string.Equals(
                     expression,
                     "_isVisible",
-                    StringComparison.Ordinal) &&
-                mode == BackendEvaluationMode.Safe)
+                    StringComparison.Ordinal))
             {
                 return new BackendEvaluationResult(
-                    "false",
-                    "System.Boolean",
+                    ToImplicitEvaluationDisplay(mode),
+                    "System.String",
                     0);
             }
             return new BackendEvaluationResult(
@@ -153,6 +155,12 @@ namespace UnityDebugger.TestAdapter
                 "System.Int32",
                 0);
         }
+
+        private static string ToImplicitEvaluationDisplay(
+            BackendEvaluationMode mode) =>
+            mode == BackendEvaluationMode.Explicit
+                ? "implicit-enabled"
+                : "implicit-disabled";
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

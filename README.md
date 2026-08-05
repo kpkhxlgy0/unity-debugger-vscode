@@ -56,6 +56,26 @@ Version 0.2.0 exposes a versioned local extension API for trusted local
 clients. API targets are opaque, restricted to the current workspace, and do
 not change normal interactive debugging.
 
+## Implicit evaluation
+
+`unityDebuggerPure.enableImplicitEvaluation` defaults to `true`. It allows
+Hover, Locals, and variable expansion to invoke property getters and target
+`ToString()` while the Editor is paused. These calls execute code in the debug
+target and can cause side effects or delays.
+
+Disable it in User settings to change the default for every project, or in
+Workspace / Workspace Folder settings to override a specific project:
+
+```json
+{
+  "unityDebuggerPure.enableImplicitEvaluation": false
+}
+```
+
+Workspace Folder values override Workspace values, which override User values.
+Changes apply on the next Attach. Watch and Debug Console evaluation remain
+explicit regardless of this setting.
+
 ## Support policy
 
 <a id="support-policy"></a>

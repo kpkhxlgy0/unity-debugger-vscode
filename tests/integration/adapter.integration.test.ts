@@ -193,7 +193,7 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("omits unavailable pause sources and evaluates safe hovers", async () => {
+  it("omits unavailable pause sources and enables implicit evaluation by default", async () => {
     const client = await start("pause-source");
     const capabilities = await client.request("initialize", {
       adapterID: "unity-debugger-pure",
@@ -224,15 +224,62 @@ describe("Unity debug adapter process", () => {
     expect(stack.body.stackFrames[0]).not.toHaveProperty("source");
     expect(stack.body.stackFrames[1].source.path).toBe(fixtureSource);
 
+    const scopes = await client.request("scopes", {
+      frameId: stack.body.stackFrames[1].id,
+    });
+    const variables = await client.request("variables", {
+      variablesReference: scopes.body.scopes[0].variablesReference,
+    });
+    expect(variables.body.variables[0].value).toBe("implicit-enabled");
+
     const hover = await client.request("evaluate", {
       expression: "_isVisible",
       frameId: stack.body.stackFrames[1].id,
       context: "hover",
     });
-    expect(hover.body.result).toBe("false");
+    expect(hover.body.result).toBe("implicit-enabled");
 
     await client.request("continue", { threadId });
     await client.waitForEvent("continued");
+    await client.request("disconnect", {});
+    await client.expectCleanExit(0);
+  });
+
+  it("keeps automatic inspection safe when implicit evaluation is disabled", async () => {
+    const client = await start("pause-source");
+    await initialize(client);
+    await attach(client, false);
+
+    const threads = await client.request("threads", {});
+    const threadId = threads.body.threads[0].id;
+    await client.request("pause", { threadId });
+    await client.waitForEvent("stopped");
+    const stack = await client.request("stackTrace", {
+      threadId,
+      startFrame: 0,
+      levels: 20,
+    });
+    const frameId = stack.body.stackFrames[1].id;
+    const scopes = await client.request("scopes", { frameId });
+    const variables = await client.request("variables", {
+      variablesReference: scopes.body.scopes[0].variablesReference,
+    });
+    expect(variables.body.variables[0].value).toBe("implicit-disabled");
+
+    const hover = await client.request("evaluate", {
+      expression: "_isVisible",
+      frameId,
+      context: "hover",
+    });
+    expect(hover.body.result).toBe("implicit-disabled");
+
+    const watch = await client.request("evaluate", {
+      expression: "_isVisible",
+      frameId,
+      context: "watch",
+    });
+    expect(watch.body.result).toBe("implicit-enabled");
+
     await client.request("disconnect", {});
     await client.expectCleanExit(0);
   });
@@ -254,12 +301,18 @@ async function initialize(client: DapClient): Promise<void> {
   await client.waitForEvent("initialized");
 }
 
-async function attach(client: DapClient): Promise<void> {
+async function attach(
+  client: DapClient,
+  enableImplicitEvaluation?: boolean,
+): Promise<void> {
   await client.request("attach", {
     __processId: 1234,
     __host: "127.0.0.1",
     __port: 56234,
     __workspaceRoot: fixtureRoot,
     __projectVersion: "2022.3.62t11",
+    ...(enableImplicitEvaluation === undefined
+      ? {}
+      : { __enableImplicitEvaluation: enableImplicitEvaluation }),
   });
 }

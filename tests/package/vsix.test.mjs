@@ -56,3 +56,38 @@ test("rejects a packaged manifest without the initial attach configuration", (t)
     /wrong initial debug configuration/i,
   );
 });
+
+test("rejects a packaged manifest with a changed implicit evaluation setting", (t) => {
+  const fixtureDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "unity-debugger-pure-vsix-"),
+  );
+  t.after(() => fs.rmSync(fixtureDirectory, { recursive: true, force: true }));
+
+  const fixturePath = path.join(
+    fixtureDirectory,
+    "changed-implicit-evaluation.vsix",
+  );
+  const archive = new AdmZip(artifactPath);
+  const manifestEntry = archive.getEntry("extension/package.json");
+  assert.ok(manifestEntry);
+  const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
+  const setting =
+    manifest.contributes.configuration.properties[
+      "unityDebuggerPure.enableImplicitEvaluation"
+    ];
+  assert.ok(setting);
+  setting.default = false;
+  archive.updateFile(
+    "extension/package.json",
+    Buffer.from(JSON.stringify(manifest), "utf8"),
+  );
+  archive.writeZip(fixturePath);
+
+  const result = verifyVsix(fixturePath);
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /implicit evaluation setting/i,
+  );
+});
