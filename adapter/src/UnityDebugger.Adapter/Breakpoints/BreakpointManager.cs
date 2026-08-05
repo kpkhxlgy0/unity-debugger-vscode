@@ -480,16 +480,10 @@ namespace UnityDebugger.Adapter.Breakpoints
             Entry entry,
             BackendBoundBreakpoint bound)
         {
-            var verified = bound.Verified || bound.Id > 0;
-            if (verified && !bound.Verified)
-            {
-                InternalDebuggerLog.Write(
-                    "unity-debugger.breakpoint.manager.status.pending.accepted");
-            }
-            entry.Verified = verified;
+            entry.Verified = bound.Verified;
             if (bound.Line > 0)
                 entry.BoundLine = bound.Line;
-            entry.Message = verified
+            entry.Message = bound.Verified
                 ? null
                 : bound.Message ?? PendingMessage;
         }

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Mono.Debugger.Soft;
 using UnityDebugger.Adapter.Backend;
+using UnityDebugger.Adapter.Engine.Breakpoints;
 using UnityDebugger.Adapter.Engine.Control;
 using UnityDebugger.Adapter.Engine.Evaluation;
 using UnityDebugger.Adapter.Engine.Events;
 using UnityDebugger.Adapter.Engine.Mono;
+using UnityDebugger.Adapter.Engine.Source;
 using UnityDebugger.Adapter.Engine.State;
 
 namespace UnityDebugger.Adapter.Engine
@@ -23,6 +26,8 @@ namespace UnityDebugger.Adapter.Engine
         private StepManager? stepManager;
         private SuspendedState? suspendedState;
         private EvaluationService? evaluationService;
+        private EngineSourceMapManager? sourceMapManager;
+        private EngineBreakpointManager? engineBreakpointManager;
         private int terminated;
         private bool disposed;
 
@@ -79,10 +84,26 @@ namespace UnityDebugger.Adapter.Engine
                         threadId => RaiseStopped(
                             BackendStopReason.Step,
                             threadId));
+                    var createdSourceManager =
+                        new EngineSourceMapManager();
+                    EngineBreakpointManager? createdBreakpointManager = null;
+                    if (createdConnection is IEngineBreakpointRuntime runtime)
+                    {
+                        createdBreakpointManager =
+                            new EngineBreakpointManager(
+                                createdSourceManager,
+                                runtime);
+                        createdBreakpointManager.BreakpointChanged +=
+                            OnEngineBreakpointChanged;
+                    }
+                    createdSourceManager.ModuleChanged +=
+                        OnEngineModuleChanged;
 
                     connection = createdConnection;
                     suspendedState = createdState;
                     evaluationService = new EvaluationService(createdState);
+                    sourceMapManager = createdSourceManager;
+                    engineBreakpointManager = createdBreakpointManager;
                     dispatcher = createdDispatcher;
                     stepRuntime = createdStepRuntime;
                     stepManager = createdStepManager;
@@ -112,6 +133,15 @@ namespace UnityDebugger.Adapter.Engine
                 stepManager = null;
                 suspendedState = null;
                 evaluationService = null;
+                if (engineBreakpointManager != null)
+                {
+                    engineBreakpointManager.BreakpointChanged -=
+                        OnEngineBreakpointChanged;
+                }
+                if (sourceMapManager != null)
+                    sourceMapManager.ModuleChanged -= OnEngineModuleChanged;
+                sourceMapManager = null;
+                engineBreakpointManager = null;
                 IsAttached = false;
             }
             if (value == null)
@@ -215,10 +245,16 @@ namespace UnityDebugger.Adapter.Engine
                 cancellationToken);
 
         public BackendBoundBreakpoint BindBreakpoint(
-            LogicalBreakpoint breakpoint) => throw MigrationIncomplete();
+            LogicalBreakpoint breakpoint)
+        {
+            var manager = RequireBreakpointManager();
+            return manager.ToBackendBreakpoint(
+                manager.RequestSourceBreakpoint(breakpoint));
+        }
 
         public void RemoveBreakpoint(long backendBreakpointId) =>
-            throw MigrationIncomplete();
+            RequireBreakpointManager().RemovePendingBreakpoint(
+                backendBreakpointId);
 
         public void Continue(long threadId)
         {
@@ -268,10 +304,7 @@ namespace UnityDebugger.Adapter.Engine
                     RequireStepManager().ProcessStepEvent(value.ThreadId);
                     break;
                 case EngineEventKind.Breakpoint:
-                    RaiseStopped(
-                        BackendStopReason.Breakpoint,
-                        value.ThreadId,
-                        value.Payload as IReadOnlyList<long>);
+                    ProcessBreakpointEvent(value);
                     break;
                 case EngineEventKind.Exception:
                     RaiseStopped(
@@ -296,6 +329,16 @@ namespace UnityDebugger.Adapter.Engine
                         new BackendThreadEventArgs(
                             value.ThreadId,
                             false));
+                    break;
+                case EngineEventKind.TypeLoaded:
+                    if (value.Payload is TypeLoadEvent typeLoaded)
+                    {
+                        engineBreakpointManager?.ProcessTypeLoaded(
+                            new MonoRuntimeType(typeLoaded.Type));
+                    }
+                    break;
+                case EngineEventKind.DomainUnloaded:
+                    ProcessDomainUnload(value.Payload);
                     break;
                 case EngineEventKind.VmDied:
                 case EngineEventKind.VmDisconnected:
@@ -334,6 +377,73 @@ namespace UnityDebugger.Adapter.Engine
                     breakpointIds ?? Array.Empty<long>()));
         }
 
+        private void ProcessBreakpointEvent(EngineEvent value)
+        {
+            if (
+                engineBreakpointManager != null &&
+                value.Payload is BreakpointEvent breakpointEvent &&
+                breakpointEvent.Request != null)
+            {
+                var result = engineBreakpointManager.ProcessBreakpointHit(
+                    new RuntimeBreakpointHit(
+                        breakpointEvent.Request,
+                        breakpointEvent.Method.Locations.Count > 0));
+                if (result.Action == BreakpointHitAction.Resume)
+                {
+                    RequireStepRuntime().Resume();
+                    return;
+                }
+                if (!string.IsNullOrEmpty(result.Output))
+                {
+                    Output?.Invoke(
+                        this,
+                        new BackendOutputEventArgs(
+                            "console",
+                            result.Output!));
+                }
+                if (result.Action == BreakpointHitAction.LogPoint)
+                {
+                    RequireStepRuntime().Resume();
+                    return;
+                }
+                RaiseStopped(
+                    BackendStopReason.Breakpoint,
+                    value.ThreadId,
+                    result.BreakpointIds);
+                return;
+            }
+
+            RaiseStopped(
+                BackendStopReason.Breakpoint,
+                value.ThreadId,
+                value.Payload as IReadOnlyList<long>);
+        }
+
+        private void ProcessDomainUnload(object? payload)
+        {
+            if (
+                !(payload is AppDomainUnloadEvent unloaded) ||
+                sourceMapManager == null ||
+                engineBreakpointManager == null ||
+                !sourceMapManager.TryGetDomain(
+                    unloaded.Domain,
+                    out var domain))
+            {
+                return;
+            }
+            engineBreakpointManager.UnbindDomain(domain);
+        }
+
+        private void OnEngineBreakpointChanged(
+            object? sender,
+            BackendBreakpointChangedEventArgs arguments) =>
+            BreakpointChanged?.Invoke(this, arguments);
+
+        private void OnEngineModuleChanged(
+            object? sender,
+            BackendModuleChangedEventArgs arguments) =>
+            ModuleChanged?.Invoke(this, arguments);
+
         private IMonoEngineConnection RequireConnection() =>
             connection ??
             throw new InvalidOperationException(
@@ -353,6 +463,10 @@ namespace UnityDebugger.Adapter.Engine
             evaluationService ??
             throw new InvalidOperationException(
                 "The debugger engine is not attached.");
+
+        private EngineBreakpointManager RequireBreakpointManager() =>
+            engineBreakpointManager ??
+            throw MigrationIncomplete();
 
         private void ThrowIfDisposed()
         {

@@ -56,7 +56,7 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
         }
 
         [Fact]
-        public void Accepted_breakpoint_ignores_false_pending_status()
+        public void Pending_breakpoint_becomes_verified_after_bound_status()
         {
             var backend = new FakeDebuggerBackend
             {
@@ -68,16 +68,16 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                     @"H:\fixture\Assets\Player.cs",
                     new[] { new RequestedBreakpoint(12, null) });
 
-                Assert.True(initial[0].Verified);
-                Assert.Null(initial[0].Message);
+                Assert.False(initial[0].Verified);
+                Assert.Equal("Symbols are not loaded.", initial[0].Message);
 
                 backend.RaiseBreakpointChanged(
                     new BackendBreakpointChangedEventArgs(
                         new BackendBoundBreakpoint(
                             1,
-                            false,
+                            true,
                             12,
-                            "Symbols are not loaded.")));
+                            null)));
                 var afterStatus = manager.ReplaceForSource(
                     @"H:\fixture\Assets\Player.cs",
                     new[] { new RequestedBreakpoint(12, null) });
