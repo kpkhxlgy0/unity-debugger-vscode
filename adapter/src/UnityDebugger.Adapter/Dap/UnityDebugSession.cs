@@ -50,10 +50,15 @@ namespace UnityDebugger.Adapter.Dap
             SendResponse(response, new Capabilities
             {
                 supportsConfigurationDoneRequest = false,
-                supportsFunctionBreakpoints = false,
+                supportsFunctionBreakpoints = true,
                 supportsConditionalBreakpoints = true,
                 supportsEvaluateForHovers = true,
                 supportsExceptionOptions = true,
+                supportsLogPoints = true,
+                supportsSetVariable = true,
+                supportsStepInTargetsRequest = true,
+                supportsGotoTargetsRequest = true,
+                supportsTerminateRequest = true,
                 exceptionBreakpointFilters = new[]
                 {
                     new ExceptionBreakpointsFilter(
@@ -65,7 +70,6 @@ namespace UnityDebugger.Adapter.Dap
                         "Uncaught Exceptions",
                         true),
                 },
-                supportsSetVariable = false,
             });
             SendEvent(new InitializedEvent());
         }
@@ -153,6 +157,40 @@ namespace UnityDebugger.Adapter.Dap
                 response,
                 new SetFunctionBreakpointsBody(
                     new VSCodeDebug.Breakpoint[0]));
+        }
+
+        public override void StepInTargets(
+            Response response,
+            dynamic arguments)
+        {
+            SendResponse(
+                response,
+                new StepInTargetsResponseBody(
+                    Array.Empty<StepInTarget>()));
+        }
+
+        public override void GotoTargets(
+            Response response,
+            dynamic arguments)
+        {
+            SendResponse(
+                response,
+                new GotoTargetsResponseBody(
+                    Array.Empty<GotoTarget>()));
+        }
+
+        public override void Goto(
+            Response response,
+            dynamic arguments)
+        {
+            SendResponse(response);
+        }
+
+        public override void ExceptionInfo(
+            Response response,
+            dynamic arguments)
+        {
+            SendResponse(response, new ResponseBody());
         }
 
         protected override void SetVariable(

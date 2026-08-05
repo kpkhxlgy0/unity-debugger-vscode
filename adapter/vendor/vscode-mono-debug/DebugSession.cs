@@ -202,6 +202,17 @@ namespace VSCodeDebug
         public bool supportsHitConditionalBreakpoints;
         public bool supportsExceptionOptions;
         public bool supportsLogPoints;
+        public bool supportsStepInTargetsRequest;
+        public bool supportsGotoTargetsRequest;
+        public bool supportsDataBreakpoints;
+        public bool supportsDisassembleRequest;
+        public bool supportsInstructionBreakpoints;
+        public bool supportsSingleThreadExecutionRequests;
+        public bool supportsSteppingGranularity;
+        public bool supportsStepBack;
+        public bool supportsReadMemoryRequest;
+        public bool supportsRestartRequest;
+        public bool supportsWriteMemoryRequest;
 
         /// <summary>
         /// The development tool uses it to terminate the debuggee gracefully,
@@ -288,6 +299,64 @@ namespace VSCodeDebug
         {
             result = value;
             variablesReference = reff;
+        }
+    }
+
+    public sealed class StepInTarget
+    {
+        public int id;
+        public string label;
+
+        public StepInTarget(int id, string label)
+        {
+            this.id = id;
+            this.label = label;
+        }
+    }
+
+    public sealed class StepInTargetsResponseBody : ResponseBody
+    {
+        public StepInTarget[] targets;
+
+        public StepInTargetsResponseBody(StepInTarget[] targets)
+        {
+            this.targets = targets;
+        }
+    }
+
+    public sealed class GotoTarget
+    {
+        public int id;
+        public string label;
+        public int line;
+        public int column;
+        public int endLine;
+        public int endColumn;
+
+        public GotoTarget(
+            int id,
+            string label,
+            int line,
+            int column,
+            int endLine,
+            int endColumn)
+        {
+            this.id = id;
+            this.label = label;
+            this.line = line;
+            this.column = column;
+            this.endLine = endLine;
+            this.endColumn = endColumn;
+        }
+    }
+
+    public sealed class GotoTargetsResponseBody : ResponseBody
+    {
+        public GotoTarget[] targets;
+
+        public GotoTargetsResponseBody(GotoTarget[] targets)
+        {
+            this.targets = targets;
         }
     }
 
@@ -427,12 +496,24 @@ namespace VSCodeDebug
                         StepIn(response, args);
                         break;
 
+                    case "stepInTargets":
+                        StepInTargets(response, args);
+                        break;
+
                     case "stepOut":
                         StepOut(response, args);
                         break;
 
                     case "pause":
                         Pause(response, args);
+                        break;
+
+                    case "gotoTargets":
+                        GotoTargets(response, args);
+                        break;
+
+                    case "goto":
+                        Goto(response, args);
                         break;
 
                     case "stackTrace":
@@ -473,6 +554,10 @@ namespace VSCodeDebug
 
                     case "setVariable":
                         SetVariable(response, args);
+                        break;
+
+                    case "exceptionInfo":
+                        ExceptionInfo(response, args);
                         break;
 
                     default:
@@ -519,9 +604,15 @@ namespace VSCodeDebug
 
         public abstract void StepIn(Response response, dynamic arguments);
 
+        public abstract void StepInTargets(Response response, dynamic arguments);
+
         public abstract void StepOut(Response response, dynamic arguments);
 
         public abstract void Pause(Response response, dynamic arguments);
+
+        public abstract void GotoTargets(Response response, dynamic arguments);
+
+        public abstract void Goto(Response response, dynamic arguments);
 
         public abstract void StackTrace(Response response, dynamic arguments);
 
@@ -534,6 +625,8 @@ namespace VSCodeDebug
         public abstract void Threads(Response response, dynamic arguments);
 
         public abstract void Evaluate(Response response, dynamic arguments);
+
+        public abstract void ExceptionInfo(Response response, dynamic arguments);
 
         // protected
 
