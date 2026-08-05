@@ -243,6 +243,14 @@ namespace UnityDebugger.Adapter.Backend
             facade!.RemoveBreakpoint(backendBreakpointId);
         }
 
+        public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
+            long frameId) => Array.Empty<BackendStepInTarget>();
+
+        public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column) => Array.Empty<BackendGotoTarget>();
+
         public void Continue(long threadId)
         {
             RequireAttached();
@@ -255,11 +263,13 @@ namespace UnityDebugger.Adapter.Backend
             facade!.Pause();
         }
 
-        public void StepIn(long threadId)
+        public void StepIn(long threadId, long? targetId)
         {
             RequireAttached();
             facade!.StepIn();
         }
+
+        public void StepIn(long threadId) => StepIn(threadId, null);
 
         public void StepOver(long threadId)
         {
@@ -271,6 +281,13 @@ namespace UnityDebugger.Adapter.Backend
         {
             RequireAttached();
             facade!.StepOut();
+        }
+
+        public void Goto(long threadId, long targetId)
+        {
+            RequireAttached();
+            throw new DebuggerBackendException(
+                "Goto is unavailable in the legacy backend.");
         }
 
         public void ConfigureExceptions(ExceptionBreakMode mode)

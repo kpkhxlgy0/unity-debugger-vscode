@@ -155,27 +155,113 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
-            SendResponse(
-                response,
-                new StepInTargetsResponseBody(
-                    Array.Empty<StepInTarget>()));
+            if (!TryGetInspectionBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var frameId = request?["frameId"]?.Value<int>() ?? 0;
+            try
+            {
+                var targets = value.GetStepInTargets(frameId)
+                    .Select(
+                        target => new StepInTarget(
+                            ToDapHandle(target.Id),
+                            target.Label))
+                    .Where(target => target.id > 0)
+                    .ToArray();
+                SendResponse(
+                    response,
+                    new StepInTargetsResponseBody(targets));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendResponse(
+                    response,
+                    new StepInTargetsResponseBody(
+                        Array.Empty<StepInTarget>()));
+            }
         }
 
         public override void GotoTargets(
             Response response,
             dynamic arguments)
         {
-            SendResponse(
-                response,
-                new GotoTargetsResponseBody(
-                    Array.Empty<GotoTarget>()));
+            if (!TryGetInspectionBackend(response, out var value))
+                return;
+            var request = arguments as JObject;
+            var source = request?["source"] as JObject;
+            var clientPath = source?["path"]?.Value<string>();
+            var sourcePath = ConvertClientPathToDebugger(clientPath);
+            if (string.IsNullOrEmpty(sourcePath))
+            {
+                SendResponse(
+                    response,
+                    new GotoTargetsResponseBody(
+                        Array.Empty<GotoTarget>()));
+                return;
+            }
+            var line = ConvertClientLineToDebugger(
+                request?["line"]?.Value<int>() ?? 0);
+            var column = Math.Max(
+                1,
+                request?["column"]?.Value<int>() ?? 1);
+            try
+            {
+                var targets = value.GetGotoTargets(
+                        sourcePath,
+                        line,
+                        column)
+                    .Select(
+                        target => new GotoTarget(
+                            ToDapHandle(target.Id),
+                            target.Label,
+                            ConvertDebuggerLineToClient(target.Line),
+                            Math.Max(1, target.Column),
+                            ConvertDebuggerLineToClient(target.EndLine),
+                            Math.Max(1, target.EndColumn)))
+                    .Where(target => target.id > 0)
+                    .ToArray();
+                SendResponse(
+                    response,
+                    new GotoTargetsResponseBody(targets));
+            }
+            catch (Exception exception)
+                when (IsInspectionFailure(exception))
+            {
+                SendResponse(
+                    response,
+                    new GotoTargetsResponseBody(
+                        Array.Empty<GotoTarget>()));
+            }
         }
 
         public override void Goto(
             Response response,
             dynamic arguments)
         {
-            SendResponse(response);
+            if (!TryResolveControlTarget(
+                response,
+                (object)arguments,
+                out IDebuggerBackend value,
+                out long threadId))
+            {
+                return;
+            }
+            var request = arguments as JObject;
+            var targetId = request?["targetId"]?.Value<int>() ?? 0;
+            try
+            {
+                value.Goto(threadId, targetId);
+                SendResponse(response);
+            }
+            catch (Exception exception)
+                when (IsControlFailure(exception))
+            {
+                SendErrorResponse(
+                    response,
+                    2034,
+                    "Goto request failed.");
+            }
         }
 
         public override void ExceptionInfo(
@@ -403,12 +489,16 @@ namespace UnityDebugger.Adapter.Dap
 
         public override void StepIn(
             Response response,
-            dynamic arguments) =>
+            dynamic arguments)
+        {
+            var request = arguments as JObject;
+            var targetId = request?["targetId"]?.Value<long?>();
             Resume(
                 response,
                 (object)arguments,
                 "Step in",
-                (value, threadId) => value.StepIn(threadId));
+                (value, threadId) => value.StepIn(threadId, targetId));
+        }
 
         public override void StepOut(
             Response response,
@@ -980,6 +1070,8 @@ namespace UnityDebugger.Adapter.Dap
                     return "exception";
                 case BackendStopReason.Entry:
                     return "entry";
+                case BackendStopReason.Goto:
+                    return "goto";
                 default:
                     return "pause";
             }

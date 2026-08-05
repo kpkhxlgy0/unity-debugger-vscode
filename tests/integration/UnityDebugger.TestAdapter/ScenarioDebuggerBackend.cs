@@ -240,6 +240,14 @@ namespace UnityDebugger.TestAdapter
                 activeBreakpointIds.Remove(backendBreakpointId);
         }
 
+        public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
+            long frameId) => Array.Empty<BackendStepInTarget>();
+
+        public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column) => Array.Empty<BackendGotoTarget>();
+
         public void Continue(long threadId)
         {
             Continued?.Invoke(this, EventArgs.Empty);
@@ -253,9 +261,13 @@ namespace UnityDebugger.TestAdapter
             ScheduleStop(BackendStopReason.Pause, 10);
         }
 
-        public void StepIn(long threadId) => Step();
+        public void StepIn(long threadId, long? targetId) => Step();
         public void StepOver(long threadId) => Step();
         public void StepOut(long threadId) => Step();
+
+        public void Goto(long threadId, long targetId)
+        {
+        }
 
         public void ConfigureExceptions(ExceptionBreakMode mode)
         {

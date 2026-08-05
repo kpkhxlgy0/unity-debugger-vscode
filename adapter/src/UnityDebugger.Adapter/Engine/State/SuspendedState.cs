@@ -9,6 +9,9 @@ namespace UnityDebugger.Adapter.Engine.State
         private readonly ObjectMap properties = new ObjectMap();
         private readonly ObjectMap codePaths = new ObjectMap();
         private readonly ObjectMap codeContexts = new ObjectMap();
+        private int generation;
+
+        public int Generation => Volatile.Read(ref generation);
 
         public int RegisterFrame(object value) => frames.Register(value);
 
@@ -35,6 +38,7 @@ namespace UnityDebugger.Adapter.Engine.State
 
         public void Reset()
         {
+            Interlocked.Increment(ref generation);
             frames.Reset();
             properties.Reset();
             codePaths.Reset();

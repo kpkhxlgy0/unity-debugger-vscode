@@ -145,6 +145,44 @@ namespace UnityDebugger.Adapter.Backend
         public long VariablesReference { get; }
     }
 
+    internal sealed class BackendStepInTarget
+    {
+        public BackendStepInTarget(long id, string label)
+        {
+            Id = id;
+            Label = label;
+        }
+
+        public long Id { get; }
+        public string Label { get; }
+    }
+
+    internal sealed class BackendGotoTarget
+    {
+        public BackendGotoTarget(
+            long id,
+            string label,
+            int line,
+            int column,
+            int endLine,
+            int endColumn)
+        {
+            Id = id;
+            Label = label;
+            Line = line;
+            Column = column;
+            EndLine = endLine;
+            EndColumn = endColumn;
+        }
+
+        public long Id { get; }
+        public string Label { get; }
+        public int Line { get; }
+        public int Column { get; }
+        public int EndLine { get; }
+        public int EndColumn { get; }
+    }
+
     internal sealed class LogicalBreakpoint
     {
         public LogicalBreakpoint(
@@ -201,6 +239,7 @@ namespace UnityDebugger.Adapter.Backend
         Pause,
         Exception,
         Entry,
+        Goto,
     }
 
     internal sealed class BackendExceptionInfo

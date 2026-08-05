@@ -24,6 +24,8 @@ namespace UnityDebugger.Adapter.Engine
         private EngineEventDispatcher? dispatcher;
         private IStepRuntime? stepRuntime;
         private StepManager? stepManager;
+        private StepTargetManager? stepTargetManager;
+        private GotoManager? gotoManager;
         private SuspendedState? suspendedState;
         private EvaluationService? evaluationService;
         private EngineSourceMapManager? sourceMapManager;
@@ -87,6 +89,20 @@ namespace UnityDebugger.Adapter.Engine
                         threadId => RaiseStopped(
                             BackendStopReason.Step,
                             threadId));
+                    StepTargetManager? createdStepTargetManager = null;
+                    if (createdConnection is IStepTargetRuntime stepTargets)
+                    {
+                        createdStepTargetManager = new StepTargetManager(
+                            createdState,
+                            stepTargets);
+                    }
+                    GotoManager? createdGotoManager = null;
+                    if (createdConnection is IGotoRuntime gotoRuntime)
+                    {
+                        createdGotoManager = new GotoManager(
+                            createdState,
+                            gotoRuntime);
+                    }
                     var createdSourceManager =
                         new EngineSourceMapManager();
                     EngineBreakpointManager? createdBreakpointManager = null;
@@ -118,6 +134,8 @@ namespace UnityDebugger.Adapter.Engine
                     dispatcher = createdDispatcher;
                     stepRuntime = createdStepRuntime;
                     stepManager = createdStepManager;
+                    stepTargetManager = createdStepTargetManager;
+                    gotoManager = createdGotoManager;
                     IsAttached = true;
                     Interlocked.Exchange(ref terminated, 0);
                     createdDispatcher.Start();
@@ -142,6 +160,8 @@ namespace UnityDebugger.Adapter.Engine
                 dispatcher = null;
                 stepRuntime = null;
                 stepManager = null;
+                stepTargetManager = null;
+                gotoManager = null;
                 suspendedState = null;
                 evaluationService = null;
                 if (engineBreakpointManager != null)
@@ -182,26 +202,27 @@ namespace UnityDebugger.Adapter.Engine
                 threadId,
                 startFrame,
                 levels);
-            if (!(value is IMonoEvaluationConnection evaluationConnection))
-                return frames;
-
+            var evaluationConnection = value as IMonoEvaluationConnection;
             var mapped = new List<BackendStackFrame>(frames.Count);
             foreach (var frame in frames)
             {
-                if (evaluationConnection.TryGetFrameEvaluation(
+                var mappedFrame = frame;
+                if (
+                    evaluationConnection != null &&
+                    evaluationConnection.TryGetFrameEvaluation(
                     frame.Id,
                     out var environment,
                     out var unityContext))
                 {
-                    mapped.Add(RequireEvaluationService().RegisterFrame(
+                    mappedFrame = RequireEvaluationService().RegisterFrame(
                         frame,
                         environment,
-                        unityContext));
+                        unityContext);
                 }
-                else
-                {
-                    mapped.Add(frame);
-                }
+                mapped.Add(mappedFrame);
+                stepTargetManager?.RegisterFrame(
+                    mappedFrame.Id,
+                    frame.Id);
             }
             return mapped;
         }
@@ -268,6 +289,18 @@ namespace UnityDebugger.Adapter.Engine
             RequireBreakpointManager().RemovePendingBreakpoint(
                 backendBreakpointId);
 
+        public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
+            long frameId) =>
+            stepTargetManager?.GetTargets(frameId) ??
+            Array.Empty<BackendStepInTarget>();
+
+        public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column) =>
+            gotoManager?.GetTargets(sourcePath, line, column) ??
+            Array.Empty<BackendGotoTarget>();
+
         public void Continue(long threadId)
         {
             RequireStepManager().CancelStep();
@@ -290,10 +323,19 @@ namespace UnityDebugger.Adapter.Engine
             }
         }
 
-        public void StepIn(long threadId) =>
+        public void StepIn(long threadId, long? targetId)
+        {
+            if (
+                targetId.HasValue &&
+                stepTargetManager != null &&
+                stepTargetManager.TryStepIn(threadId, targetId.Value))
+            {
+                return;
+            }
             RequireStepManager().RequestStep(
                 threadId,
                 EngineStepDepth.Into);
+        }
 
         public void StepOver(long threadId) =>
             RequireStepManager().RequestStep(
@@ -304,6 +346,21 @@ namespace UnityDebugger.Adapter.Engine
             RequireStepManager().RequestStep(
                 threadId,
                 EngineStepDepth.Out);
+
+        public void Goto(long threadId, long targetId)
+        {
+            if (
+                gotoManager != null &&
+                gotoManager.TryGoto(threadId, targetId))
+            {
+                Stopped?.Invoke(
+                    this,
+                    new BackendStoppedEventArgs(
+                        BackendStopReason.Goto,
+                        threadId,
+                        null));
+            }
+        }
 
         public void ConfigureExceptions(ExceptionBreakMode mode)
         {

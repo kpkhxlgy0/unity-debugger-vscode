@@ -31,6 +31,10 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new List<BackendScope>();
         public List<BackendVariable> Variables { get; } =
             new List<BackendVariable>();
+        public List<BackendStepInTarget> StepInTargets { get; } =
+            new List<BackendStepInTarget>();
+        public List<BackendGotoTarget> GotoTargets { get; } =
+            new List<BackendGotoTarget>();
         public Dictionary<long, IReadOnlyList<BackendVariable>>
             VariablesByReference { get; } =
                 new Dictionary<long, IReadOnlyList<BackendVariable>>();
@@ -89,9 +93,16 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public int StepInCount { get; private set; }
         public int StepOverCount { get; private set; }
         public int StepOutCount { get; private set; }
+        public int GotoCount { get; private set; }
         public int RemoveBreakpointCount { get; private set; }
         public int ConfigureExceptionsCount { get; private set; }
         public long? LastControlThreadId { get; private set; }
+        public long? LastStepInTargetId { get; private set; }
+        public long? LastGotoTargetId { get; private set; }
+        public long? LastStepInTargetsFrameId { get; private set; }
+        public string? LastGotoSourcePath { get; private set; }
+        public int? LastGotoLine { get; private set; }
+        public int? LastGotoColumn { get; private set; }
         public bool RaiseContinuedSynchronously { get; set; }
         public int SynchronousStoppedEventCount { get; set; }
         public Exception? ControlException { get; set; }
@@ -266,6 +277,42 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 RaiseContinued();
             if (StepStoppedEvent != null)
                 RaiseStopped(StepStoppedEvent);
+        }
+
+        public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
+            long frameId)
+        {
+            LastStepInTargetsFrameId = frameId;
+            return StepInTargets;
+        }
+
+        public void StepIn(long threadId, long? targetId)
+        {
+            LastStepInTargetId = targetId;
+            StepIn(threadId);
+        }
+
+        public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column)
+        {
+            LastGotoSourcePath = sourcePath;
+            LastGotoLine = line;
+            LastGotoColumn = column;
+            return GotoTargets;
+        }
+
+        public void Goto(long threadId, long targetId)
+        {
+            GotoCount++;
+            LastControlThreadId = threadId;
+            LastGotoTargetId = targetId;
+            RaiseStopped(
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Goto,
+                    threadId,
+                    null));
         }
 
         public void StepOver(long threadId)

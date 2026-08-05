@@ -48,11 +48,17 @@ namespace UnityDebugger.Adapter.Backend
         BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint);
         void RemoveBreakpoint(long backendBreakpointId);
+        IReadOnlyList<BackendStepInTarget> GetStepInTargets(long frameId);
+        IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column);
         void Continue(long threadId);
         void Pause(long threadId);
-        void StepIn(long threadId);
+        void StepIn(long threadId, long? targetId);
         void StepOver(long threadId);
         void StepOut(long threadId);
+        void Goto(long threadId, long targetId);
         void ConfigureExceptions(ExceptionBreakMode mode);
     }
 }

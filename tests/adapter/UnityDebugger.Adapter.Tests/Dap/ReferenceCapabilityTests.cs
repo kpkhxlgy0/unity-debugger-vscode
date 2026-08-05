@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Tests.Fakes;
 using Xunit;
@@ -54,13 +55,67 @@ namespace UnityDebugger.Adapter.Tests.Dap
         public void AdvertisedRequestHookReturnsOneSuccessfulResponse(
             string command)
         {
+            var backend = new FakeDebuggerBackend();
+            backend.Threads.Add(new BackendThread(42, "Main Thread"));
+            var session = new UnityDebugSession(() => backend);
+            DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "initialize",
+                    new
+                    {
+                        linesStartAt1 = true,
+                        pathFormat = "path",
+                    }),
+                DapTestProtocol.Request(
+                    "attach",
+                    new
+                    {
+                        __processId = 1234,
+                        __host = "127.0.0.1",
+                        __port = 56234,
+                        __workspaceRoot = @"H:\fixture",
+                        __projectVersion = "2022.3.62t11",
+                    }),
+                DapTestProtocol.Request("threads", new { }));
             var messages = DapTestProtocol.Run(
-                new UnityDebugSession(() => new FakeDebuggerBackend()),
-                DapTestProtocol.Request(command, new { }));
+                session,
+                Request(command));
 
             var response = DapTestProtocol.Response(messages, command);
             Assert.True(response["success"]!.Value<bool>());
             Assert.Single(DapTestProtocol.Responses(messages, command));
+        }
+
+        private static JObject Request(string command)
+        {
+            switch (command)
+            {
+                case "stepInTargets":
+                    return DapTestProtocol.Request(
+                        command,
+                        new { frameId = 999 });
+                case "gotoTargets":
+                    return DapTestProtocol.Request(
+                        command,
+                        new
+                        {
+                            source = new
+                            {
+                                path = @"H:\fixture\Assets\Player.cs",
+                            },
+                            line = 10,
+                            column = 1,
+                        });
+                case "goto":
+                    return DapTestProtocol.Request(
+                        command,
+                        new { threadId = 1, targetId = 999 });
+                default:
+                    return DapTestProtocol.Request(
+                        command,
+                        new { threadId = 1 });
+            }
         }
     }
 }

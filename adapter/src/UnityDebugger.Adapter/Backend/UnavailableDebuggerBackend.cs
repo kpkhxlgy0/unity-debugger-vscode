@@ -76,11 +76,22 @@ namespace UnityDebugger.Adapter.Backend
         public void RemoveBreakpoint(long backendBreakpointId) =>
             throw NotAttached();
 
+        public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
+            long frameId) => throw NotAttached();
+
+        public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
+            string sourcePath,
+            int line,
+            int column) => throw NotAttached();
+
         public void Continue(long threadId) => throw NotAttached();
         public void Pause(long threadId) => throw NotAttached();
-        public void StepIn(long threadId) => throw NotAttached();
+        public void StepIn(long threadId, long? targetId) =>
+            throw NotAttached();
         public void StepOver(long threadId) => throw NotAttached();
         public void StepOut(long threadId) => throw NotAttached();
+        public void Goto(long threadId, long targetId) =>
+            throw NotAttached();
 
         public void ConfigureExceptions(ExceptionBreakMode mode) =>
             throw NotAttached();
