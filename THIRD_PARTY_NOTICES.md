@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-This repository builds the debugger dependencies below from recorded source
-revisions. The corresponding license text is retained verbatim.
+This repository retains debugger dependency sources from the recorded
+revisions below. The corresponding license text is retained verbatim.
 
 - `Unity-Technologies/vscode-mono-debug`
   (`d233b366b0c67ae4d61488f7e974e2a5b9da2e3b`) —
@@ -13,11 +13,15 @@ revisions. The corresponding license text is retained verbatim.
   (`0607a4ad96ebdd16817e47dcae85b1cfcb5b5bf5`) —
   [MIT license](third-party/licenses/nrefactory-MIT.txt)
 
+The release Adapter builds only the `Mono.Debugger.Soft` subset of
+`debugger-libs`; `Mono.Debugging`, `Mono.Debugging.Soft`, and NRefactory are
+excluded from the solution and are not linked or shipped. Their retained
+source licenses remain listed above for provenance.
+
 The locked build also restores packages including
 `Microsoft.NETFramework.ReferenceAssemblies`, `Newtonsoft.Json`, `Mono.Cecil`,
-`System.Buffers`, `System.Collections.Immutable`,
-`Microsoft.CodeAnalysis.CSharp.Workspaces`,
-`Microsoft.CodeAnalysis.VisualBasic.Workspaces`, and `Mono.Posix-4.5`.
+`System.Buffers`, `System.Collections.Immutable`, and Roslyn runtime
+dependencies.
 Their license metadata and exact versions are recorded by NuGet lock files;
 the release inventory added before packaging records every shipped assembly.
 

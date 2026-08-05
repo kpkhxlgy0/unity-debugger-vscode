@@ -134,7 +134,11 @@ namespace UnityDebugger.Adapter.Engine.Mono
         public void SetField(RuntimeField field, IRuntimeValue newValue)
         {
             var monoField = GetMonoField(field);
-            var monoValue = GetMonoValue(newValue);
+            var monoValue = ToMonoValue(
+                newValue,
+                monoField.FieldType,
+                ResolveDomain(monoField.FieldType),
+                monoField.VirtualMachine);
             if (monoField.IsStatic)
                 monoField.DeclaringType.SetValue(monoField, monoValue);
             else if (value is ObjectMirror objectValue)
@@ -170,35 +174,26 @@ namespace UnityDebugger.Adapter.Engine.Mono
                     "The method does not belong to the Mono runtime.",
                     nameof(method));
 
-            var monoArguments = arguments.Select(GetMonoValue).ToArray();
+            var parameters = monoMethod.GetParameters();
+            var domain = ResolveDomain(monoMethod.DeclaringType);
+            var monoArguments = arguments
+                .Select((value, index) => ToMonoValue(
+                    value,
+                    parameters[index].ParameterType,
+                    domain,
+                    monoMethod.VirtualMachine))
+                .ToArray();
             IInvokable invokable = method.IsStatic
                 ? monoMethod.DeclaringType
                 : value as IInvokable ?? throw new InvalidOperationException(
                     "The runtime value cannot invoke instance methods.");
 
-            return Task.Factory.StartNew<IRuntimeValue>(
-                () =>
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    Value result;
-                    try
-                    {
-                        result = invokable.InvokeMethod(
-                            thread,
-                            monoMethod,
-                            monoArguments,
-                            options);
-                    }
-                    catch (InvocationException exception)
-                    {
-                        throw CreateInvocationException(exception);
-                    }
-                    cancellationToken.ThrowIfCancellationRequested();
-                    return new MonoRuntimeValue(result, thread);
-                },
-                cancellationToken,
-                TaskCreationOptions.DenyChildAttach,
-                TaskScheduler.Default);
+            return InvokeMonoAsync(
+                invokable,
+                monoMethod,
+                monoArguments,
+                options,
+                cancellationToken);
         }
 
         public Task<IRuntimeValue> CreateInstanceAsync(
@@ -224,30 +219,71 @@ namespace UnityDebugger.Adapter.Engine.Mono
                     nameof(constructor));
             }
 
-            var monoArguments = arguments.Select(GetMonoValue).ToArray();
-            return Task.Factory.StartNew<IRuntimeValue>(
-                () =>
+            var parameters = monoConstructor.GetParameters();
+            var domain = ResolveDomain(monoConstructor.DeclaringType);
+            var monoArguments = arguments
+                .Select((value, index) => ToMonoValue(
+                    value,
+                    parameters[index].ParameterType,
+                    domain,
+                    monoConstructor.VirtualMachine))
+                .ToArray();
+            return InvokeMonoAsync(
+                monoType.Mirror,
+                monoConstructor,
+                monoArguments,
+                options,
+                cancellationToken);
+        }
+
+        private async Task<IRuntimeValue> InvokeMonoAsync(
+            IInvokable invokable,
+            MethodMirror method,
+            Value[] arguments,
+            InvokeOptions options,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var invocation = (IInvokeAsyncResult)invokable.BeginInvokeMethod(
+                thread!,
+                method,
+                arguments,
+                options,
+                null,
+                null);
+            using (cancellationToken.Register(
+                () => AbortInvocation(invocation)))
+            {
+                try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    Value result;
-                    try
-                    {
-                        result = monoType.Mirror.NewInstance(
-                            thread,
-                            monoConstructor,
-                            monoArguments,
-                            options);
-                    }
-                    catch (InvocationException exception)
-                    {
-                        throw CreateInvocationException(exception);
-                    }
+                    var result = await Task<Value>.Factory.FromAsync(
+                            invocation,
+                            invokable.EndInvokeMethod)
+                        .ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                     return new MonoRuntimeValue(result, thread);
-                },
-                cancellationToken,
-                TaskCreationOptions.DenyChildAttach,
-                TaskScheduler.Default);
+                }
+                catch (InvocationException exception)
+                {
+                    throw CreateInvocationException(exception);
+                }
+                catch (Exception)
+                    when (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
+            }
+        }
+
+        private static void AbortInvocation(IInvokeAsyncResult invocation)
+        {
+            try
+            {
+                invocation.Abort();
+            }
+            catch
+            {
+            }
         }
 
         private static RuntimeInvocationException CreateInvocationException(
@@ -298,7 +334,11 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 nameof(field));
         }
 
-        private static Value GetMonoValue(IRuntimeValue runtimeValue)
+        internal static Value ToMonoValue(
+            IRuntimeValue runtimeValue,
+            TypeMirror expectedType,
+            AppDomainMirror domain,
+            VirtualMachine virtualMachine)
         {
             if (
                 runtimeValue is MonoRuntimeValue monoValue &&
@@ -307,9 +347,93 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 return monoValue.value;
             }
 
+            if (runtimeValue.Kind == RuntimeValueKind.Null)
+                return new PrimitiveValue(virtualMachine, null);
+            if (runtimeValue.Kind == RuntimeValueKind.String)
+                return domain.CreateString(runtimeValue.String ?? string.Empty);
+            if (runtimeValue.Kind == RuntimeValueKind.Enum)
+            {
+                var primitive = new PrimitiveValue(
+                    virtualMachine,
+                    ConvertPrimitive(
+                        GetEnumUnderlyingType(expectedType),
+                        runtimeValue.Primitive));
+                return virtualMachine.CreateEnumMirror(
+                    expectedType,
+                    primitive);
+            }
+            if (runtimeValue.Kind == RuntimeValueKind.Primitive)
+            {
+                return new PrimitiveValue(
+                    virtualMachine,
+                    ConvertPrimitive(
+                        expectedType,
+                        runtimeValue.Primitive));
+            }
+
             throw new ArgumentException(
                 "The value does not belong to the Mono runtime.",
                 nameof(runtimeValue));
+        }
+
+        private AppDomainMirror ResolveDomain(TypeMirror expectedType)
+        {
+            if (value is ObjectMirror objectValue)
+                return objectValue.Domain;
+            if (thread != null)
+                return thread.Domain;
+            try
+            {
+                return expectedType.Assembly.Domain;
+            }
+            catch (NotSupportedException)
+            {
+                return expectedType.VirtualMachine.RootDomain;
+            }
+        }
+
+        private static TypeMirror GetEnumUnderlyingType(TypeMirror type) =>
+            type.GetFields()
+                .First(field =>
+                    !field.IsStatic &&
+                    field.Name == "value__")
+                .FieldType;
+
+        private static object? ConvertPrimitive(
+            TypeMirror expectedType,
+            object? value)
+        {
+            if (value == null)
+                return null;
+            switch (expectedType.FullName)
+            {
+                case "System.Boolean":
+                    return Convert.ToBoolean(value);
+                case "System.Byte":
+                    return Convert.ToByte(value);
+                case "System.SByte":
+                    return Convert.ToSByte(value);
+                case "System.Char":
+                    return Convert.ToChar(value);
+                case "System.Int16":
+                    return Convert.ToInt16(value);
+                case "System.UInt16":
+                    return Convert.ToUInt16(value);
+                case "System.Int32":
+                    return Convert.ToInt32(value);
+                case "System.UInt32":
+                    return Convert.ToUInt32(value);
+                case "System.Int64":
+                    return Convert.ToInt64(value);
+                case "System.UInt64":
+                    return Convert.ToUInt64(value);
+                case "System.Single":
+                    return Convert.ToSingle(value);
+                case "System.Double":
+                    return Convert.ToDouble(value);
+                default:
+                    return value;
+            }
         }
     }
 }

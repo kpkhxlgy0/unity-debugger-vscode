@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Engine.Control;
 using UnityDebugger.Adapter.Engine.Evaluation;
+using UnityDebugger.Adapter.Engine.Evaluation.Runtime;
 using UnityDebugger.Adapter.Engine.Evaluation.Values;
 using UnityDebugger.Adapter.Engine.Events;
 
@@ -35,5 +36,10 @@ namespace UnityDebugger.Adapter.Engine.Mono
         bool TryGetTopFrameEvaluation(
             long threadId,
             out IFrameEvaluationEnvironment? environment);
+    }
+
+    internal interface IMonoSourceConnection
+    {
+        IReadOnlyList<IRuntimeType> GetSourceTypes(string sourcePath);
     }
 }

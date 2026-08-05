@@ -9,11 +9,15 @@ namespace UnityDebugger.Adapter.Engine.Mono
     internal sealed class MonoEventSource : IEngineEventSource
     {
         private readonly VirtualMachine virtualMachine;
+        private readonly Func<Event, EngineEventKind?>? eventKindOverride;
 
-        public MonoEventSource(VirtualMachine virtualMachine)
+        public MonoEventSource(
+            VirtualMachine virtualMachine,
+            Func<Event, EngineEventKind?>? eventKindOverride = null)
         {
             this.virtualMachine = virtualMachine ??
                 throw new ArgumentNullException(nameof(virtualMachine));
+            this.eventKindOverride = eventKindOverride;
         }
 
         public EngineEventSet GetNextEventSet(
@@ -29,7 +33,8 @@ namespace UnityDebugger.Adapter.Engine.Mono
                 var threadId = sourceEvent.Thread?.ThreadId ?? 0;
                 events.Add(
                     EngineEvent.Create(
-                        MapEventKind(sourceEvent.EventType),
+                        eventKindOverride?.Invoke(sourceEvent) ??
+                            MapEventKind(sourceEvent.EventType),
                         threadId,
                         sourceEvent));
             }

@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Mono.Debugging.Client;
 
 namespace UnityDebugger.Adapter.Diagnostics
 {
     internal static class InternalDebuggerLog
     {
+        public static Action<string>? Sink { get; set; }
+
         private static readonly HashSet<string> AllowedEventNames =
             new HashSet<string>(StringComparer.Ordinal)
             {
@@ -35,12 +36,8 @@ namespace UnityDebugger.Adapter.Diagnostics
         {
             try
             {
-                if (
-                    DebuggerLoggingService.CustomLogger is
-                        MonoDebuggerLogger logger)
-                {
-                    logger.LogInternalEvent(eventName);
-                }
+                if (IsAllowed(eventName))
+                    Sink?.Invoke(eventName);
             }
             catch
             {

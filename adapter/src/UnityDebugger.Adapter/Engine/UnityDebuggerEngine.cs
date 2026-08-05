@@ -41,6 +41,11 @@ namespace UnityDebugger.Adapter.Engine
                 throw new ArgumentNullException(nameof(connectionFactory));
         }
 
+        public UnityDebuggerEngine()
+            : this(target => new MonoEngineConnection(target))
+        {
+        }
+
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
         public event EventHandler<BackendThreadEventArgs>? ThreadChanged;
 #pragma warning disable CS0067
@@ -281,6 +286,14 @@ namespace UnityDebugger.Adapter.Engine
             LogicalBreakpoint breakpoint)
         {
             var manager = RequireBreakpointManager();
+            if (connection is IMonoSourceConnection sourceConnection)
+            {
+                foreach (var type in sourceConnection.GetSourceTypes(
+                    breakpoint.SourcePath))
+                {
+                    manager.ProcessTypeLoaded(type);
+                }
+            }
             return manager.ToBackendBreakpoint(
                 manager.RequestSourceBreakpoint(breakpoint));
         }

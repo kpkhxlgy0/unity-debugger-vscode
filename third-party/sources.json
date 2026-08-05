@@ -20,10 +20,10 @@
       "license": "MIT",
       "notice": "third-party/licenses/debugger-libs-MIT.txt",
       "paths": [
-        "adapter/vendor/debugger-libs"
+        "adapter/vendor/debugger-libs/Mono.Debugger.Soft"
       ],
       "modifications": [
-        "Built from source as dependencies of the net48 x64 Adapter; the three debugger projects use the SDK build entry point with their explicit source lists retained, reference-assembly restore is added through vendor build properties, vulnerable Newtonsoft.Json 10.0.3 is upgraded to 13.0.4, and a payload-free AssemblyUnloaded lifecycle event is exposed for Domain Reload coordination. No upstream binaries are shipped."
+        "Only Mono.Debugger.Soft is built from source for the net48 x64 Adapter. The project keeps its explicit upstream source list, uses the SDK build entry point and reference-assembly restore, and resolves Mono.Cecil from the locked package graph. Mono.Debugging and Mono.Debugging.Soft are excluded from the solution and runtime; no upstream binaries are shipped."
       ]
     },
     {
@@ -36,7 +36,7 @@
         "adapter/vendor/nrefactory"
       ],
       "modifications": [
-        "Only the core and CSharp projects required by Mono.Debugging are imported; reference-assembly restore is added through vendor build properties."
+        "The previously imported source is retained with its license for provenance, but its projects are excluded from the solution, Adapter references, and release runtime."
       ]
     }
   ]

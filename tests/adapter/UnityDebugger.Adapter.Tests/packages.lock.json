@@ -79,11 +79,6 @@
           "System.Reflection.Metadata": "1.6.0"
         }
       },
-      "Mono.Posix-4.5": {
-        "type": "Transitive",
-        "resolved": "4.5.0",
-        "contentHash": "QMynhYKbgqz/FiXUeP3+RL8eSPnYIqD3bZcGJ2oOOZQ0yr+BVRMuw40c2Id6s1dg7l8Ei+mdUD77xOdaXGHlqA=="
-      },
       "System.Buffers": {
         "type": "Transitive",
         "resolved": "4.5.1",
@@ -184,43 +179,15 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "icsharpcode.nrefactory": {
-        "type": "Project"
-      },
-      "icsharpcode.nrefactory.csharp": {
-        "type": "Project",
-        "dependencies": {
-          "ICSharpCode.NRefactory": "[1.0.0, )"
-        }
-      },
       "mono.debugger.soft": {
         "type": "Project"
-      },
-      "mono.debugging": {
-        "type": "Project",
-        "dependencies": {
-          "ICSharpCode.NRefactory": "[1.0.0, )",
-          "ICSharpCode.NRefactory.CSharp": "[1.0.0, )",
-          "System.Buffers": "[4.5.0, )",
-          "System.Collections.Immutable": "[1.5.0, )"
-        }
-      },
-      "mono.debugging.soft": {
-        "type": "Project",
-        "dependencies": {
-          "Mono.Debugger.Soft": "[1.0.0, )",
-          "Mono.Debugging": "[1.0.0, )",
-          "Mono.Posix-4.5": "[4.5.0, )",
-          "Newtonsoft.Json": "[13.0.4, )"
-        }
       },
       "UnityDebuggerPure": {
         "type": "Project",
         "dependencies": {
           "Microsoft.CodeAnalysis.CSharp": "[4.14.0, )",
+          "Mono.Cecil": "[0.10.1, )",
           "Mono.Debugger.Soft": "[1.0.0, )",
-          "Mono.Debugging": "[1.0.0, )",
-          "Mono.Debugging.Soft": "[1.0.0, )",
           "Newtonsoft.Json": "[13.0.4, )",
           "VSCodeDebug": "[1.0.0, )"
         }
@@ -248,6 +215,12 @@
           "System.Text.Encoding.CodePages": "7.0.0",
           "System.Threading.Tasks.Extensions": "4.5.4"
         }
+      },
+      "Mono.Cecil": {
+        "type": "CentralTransitive",
+        "requested": "[0.10.1, )",
+        "resolved": "0.10.1",
+        "contentHash": "ffMyCl/PZfD1v6JwWud7Y+Jg0C5cGOZ3jlx8G3b+hj7FUtmnrNHGcAM4EEnaKMyIcsqrfLX05u9XIAMYJSpPqQ=="
       },
       "Newtonsoft.Json": {
         "type": "CentralTransitive",
