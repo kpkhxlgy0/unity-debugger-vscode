@@ -232,4 +232,5 @@ infer an unavailable UI capability.
 - Verification passed: 142 adapter tests, 9 integration tests, 19 build tests, 93 extension tests, 4 package contract
   tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing upstream unused-variable warning in
   `Mono.Debugging.Soft` remains unchanged.
-- This replacement candidate is not installed yet; the current stopped debug session still runs the prior build.
+- After the user stopped debugging and exited Play, VS Code successfully replaced the prior build with this candidate.
+  The installed build ID, source commit, and adapter SHA-256 match exactly. A Reload is required before retesting.
