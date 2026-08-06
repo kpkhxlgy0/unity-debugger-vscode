@@ -382,4 +382,6 @@ infer an unavailable UI capability.
   package contract tests passed.
 - The previously installed `0.3.0+gd09610c2dffe` VSIX and checksum were preserved as
   `dist/unity-debugger-pure-0.3.0.superseded-before-reference-locals.vsix` and its adjacent `.sha256` file.
-- Installation and the MyGame real run remain pending. VAR-02 is not yet aligned.
+- VS Code installed this exact candidate after debugging and Play Mode were stopped. The installed version, build ID,
+  source commit, and Adapter SHA-256 match the audited VSIX; Reload and the MyGame real run remain pending. VAR-02 is
+  not yet aligned.
