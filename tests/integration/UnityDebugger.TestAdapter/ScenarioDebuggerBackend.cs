@@ -224,6 +224,15 @@ namespace UnityDebugger.TestAdapter
                 null);
         }
 
+        public BackendBoundBreakpoint BindFunctionBreakpoint(
+            LogicalFunctionBreakpoint breakpoint)
+        {
+            var id = nextBreakpointId++;
+            lock (breakpointLock)
+                activeBreakpointIds.Add(id);
+            return new BackendBoundBreakpoint(id, true, 0, null);
+        }
+
         public void RemoveBreakpoint(long backendBreakpointId)
         {
             lock (breakpointLock)

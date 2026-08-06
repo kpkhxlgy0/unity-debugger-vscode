@@ -1,22 +1,40 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace UnityDebugger.Adapter.Backend
 {
-    internal interface IDebuggerBackend : IDisposable
+    internal interface ISoftDebuggerSessionFacade : IDisposable
     {
-        event EventHandler<BackendStoppedEventArgs>? Stopped;
+        event EventHandler? TargetReady;
+        event EventHandler? TargetStarted;
+        event EventHandler? TargetExited;
+        event EventHandler<BackendStoppedEventArgs>? TargetStopped;
         event EventHandler<BackendThreadEventArgs>? ThreadChanged;
         event EventHandler<BackendModuleChangedEventArgs>? ModuleChanged;
         event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         event EventHandler<BackendOutputEventArgs>? Output;
-        event EventHandler? Terminated;
+        event EventHandler? AssemblyUnloaded;
+        event EventHandler? AssemblyLoaded;
 
-        bool IsAttached { get; }
-        void Attach(AttachTarget target);
-        void Disconnect();
+        bool IsRunning { get; }
+        bool HasExited { get; }
+        Task ConnectAsync(
+            IPAddress address,
+            int port,
+            int maxConnectionAttempts,
+            int connectionAttemptIntervalMilliseconds,
+            CancellationToken cancellationToken);
+        void Detach();
+        void Continue();
+        void Pause();
+        void StepIn();
+        void StepOver();
+        void StepOut();
+        void ConfigureExceptions(ExceptionBreakMode mode);
         IReadOnlyList<BackendThread> GetThreads();
         IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
@@ -55,12 +73,6 @@ namespace UnityDebugger.Adapter.Backend
             string sourcePath,
             int line,
             int column);
-        void Continue(long threadId);
-        void Pause(long threadId);
-        void StepIn(long threadId, long? targetId);
-        void StepOver(long threadId);
-        void StepOut(long threadId);
         void Goto(long threadId, long targetId);
-        void ConfigureExceptions(ExceptionBreakMode mode);
     }
 }

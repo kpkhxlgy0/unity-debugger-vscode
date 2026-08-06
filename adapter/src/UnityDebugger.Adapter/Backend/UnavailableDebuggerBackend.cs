@@ -73,6 +73,9 @@ namespace UnityDebugger.Adapter.Backend
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint) => throw NotAttached();
 
+        public BackendBoundBreakpoint BindFunctionBreakpoint(
+            LogicalFunctionBreakpoint breakpoint) => throw NotAttached();
+
         public void RemoveBreakpoint(long backendBreakpointId) =>
             throw NotAttached();
 

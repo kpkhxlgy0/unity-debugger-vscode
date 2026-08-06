@@ -314,6 +314,9 @@ git commit -m "test: require mature debugger runtime boundary"
 - Modify: `adapter/src/UnityDebugger.Adapter/Program.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Breakpoints/BreakpointManager.cs`
+- Create: `adapter/src/UnityDebugger.Adapter/Breakpoints/FunctionBreakpointManager.cs`
+- Modify: `adapter/src/UnityDebugger.Adapter/Backend/BackendModels.cs`
+- Modify: `adapter/src/UnityDebugger.Adapter/Backend/IDebuggerBackend.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Dap/DapBreakpointModels.cs`
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/FakeSoftDebuggerSessionFacade.cs`
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MonoDebuggingBackendLifecycleTests.cs`
@@ -386,6 +389,8 @@ internal interface ISoftDebuggerSessionFacade : IDisposable
         int timeoutMilliseconds,
         CancellationToken cancellationToken);
     BackendBoundBreakpoint BindBreakpoint(LogicalBreakpoint breakpoint);
+    BackendBoundBreakpoint BindFunctionBreakpoint(
+        LogicalFunctionBreakpoint breakpoint);
     void RemoveBreakpoint(long backendBreakpointId);
     IReadOnlyList<BackendStepInTarget> GetStepInTargets(long frameId);
     IReadOnlyList<BackendGotoTarget> GetGotoTargets(
@@ -396,7 +401,7 @@ internal interface ISoftDebuggerSessionFacade : IDisposable
 }
 ```
 
-- [ ] **Step 1: Write failing lifecycle tests from the known reference rows**
+- [x] **Step 1: Write failing lifecycle tests from the known reference rows**
 
 Add tests with these exact assertions:
 
@@ -460,11 +465,11 @@ public void OrdinaryAssemblyReloadKeepsLogicalBreakpointsInTheMatureStore()
 }
 ```
 
-Also test idempotent Disconnect/Dispose, non-loopback rejection, process exit termination exactly once, caught `ThreadAbortException` not becoming a stop under the reference's default exception filter, exact breakpoint changed propagation, assembly load/unload module-event translation, and preservation of mature stack-frame source paths through the existing `SourceMapper` DAP conversion.
+Also test idempotent Disconnect/Dispose, non-loopback rejection, process exit termination exactly once, caught `ThreadAbortException` not becoming a stop under the reference's default exception filter, exact breakpoint changed propagation, assembly load/unload module-event translation, preservation of mature stack-frame source paths through the existing `SourceMapper` DAP conversion, and fully qualified function-breakpoint binding through the mature store.
 
-For source breakpoints, expand `RequestedBreakpoint` and `LogicalBreakpoint` to retain `condition`, `hitCondition`, and `logMessage`. Map them mechanically to `BreakEvent.ConditionExpression`, `HitCountMode`/`HitCount`, and `HitAction.PrintExpression`/`TraceExpression` only after rows `BP-02` and `BP-03` are `reference-verified`. Add function-breakpoint binding only if the reference exposes it; otherwise remove `supportsFunctionBreakpoints` from `UnityDebugSession.Initialize` after obtaining the user's required alignment decision.
+For source breakpoints, expand `RequestedBreakpoint` and `LogicalBreakpoint` to retain `condition`, `hitCondition`, and `logMessage`. Map them mechanically to `BreakEvent.ConditionExpression`, `HitCountMode`/`HitCount`, and `HitAction.PrintExpression`/`TraceExpression` because rows `BP-02` and `BP-03` are reference-verified. Row `BP-04` proves fully qualified function breakpoints bind and stop in the reference; the user confirmed replacing Pure's no-op handler. Add `LogicalFunctionBreakpoint`, `FunctionBreakpointManager`, facade/backend binding through Mono.Debugging `FunctionBreakpoint`, and a real DAP response that preserves stable logical IDs.
 
-- [ ] **Step 2: Run the lifecycle tests to verify RED**
+- [x] **Step 2: Run the lifecycle tests to verify RED**
 
 Run:
 
@@ -474,7 +479,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because `MonoDebuggingBackend` and the facade contract do not exist.
 
-- [ ] **Step 3: Reintroduce the lawful mature-session bridge, not its old custom policy**
+- [x] **Step 3: Reintroduce the lawful mature-session bridge, not its old custom policy**
 
 Use the corresponding files at `bfaeac62e22f17060287aecb3ea8366c50cdc852` as the source baseline for session event names, attach construction, breakpoint-store APIs, and exception filters. Make these deliberate changes while applying the code:
 
@@ -492,7 +497,13 @@ In `Program.Main`'s `finally`, set `DebuggerLoggingService.CustomLogger = null` 
 
 `MonoDebuggingBackend` delegates `Continue`, `Pause`, `StepIn`, `StepOver`, and `StepOut` directly to the facade. It must not include the rejected `AssemblyReloadCoordinator`, `ReconnectController`, retry queue, step queue, synthetic Continued event, or optimistic stopped/running state. `SoftDebuggerSessionFacade` binds breakpoints through `session.Breakpoints`, forwards `BreakEventStatusChanged`, and treats assembly load/unload only as lifecycle/binding events. The facade may retain one `expectedStopReason` solely to translate the next mature `TargetStopped` event after `Stop`, `StepLine`, `NextLine`, or `Finish`; it clears that value on the event and does not decide whether a command is allowed.
 
-- [ ] **Step 4: Preserve exact mature stop origins**
+Expose the reference exception filters exactly as unchecked `All Exceptions`
+and unchecked `User-Unhandled Exceptions`. Map All to thrown plus unhandled,
+User-Unhandled to `TargetUnhandledException`, and the default empty filter set
+to neither. The user explicitly approved replacing Pure's checked-by-default
+`Uncaught Exceptions` filter.
+
+- [x] **Step 4: Preserve exact mature stop origins**
 
 Map only these session events:
 
@@ -507,7 +518,7 @@ TargetUnhandledException -> Exception when Uncaught or All is configured
 
 Do not map `TargetReady`, `TargetStarted`, `AssemblyLoaded`, `AssemblyUnloaded`, target output, or an internal `ThreadAbortException` to a user stop unless Task 1 has reference evidence for that identical scenario.
 
-- [ ] **Step 5: Switch production and make lifecycle tests GREEN**
+- [x] **Step 5: Switch production and make lifecycle tests GREEN**
 
 Run:
 
@@ -517,7 +528,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: PASS. The executable references `Mono.Debugging`, `Mono.Debugging.Soft`, and `Mono.Debugger.Soft`, and no `SyntaxTree.*` assembly.
 
-- [ ] **Step 6: Commit the lifecycle replacement**
+- [x] **Step 6: Commit the lifecycle replacement**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter/Backend adapter/src/UnityDebugger.Adapter/Diagnostics/MonoDebuggerLogger.cs adapter/src/UnityDebugger.Adapter/Program.cs adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs tests/adapter/UnityDebugger.Adapter.Tests/Backend tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/MonoDebuggerLoggerTests.cs

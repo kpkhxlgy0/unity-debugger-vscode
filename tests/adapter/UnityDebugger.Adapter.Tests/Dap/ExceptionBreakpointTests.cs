@@ -34,6 +34,17 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         "body.exceptionBreakpointFilters[*].filter")
                     .Select(item => item.Value<string>())
                     .ToArray());
+            Assert.Equal(
+                new[] { "All Exceptions", "User-Unhandled Exceptions" },
+                response
+                    .SelectTokens(
+                        "body.exceptionBreakpointFilters[*].label")
+                    .Select(item => item.Value<string>())
+                    .ToArray());
+            Assert.All(
+                response.SelectTokens(
+                    "body.exceptionBreakpointFilters[*].default"),
+                item => Assert.False(item.Value<bool>()));
         }
 
         [Fact]

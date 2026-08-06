@@ -15,7 +15,7 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
     public sealed class BreakpointManagerTests
     {
         [Fact]
-        public void ReplaceForSource_preserves_breakpoint_and_condition()
+        public void ReplaceForSource_preserves_all_breakpoint_options()
         {
             var backend = new FakeDebuggerBackend();
             using (var manager = new BreakpointManager(backend))
@@ -24,7 +24,11 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                     @"H:\fixture\Assets\Player.cs",
                     new[]
                     {
-                        new RequestedBreakpoint(12, "health <= 0"),
+                        new RequestedBreakpoint(
+                            12,
+                            "health <= 0",
+                            "3",
+                            "health={health}"),
                     });
 
                 Assert.Single(result);
@@ -32,6 +36,10 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                 Assert.Equal(
                     "health <= 0",
                     backend.Bound.Single().Condition);
+                Assert.Equal("3", backend.Bound.Single().HitCondition);
+                Assert.Equal(
+                    "health={health}",
+                    backend.Bound.Single().LogMessage);
             }
         }
 

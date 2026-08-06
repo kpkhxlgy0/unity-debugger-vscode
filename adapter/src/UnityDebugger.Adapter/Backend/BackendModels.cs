@@ -212,6 +212,26 @@ namespace UnityDebugger.Adapter.Backend
         public string? LogMessage { get; }
     }
 
+    internal sealed class LogicalFunctionBreakpoint
+    {
+        public LogicalFunctionBreakpoint(
+            long id,
+            string functionName,
+            string? condition,
+            string? hitCondition)
+        {
+            Id = id;
+            FunctionName = functionName;
+            Condition = condition;
+            HitCondition = hitCondition;
+        }
+
+        public long Id { get; }
+        public string FunctionName { get; }
+        public string? Condition { get; }
+        public string? HitCondition { get; }
+    }
+
     internal sealed class BackendBoundBreakpoint
     {
         public BackendBoundBreakpoint(

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Mono.Debugging.Client;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Diagnostics;
-using UnityDebugger.Adapter.Engine;
 using VSCodeDebug;
 
 namespace UnityDebugger.Adapter
@@ -43,8 +43,11 @@ namespace UnityDebugger.Adapter
                         log,
                         eventName,
                         new Dictionary<string, object>());
+                DebuggerLoggingService.CustomLogger =
+                    new MonoDebuggerLogger(log);
                 var session = new UnityDebugSession(
-                    () => new UnityDebuggerEngine());
+                    () => new MonoDebuggingBackend(
+                        () => new SoftDebuggerSessionFacade()));
                 session.Start(
                     Console.OpenStandardInput(),
                     Console.OpenStandardOutput())
@@ -70,6 +73,7 @@ namespace UnityDebugger.Adapter
             {
                 ProtocolTrace.Sink = _ => { };
                 InternalDebuggerLog.Sink = null;
+                DebuggerLoggingService.CustomLogger = null;
                 if (log != null)
                 {
                     SafeWrite(

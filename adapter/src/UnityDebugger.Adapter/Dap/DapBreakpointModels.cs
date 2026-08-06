@@ -59,6 +59,35 @@ namespace UnityDebugger.Adapter.Dap
         public DapBreakpoint[] breakpoints { get; }
     }
 
+    internal sealed class DapFunctionBreakpoint
+    {
+        public DapFunctionBreakpoint(
+            long id,
+            bool verified,
+            string? message)
+        {
+            this.id = id;
+            this.verified = verified;
+            this.message = message;
+        }
+
+        public long id { get; }
+        public bool verified { get; }
+        public string? message { get; }
+    }
+
+    internal sealed class DapSetFunctionBreakpointsResponseBody :
+        ResponseBody
+    {
+        public DapSetFunctionBreakpointsResponseBody(
+            IEnumerable<DapFunctionBreakpoint> breakpoints)
+        {
+            this.breakpoints = breakpoints.ToArray();
+        }
+
+        public DapFunctionBreakpoint[] breakpoints { get; }
+    }
+
     internal sealed class DapStoppedEventBody
     {
         public DapStoppedEventBody(

@@ -298,6 +298,13 @@ namespace UnityDebugger.Adapter.Engine
                 manager.RequestSourceBreakpoint(breakpoint));
         }
 
+        public BackendBoundBreakpoint BindFunctionBreakpoint(
+            LogicalFunctionBreakpoint breakpoint)
+        {
+            throw new DebuggerBackendException(
+                "Function breakpoints require the mature debugger backend.");
+        }
+
         public void RemoveBreakpoint(long backendBreakpointId) =>
             RequireBreakpointManager().RemovePendingBreakpoint(
                 backendBreakpointId);

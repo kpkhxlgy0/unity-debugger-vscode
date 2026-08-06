@@ -27,6 +27,7 @@ namespace UnityDebugger.Adapter.Dap
             new Dictionary<long, BackendExceptionInfo>();
         private IDebuggerBackend? backend;
         private BreakpointManager? breakpointManager;
+        private FunctionBreakpointManager? functionBreakpointManager;
         private SourceMapper? sourceMapper;
         private bool terminatedSent;
         private BackendEvaluationMode automaticEvaluationMode =
@@ -60,8 +61,8 @@ namespace UnityDebugger.Adapter.Dap
                         false),
                     new ExceptionBreakpointsFilter(
                         "uncaught",
-                        "Uncaught Exceptions",
-                        true),
+                        "User-Unhandled Exceptions",
+                        false),
                 },
             });
             SendEvent(new InitializedEvent());
@@ -99,8 +100,16 @@ namespace UnityDebugger.Adapter.Dap
                 var createdBackend = backendFactory();
                 backend = createdBackend;
                 Subscribe(createdBackend);
-                breakpointManager = new BreakpointManager(createdBackend);
+                var breakpointIds = new BreakpointIdAllocator();
+                breakpointManager = new BreakpointManager(
+                    createdBackend,
+                    breakpointIds);
                 breakpointManager.Changed += OnManagedBreakpointChanged;
+                functionBreakpointManager = new FunctionBreakpointManager(
+                    createdBackend,
+                    breakpointIds);
+                functionBreakpointManager.Changed +=
+                    OnManagedFunctionBreakpointChanged;
                 sourceMapper = new SourceMapper(
                     target.WorkspaceRoot,
                     File.Exists);
@@ -145,10 +154,51 @@ namespace UnityDebugger.Adapter.Dap
             Response response,
             dynamic arguments)
         {
+            var request = arguments as JObject;
+            var requested = new List<RequestedFunctionBreakpoint>();
+            if (request?["breakpoints"] is JArray breakpointTokens)
+            {
+                foreach (var token in breakpointTokens.OfType<JObject>())
+                {
+                    var name = token["name"]?.Value<string>();
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        SendErrorResponse(
+                            response,
+                            2014,
+                            "Function breakpoint name is required.");
+                        return;
+                    }
+                    requested.Add(
+                        new RequestedFunctionBreakpoint(
+                            name!,
+                            token["condition"]?.Value<string>(),
+                            token["hitCondition"]?.Value<string>()));
+                }
+            }
+
+            if (functionBreakpointManager == null)
+            {
+                if (requested.Count == 0)
+                {
+                    SendResponse(
+                        response,
+                        new DapSetFunctionBreakpointsResponseBody(
+                            Array.Empty<DapFunctionBreakpoint>()));
+                    return;
+                }
+                SendErrorResponse(
+                    response,
+                    2013,
+                    "Attach to an Editor before setting function breakpoints.");
+                return;
+            }
+
+            var managed = functionBreakpointManager.Replace(requested);
             SendResponse(
                 response,
-                new SetFunctionBreakpointsBody(
-                    new VSCodeDebug.Breakpoint[0]));
+                new DapSetFunctionBreakpointsResponseBody(
+                    managed.Select(ToDapFunctionBreakpoint)));
         }
 
         public override void StepInTargets(
@@ -450,7 +500,9 @@ namespace UnityDebugger.Adapter.Dap
                     }
                     requested.Add(new RequestedBreakpoint(
                         line,
-                        token["condition"]?.Value<string>()));
+                        token["condition"]?.Value<string>(),
+                        token["hitCondition"]?.Value<string>(),
+                        token["logMessage"]?.Value<string>()));
                 }
             }
 
@@ -814,6 +866,13 @@ namespace UnityDebugger.Adapter.Dap
                 breakpointManager = null;
                 sourceMapper = null;
             }
+            if (functionBreakpointManager != null)
+            {
+                functionBreakpointManager.Changed -=
+                    OnManagedFunctionBreakpointChanged;
+                functionBreakpointManager.Dispose();
+                functionBreakpointManager = null;
+            }
 
             var value = backend;
             if (value == null)
@@ -855,16 +914,25 @@ namespace UnityDebugger.Adapter.Dap
             long[]? hitBreakpointIds = null;
             if (
                 arguments.Reason == BackendStopReason.Breakpoint &&
-                arguments.BreakpointIds.Count > 0 &&
-                breakpointManager != null)
+                arguments.BreakpointIds.Count > 0)
             {
                 var logicalIds = new List<long>();
                 foreach (var breakpointId in arguments.BreakpointIds)
                 {
                     if (
+                        breakpointManager != null &&
                         breakpointManager.TryGetLogicalId(
                             breakpointId,
                             out var logicalId))
+                    {
+                        logicalIds.Add(logicalId);
+                        continue;
+                    }
+                    if (
+                        functionBreakpointManager != null &&
+                        functionBreakpointManager.TryGetLogicalId(
+                            breakpointId,
+                            out logicalId))
                     {
                         logicalIds.Add(logicalId);
                     }
@@ -958,6 +1026,20 @@ namespace UnityDebugger.Adapter.Dap
                 }));
         }
 
+        private void OnManagedFunctionBreakpointChanged(
+            object? sender,
+            ManagedFunctionBreakpointChangedEventArgs arguments)
+        {
+            SendEvent(new Event(
+                "breakpoint",
+                new
+                {
+                    reason = "changed",
+                    breakpoint = ToDapFunctionBreakpoint(
+                        arguments.Breakpoint),
+                }));
+        }
+
         private static DapBreakpoint ToDapBreakpoint(
             ManagedBreakpoint item,
             DapSource source) =>
@@ -968,6 +1050,13 @@ namespace UnityDebugger.Adapter.Dap
                 source,
                 item.Line,
                 1);
+
+        private static DapFunctionBreakpoint ToDapFunctionBreakpoint(
+            ManagedFunctionBreakpoint item) =>
+            new DapFunctionBreakpoint(
+                item.Id,
+                item.Verified,
+                item.Message);
 
         private void OnTerminated(object sender, EventArgs arguments)
         {

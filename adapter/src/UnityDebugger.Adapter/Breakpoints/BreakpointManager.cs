@@ -9,16 +9,24 @@ namespace UnityDebugger.Adapter.Breakpoints
 {
     internal sealed class RequestedBreakpoint
     {
-        public RequestedBreakpoint(int line, string? condition)
+        public RequestedBreakpoint(
+            int line,
+            string? condition,
+            string? hitCondition = null,
+            string? logMessage = null)
         {
             if (line <= 0)
                 throw new ArgumentOutOfRangeException(nameof(line));
             Line = line;
             Condition = condition;
+            HitCondition = hitCondition;
+            LogMessage = logMessage;
         }
 
         public int Line { get; }
         public string? Condition { get; }
+        public string? HitCondition { get; }
+        public string? LogMessage { get; }
     }
 
     internal sealed class ManagedBreakpoint
@@ -28,6 +36,8 @@ namespace UnityDebugger.Adapter.Breakpoints
             string sourcePath,
             int line,
             string? condition,
+            string? hitCondition,
+            string? logMessage,
             long? backendId,
             bool verified,
             string? message)
@@ -36,6 +46,8 @@ namespace UnityDebugger.Adapter.Breakpoints
             SourcePath = sourcePath;
             Line = line;
             Condition = condition;
+            HitCondition = hitCondition;
+            LogMessage = logMessage;
             BackendId = backendId;
             Verified = verified;
             Message = message;
@@ -45,6 +57,8 @@ namespace UnityDebugger.Adapter.Breakpoints
         public string SourcePath { get; }
         public int Line { get; }
         public string? Condition { get; }
+        public string? HitCondition { get; }
+        public string? LogMessage { get; }
         public long? BackendId { get; }
         public bool Verified { get; }
         public string? Message { get; }
@@ -66,6 +80,7 @@ namespace UnityDebugger.Adapter.Breakpoints
         private const string PendingMessage =
             "Symbols are not loaded.";
         private readonly IDebuggerBackend backend;
+        private readonly BreakpointIdAllocator idAllocator;
         private readonly Dictionary<string, Entry> entries =
             new Dictionary<string, Entry>(
                 StringComparer.OrdinalIgnoreCase);
@@ -75,15 +90,23 @@ namespace UnityDebugger.Adapter.Breakpoints
         private readonly Dictionary<long, BackendBoundBreakpoint>
             changesDuringBind =
                 new Dictionary<long, BackendBoundBreakpoint>();
-        private long nextId = 1;
         private int bindsInProgress;
         private bool preserveVerifiedWhileReloading;
         private bool disposed;
 
         public BreakpointManager(IDebuggerBackend backend)
+            : this(backend, new BreakpointIdAllocator())
+        {
+        }
+
+        public BreakpointManager(
+            IDebuggerBackend backend,
+            BreakpointIdAllocator idAllocator)
         {
             this.backend = backend ??
                 throw new ArgumentNullException(nameof(backend));
+            this.idAllocator = idAllocator ??
+                throw new ArgumentNullException(nameof(idAllocator));
             backend.BreakpointChanged += OnBackendBreakpointChanged;
         }
 
@@ -150,19 +173,32 @@ namespace UnityDebugger.Adapter.Breakpoints
                     if (!entries.TryGetValue(key, out entry!))
                     {
                         entry = new Entry(
-                            nextId++,
+                            idAllocator.Next(),
                             canonicalPath,
                             request.Line,
-                            request.Condition);
+                            request.Condition,
+                            request.HitCondition,
+                            request.LogMessage);
                         entries.Add(key, entry);
                         shouldBind = true;
                     }
-                    else if (!string.Equals(
-                        entry.Condition,
-                        request.Condition,
-                        StringComparison.Ordinal))
+                    else if (
+                        !string.Equals(
+                            entry.Condition,
+                            request.Condition,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            entry.HitCondition,
+                            request.HitCondition,
+                            StringComparison.Ordinal) ||
+                        !string.Equals(
+                            entry.LogMessage,
+                            request.LogMessage,
+                            StringComparison.Ordinal))
                     {
                         entry.Condition = request.Condition;
+                        entry.HitCondition = request.HitCondition;
+                        entry.LogMessage = request.LogMessage;
                         shouldBind = true;
                     }
                 }
@@ -299,8 +335,8 @@ namespace UnityDebugger.Adapter.Breakpoints
                     entry.RequestedLine,
                     1,
                     entry.Condition,
-                    null,
-                    null);
+                    entry.HitCondition,
+                    entry.LogMessage);
                 bindingGeneration = entry.BindingGeneration;
                 bindsInProgress++;
             }
@@ -501,6 +537,8 @@ namespace UnityDebugger.Adapter.Breakpoints
                 entry.SourcePath,
                 entry.BoundLine,
                 entry.Condition,
+                entry.HitCondition,
+                entry.LogMessage,
                 entry.BackendId,
                 entry.Verified,
                 entry.Message);
@@ -521,13 +559,17 @@ namespace UnityDebugger.Adapter.Breakpoints
                 long id,
                 string sourcePath,
                 int line,
-                string? condition)
+                string? condition,
+                string? hitCondition,
+                string? logMessage)
             {
                 Id = id;
                 SourcePath = sourcePath;
                 RequestedLine = line;
                 BoundLine = line;
                 Condition = condition;
+                HitCondition = hitCondition;
+                LogMessage = logMessage;
                 Message = PendingMessage;
                 Registered = true;
             }
@@ -537,6 +579,8 @@ namespace UnityDebugger.Adapter.Breakpoints
             public int RequestedLine { get; }
             public int BoundLine { get; set; }
             public string? Condition { get; set; }
+            public string? HitCondition { get; set; }
+            public string? LogMessage { get; set; }
             public long? BackendId { get; set; }
             public bool Verified { get; set; }
             public string? Message { get; set; }

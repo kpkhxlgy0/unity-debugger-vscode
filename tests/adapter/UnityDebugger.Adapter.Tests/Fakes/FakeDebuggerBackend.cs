@@ -40,6 +40,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 new Dictionary<long, IReadOnlyList<BackendVariable>>();
         public List<LogicalBreakpoint> Bound { get; } =
             new List<LogicalBreakpoint>();
+        public List<LogicalFunctionBreakpoint> FunctionBound { get; } =
+            new List<LogicalFunctionBreakpoint>();
         public List<long> RemovedBreakpointIds { get; } =
             new List<long>();
         public HashSet<long> ActiveBreakpointIds { get; } =
@@ -227,6 +229,15 @@ namespace UnityDebugger.Adapter.Tests.Fakes
                 RejectBreakpoint || BindAsPending
                     ? "Symbols are not loaded."
                     : null);
+        }
+
+        public BackendBoundBreakpoint BindFunctionBreakpoint(
+            LogicalFunctionBreakpoint breakpoint)
+        {
+            FunctionBound.Add(breakpoint);
+            var id = nextBackendBreakpointId++;
+            ActiveBreakpointIds.Add(id);
+            return new BackendBoundBreakpoint(id, true, 0, null);
         }
 
         public void RemoveBreakpoint(long backendBreakpointId)
