@@ -1,332 +1,300 @@
-# Reference Debugger Engine Parity Design
+# Reference-Compatible Debugger Backend Design
+
+## Decision
+
+This design supersedes the earlier direct-engine design that selected a
+project-owned control state machine and expression evaluator. Real-editor
+testing showed that choice diverges from the installed `zlorn.vstuc` debugger.
+The direct control layer and the handwritten expression evaluator are both
+rejected as production architecture.
+
+UnityDebuggerPure will instead use the repository's pinned, MIT-licensed
+`Mono.Debugging.Soft`, `Mono.Debugging`, NRefactory, and
+`Mono.Debugger.Soft` session stack. The installed `zlorn.vstuc 1.2.1`
+debugger is the sole authority for observable debugger behavior.
 
 ## Goal
 
-Replace UnityDebuggerPure's general-purpose MonoDevelop debugging backend with
-a Unity-specific engine built directly on the MIT-licensed
-`Mono.Debugger.Soft` protocol layer. The installed Unity debugger is the sole
-behavioral reference for debug-session behavior, timing, error handling, and
-variable presentation.
+Make UnityDebuggerPure's debugger-only experience match the installed
+reference debugger for attach, breakpoints, Domain Reload, exceptions,
+execution control, stopped-state presentation, Hover, Locals, Watch, variable
+expansion, property getters, `ToString()`, and C# expression evaluation.
 
-The result must make breakpoint stops, rapid stepping, Hover, Locals, Watch,
-property getters, `ToString()`, enum expressions, and Domain Reload feel as
-close to the reference debugger as the shared Mono Soft Debugger protocol
-allows.
+An item is compatible only after the reference plugin and UnityDebuggerPure
+produce the same result in an A/B run against the same reachable MyGame code.
+Automated tests alone do not establish reference compatibility.
 
 ## Scope
 
-The project implements debugger functionality only.
-
 In scope:
 
-- Unity discovery and attach.
-- Source and function breakpoints, conditional breakpoints, logpoints, and
-  exception breakpoints.
+- Unity/Tuanjie discovery and attach.
+- Source and function breakpoints, conditions, logpoints, and exception
+  breakpoints.
 - Continue, Pause, Step Into, Step Over, Step Out, Step-in Targets, and Goto.
-- Threads, stack traces, scopes, Locals, Watch, REPL evaluation, Hover,
-  Set Variable, and expandable variables.
-- Getter and `ToString()` invocation.
-- Primitive, string, enum/Flags, struct, object, pointer, array, list,
-  dictionary, enumerable, debugger-display, debugger-proxy, and Unity-specific
-  value presentation.
-- Domain Reload, module lifecycle, source mapping, breakpoint unbinding, and
-  rebinding.
-- User- and workspace-scoped implicit-evaluation control.
+- Threads, stack traces, current-statement presentation, scopes, Locals,
+  Watch, REPL, Hover, Set Variable, and expandable variables.
+- C# source context, `using` directives, type and member binding, enums,
+  overload resolution, getters, and `ToString()`.
+- Domain Reload, module and AppDomain lifecycle, source mapping, breakpoint
+  persistence, unbinding, and rebinding.
+- User-, workspace-, and workspace-folder-scoped implicit-evaluation control.
+- A maintained reference-compatibility matrix and concrete A/B evidence.
 
 Permanently out of scope:
 
-- Code analysis and diagnostics unrelated to an active debug session.
-- Completion, Unity Message completion, and project-system features.
-- Shader, UXML, USS, or other language services.
-- Any attempt to reproduce the reference extension outside its debugger.
+- Completion, diagnostics, Unity Messages, project-system features, and other
+  language-service functionality.
+- Shader, UXML, USS, or non-debugger tooling.
+- Reusing, separating, decompiling, modifying, or redistributing proprietary
+  binaries from the reference extension.
+- A second fallback engine or a handwritten expression fallback.
 
-## Parity Authority
+## Reference Authority
 
-The installed reference debugger defines observable behavior. When an
-implementation choice is ambiguous, capture the reference debugger's DAP and
-UI behavior in `D:\workspace\sgproj`, write a failing parity test, and implement
-that result. Do not introduce retries, queues, state transitions, timeouts, or
-fallbacks merely because they appear locally preferable.
+The installed `zlorn.vstuc 1.2.1` debugger defines the expected user-visible
+and DAP-visible behavior. The implementation may use different lawful
+internals, but an internal limitation does not authorize a different user
+experience.
 
-The reference extension's proprietary assemblies are not build or runtime
-dependencies and are not redistributed. UnityDebuggerPure uses documented and
-MIT-licensed Mono Soft Debugger APIs and implements compatible behavior in
-project-owned source.
+For every affected behavior:
+
+1. run the scenario with the reference plugin in MyGame;
+2. record the visible result and available protocol/log evidence;
+3. encode the observed behavior in a failing test where automation can cover
+   it;
+4. implement the smallest mature-stack integration needed to pass;
+5. repeat the scenario with UnityDebuggerPure;
+6. mark the result `aligned`, `divergent`, or `not verified`.
+
+Any newly observed divergence stops implementation at that decision point.
+The user must decide whether the current implementation should be replaced to
+align more closely. No unapproved divergence may be hidden, accepted by
+assumption, or reported as complete.
+
+## Legal and Dependency Boundary
+
+The reference package contains proprietary Microsoft/SyntaxTree assemblies.
+Its license does not permit separating, reverse engineering, or redistributing
+those components. They are neither build inputs nor runtime dependencies.
+
+The repository already retains pinned MIT sources for:
+
+- `Unity-Technologies/vscode-mono-debug`;
+- `Unity-Technologies/debugger-libs`, including `Mono.Debugging` and
+  `Mono.Debugging.Soft`;
+- `icsharpcode/NRefactory`.
+
+Those mature sources provide the session and evaluation behavior. Their exact
+revisions and licenses remain recorded in `THIRD_PARTY_NOTICES.md` and the
+runtime assembly inventory.
 
 ## Architecture
 
 ```text
-Cursor
+VS Code
   | DAP
   v
 UnityDebugSession
-  | DAP model translation only
+  | protocol translation only
   v
-UnityDebuggerEngine
-  +-- UnityConnection
-  +-- EventDispatcher
-  +-- StepManager
-  +-- BreakpointManager
-  +-- ExceptionManager
-  +-- SourceMapManager
-  +-- SuspendedState
-  +-- EvaluationService
-  +-- Unity property/value model
+MonoDebuggingBackend
+  | thin handle/event mapping
+  v
+UnitySoftDebuggerSession
+  +-- Mono.Debugging session lifecycle
+  +-- Mono.Debugging.Soft breakpoint/thread/step control
+  +-- Mono.Debugging ObjectValue model
+  +-- NRefactory C# expression resolver/evaluator
   |
   v
 Mono.Debugger.Soft
   |
   v
-Unity Mono Runtime
+Unity/Tuanjie Mono Runtime
 ```
 
-`UnityDebugSession` is a thin DAP adapter. It does not own a second execution
-state machine and does not infer whether the target is running.
+`UnityDebugSession` translates DAP requests and responses. It does not infer a
+running state, synthesize stops, queue steps, implement expression semantics,
+or own Domain Reload policy.
 
-`UnityDebuggerEngine` owns one connected Mono virtual machine. Its event queue
-is the only source of stop, thread, module, and termination truth.
+`MonoDebuggingBackend` is the unavoidable boundary adapter. It maps mature
+session objects and events to the repository's DAP-neutral backend contracts.
+It contains no independent control state machine and no expression parser.
 
-The adapter remains on .NET Framework 4.8 for this rewrite. A runtime migration
-is allowed only if a failing parity test proves that the runtime or DAP
-dispatcher prevents reference behavior. It is not bundled with the engine
-rewrite speculatively.
+`UnitySoftDebuggerSession` is the single owner of the debugger connection,
+target lifecycle, threads, stops, breakpoints, exceptions, stepping, stack
+frames, evaluation contexts, and ObjectValue lifetime.
 
-The compiled adapter and package remove `Mono.Debugging` and
-`Mono.Debugging.Soft`. The existing `Mono.Debugger.Soft` source remains the
-low-level protocol implementation.
+The following current production components leave the runtime path and are
+removed rather than retained as fallbacks:
 
-## Component Boundaries
+- `UnityDebuggerEngine` and its direct connection/event dispatcher;
+- `StepManager` and direct step-target state;
+- `SuspendedState` as an independent execution-generation authority;
+- direct breakpoint, exception, module, and Domain Reload managers;
+- `EvaluationService`, handwritten `ExpressionEvaluator`, frame environment,
+  property/value model, and custom formatters.
 
-### UnityConnection
+## Attach and Lifecycle
 
-`UnityConnection` connects, detaches, and exposes the Mono virtual machine. It
-does not translate DAP requests, evaluate expressions, or synthesize debugger
-events.
+Attach constructs one mature debugger session, subscribes to its target,
+thread, breakpoint, output, and termination events, and connects to the
+discovered Unity/Tuanjie endpoint. The session is the sole source of execution
+truth.
 
-### EventDispatcher
+Attaching in Edit Mode may leave source breakpoints pending until the relevant
+runtime types are loaded. It must not create a user-visible stopped state.
 
-`EventDispatcher` is the sole consumer of Mono event sets. It dispatches
-asynchronous thread/log events without suspending the target and processes
-breaking events with Mono suspend-count semantics. It preserves the order of
-Step, Breakpoint, Exception, UserBreak, type-load, domain, assembly, and VM
-events.
+Entering Play or performing a Domain Reload is handled by the mature session's
+AppDomain, assembly, and breakpoint lifecycle. Pending user breakpoints survive
+the transition and rebind when the new runtime domain loads. Transitional
+runtime exceptions or suspend states must not appear as user stops unless the
+reference plugin exposes the same stop in the identical scenario.
 
-Real Step, Breakpoint, Exception, and UserBreak events create ordinary DAP
-`stopped` events. The only control-path exceptions are the ones implemented by
-the reference debugger: Pause suspends the VM and reports a Pause stop for each
-mapped thread, and a successful Goto reports a Goto stop after changing the
-instruction pointer. No other DAP request response creates an optimistic stop
-or running state.
-
-### StepManager
-
-`StepManager` owns at most one enabled Mono `StepEventRequest`. A new step
-request cancels the existing request, creates a line-level Into, Over, or Out
-request, applies the reference debugger's assembly and debugger-attribute
-filters, enables it, and resumes the VM.
-
-Continue cancels the current step request and resumes. Duplicate or late
-Resume operations that the reference engine treats as harmless do not produce
-user-visible warnings. There is no custom rapid-click queue, command
-coalescing, delayed retry, or fixed cancellation wait.
-
-### SuspendedState
-
-`SuspendedState` owns frame, property, code-path, and code-context handles for
-the current stop generation. Matching the reference debugger, handles are
-reset when the next real breaking event or Pause stop arrives, not when a Step
-or Continue request is accepted. A successful Goto reports a stop without
-resetting the current handles.
-
-Missing or stale handles produce the same empty successful DAP response as the
-reference debugger. Handle IDs never drive execution state.
-
-### EvaluationService and property/value model
-
-`EvaluationService` parses C# expressions with Roslyn and evaluates syntax
-against a stack-frame environment. The environment exposes `this`, arguments,
-locals, constants, closure fields, async/iterator state, and supported Unity
-main-thread values.
-
-Every Evaluate, Variables, property getter, and property-info operation owns a
-request-scoped cancellation token. There is no process-wide
-`AsyncOperationManager`, and execution control does not synchronously cancel a
-global set of evaluations.
-
-The property/value model provides lazy children and reference-compatible
-formatting for:
-
-- primitives, strings, enums, Flags, structs, objects, and pointers;
-- arrays with buckets, lists, dictionaries, and enumerable Results View;
-- public, non-public, static, base, and Raw View members;
-- `DebuggerDisplay` and debugger proxy values;
-- Unity Object, Component/GameObject, Scene, GameObject children, and other
-  debugger-only Unity presentations supported by the reference engine.
-
-## Attach and Event Flow
-
-Before event consumption begins, Attach creates the engine state, managers,
-source map, and event dispatcher. Adapter initialization, Attach responses,
-and engine events share an ordered protocol writer.
-
-A breakpoint that arrives immediately during Attach is emitted as a normal
-`stopped` event even if the Attach response has not yet been processed by the
-client. No independent DAP-side state gate may drop it.
-
-Each real breaking-event stop and each Pause stop:
-
-1. resets `SuspendedState`;
-2. maps the real Mono thread;
-3. records the stop reason and breakpoint IDs where applicable;
-4. emits one DAP `stopped` event with `allThreadsStopped=true`.
-
-Cursor's current-statement marker is driven only by that stopped event.
-Late control responses or resume notifications cannot overwrite a newer stop.
+A real breakpoint, exception, step, or user pause produces the same stopped
+reason, selected thread behavior, stack availability, and current-statement
+marker as the reference plugin. Disconnect and termination are idempotent and
+emit the same DAP lifecycle as the reference.
 
 ## Execution Control
 
-Step Into, Step Over, and Step Out map directly to Mono line-level step
-requests. The DAP request returns after the engine accepts the request; it does
-not wait for a future StepEvent or for evaluation cleanup.
+Continue, Pause, Step Into, Step Over, Step Out, Step-in Targets, and Goto call
+the corresponding mature session operations. The DAP boundary does not add
+custom queues, retries, coalescing, warning suppression, artificial waits, or
+optimistic running/stopped transitions.
 
-Rapid Step requests pass through the same ordered control path. A request may
-replace the current Mono step request exactly as in the reference engine, but
-the adapter does not invent queued future steps.
+Rapid-step behavior is not designed from preference. The exact sequence of
+accepted, ignored, or disabled operations is first captured from the reference
+plugin and then treated as the contract. The result must not expose warnings,
+lose the current-statement marker, discard a real stop, or leave VS Code and
+the target in contradictory states when the reference does not.
 
-Continue cancels an active step and resumes. Pause suspends the VM, enumerates
-the mapped threads, resets suspended state for each Pause notification, and
-emits the reference-compatible Pause stops. A successful Goto changes the
-instruction pointer and emits a Goto stop without resetting suspended state.
-Benign already-running/already-resumed states are ignored only where the
-reference engine ignores them.
+Frame and ObjectValue handles follow the mature session's stop lifetime.
+Resuming invalidates the previous stopped context; a subsequent real stop
+creates a fresh context. The DAP boundary must not invalidate handles earlier
+or retain them later than the reference plugin.
 
-## Evaluation and Variable Semantics
+## Evaluation and Variables
 
-Scopes registers one lazy Locals root. Variables expands only the requested
-property level and registers expandable children in `SuspendedState`.
+All expression parsing, source resolution, type lookup, `using` handling,
+static and instance member binding, overload resolution, property invocation,
+and value formatting are delegated to the mature Mono.Debugging/NRefactory
+evaluation stack.
 
-The default Variables and Evaluate timeout is 10 seconds. `ToString()` waits a
-maximum of 2 seconds. Target invocations use
-`DisableBreakpoints | SingleThreaded`.
+The production adapter does not special-case expressions such as enum members
+or Unity types. Expressions including
+`RuntimeInitializeLoadType.AfterSceneLoad`, static properties, instance
+properties, locals, fields, method calls, casts, and compound expressions use
+one evaluator and one stack-frame context.
 
-`ToString()` timeout, failure, or an unoverridden object/value implementation
-falls back to `{TypeName}`. The fallback is final for that request; it is not a
-background placeholder and is not updated asynchronously. A later Hover is a
-new request.
+Scopes and expandable variables use Mono.Debugging `ObjectValue` objects.
+Getter errors remain property-scoped when the reference presents them that
+way. Evaluation errors, timeout presentation, lazy loading, grouping,
+DebuggerDisplay, debugger proxies, collections, enums, and `ToString()` follow
+the reference result established by A/B evidence.
 
-Getter exceptions become an error value for the property. They do not fail the
-entire Variables response. Variables timeout or an unavailable property
-returns an empty variable list. A stale frame produces empty Scopes/Evaluate
-responses. Syntax or expression-evaluation failures affect only the current
-Evaluate request.
-
-Enum constants preserve their enum type. Enum equality and inequality compare
-compatible enum values, so expressions such as
-`currentState == ButtonState.Normal` evaluate without falling back to a generic
-expression failure. Flags formatting matches the reference debugger.
-
-The setting `unityDebuggerPure.enableImplicitEvaluation` defaults to `true`
-and supports user, workspace, and workspace-folder scopes. This is the one
-intentional debugger addition beyond the reference's fixed implicit behavior.
-When disabled, automatic Hover, Locals, and Variables expansion do not invoke
-getters or `ToString()`. Explicit Watch and REPL evaluation remain enabled.
-
-## Breakpoints and Domain Reload
-
-Pending breakpoints outlive AppDomains. Bound breakpoints belong to one loaded
-domain and one Mono breakpoint request.
-
-TypeLoad events populate source maps and attempt to bind pending source and
-function breakpoints. Domain unload removes that domain's bound breakpoints and
-modules without deleting the user's pending breakpoint. Subsequent type loads
-bind it again and emit the corresponding breakpoint-change event.
-
-Breakpoint hits are ignored and resumed when they cannot map to debuggable
-user code, fail a condition, or are logpoints. Conditional evaluation uses the
-same expression engine. A condition error stops and reports the error as the
-reference debugger does. Logpoints evaluate, emit output, and resume without a
-normal breakpoint stop.
-
-Exception filtering, caught/unhandled behavior, and exception-type conditions
-match the reference debugger.
-
-## DAP Capabilities
-
-The adapter advertises the reference debugger's supported capabilities:
-
-- conditional and function breakpoints;
-- logpoints;
-- Hover evaluation;
-- Set Variable;
-- Step-in Targets;
-- Goto;
-- Terminate;
-- exception conditions and filter options.
-
-It does not advertise data or instruction breakpoints, step back, restart,
-memory operations, stepping granularity, hit-conditional breakpoints,
-single-thread execution, or other capabilities absent from the reference.
+`unityDebuggerPure.enableImplicitEvaluation` is an explicitly approved
+UnityDebuggerPure addition. It defaults to `true` and supports user,
+workspace, and workspace-folder scope. With the setting enabled, automatic
+Hover, Locals, and Variables evaluation uses the reference plugin's implicit
+Getter and `ToString()` behavior. With it disabled, automatic contexts disable
+target invocation while explicit Watch and REPL evaluation remain available.
 
 ## Error Handling and Diagnostics
 
-Benign duplicate Resume and equivalent reference-ignored engine states do not
-produce user warnings. Getter exceptions are property values. Parse and
-evaluation failures are scoped to their request. VM connection failure,
-unexpected disconnect, and protocol corruption are session-fatal.
+The DAP boundary preserves mature-session error categories and reference
+presentation. It must not replace actionable evaluator errors with a generic
+message when the reference supplies a specific result, and it must not turn an
+evaluation failure into a session stop or disconnect.
 
-Termination is idempotent and emits one DAP `terminated` event.
+Connection loss and protocol corruption are session-fatal. Per-expression,
+per-property, breakpoint-condition, and step-state failures remain scoped as
+the reference scopes them.
 
-Diagnostic logs contain the build ID, request kind, stop generation, event
-ordering, durations, and exception type. They do not contain expression text,
-variable values, source contents, or unredacted user paths. The extension has
-no telemetry.
+Diagnostic logs retain build ID, request kind, event order, stop reason,
+duration, and exception type. They do not record expression text, variable
+values, source contents, credentials, or unredacted user paths. The extension
+has no telemetry.
+
+## Reference-Compatibility Matrix
+
+The repository maintains an explicit matrix for every affected behavior. Each
+row contains:
+
+- scenario and exact user action;
+- reference result;
+- UnityDebuggerPure result;
+- status: `aligned`, `divergent`, or `not verified`;
+- reference and Pure evidence;
+- user decision for any divergence.
+
+Known status at design approval:
+
+| Scenario | Status | Current evidence |
+| --- | --- | --- |
+| Attach in Edit Mode and enter Play | divergent | Pure creates a transient source-less pause before the real breakpoint. |
+| Domain Reload internal exception handling | divergent | Pure exposed a background `ThreadAbortException` stop. |
+| First reachable source breakpoint | divergent | The real breakpoint binds and hits only after manually continuing the transient stop. |
+| Static property Getter evaluation | divergent | Pure returns `Expression evaluation failed`. |
+| Imported Unity enum member evaluation | divergent | Pure returns `Expression evaluation failed`. |
+| Rapid Step and marker stability | divergent | Earlier real-editor runs produced warnings, ignored steps, and marker loss not seen in the reference. |
+| Variable collection lifetime | divergent | Earlier real-editor runs exposed stale collection errors not seen in the reference. |
+| Remaining breakpoint, exception, inspection, and detach scenarios | not verified | A complete same-project A/B run is required. |
+
+The matrix is updated during implementation and included in every release
+handoff. A `divergent` or `not verified` row blocks a claim of full reference
+compatibility or completion.
 
 ## Verification
 
-All production behavior is developed test-first. A failing test must establish
-the reference behavior before each implementation change.
+All production changes follow test-driven development. Each automated change
+starts with a failing test tied to recorded reference behavior.
 
-Automated verification includes:
+Automated verification covers:
 
-1. Engine state tests for attach-first-stop, all stop reasons, rapid Step,
-   event ordering, duplicate Resume, and termination.
-2. Evaluation tests for enum comparison, getters, getter exceptions,
-   `ToString()` fallback, request timeout, lazy expansion, and stale handles.
-3. Lifecycle tests for domain unload, breakpoint unbind/rebind, source mapping,
-   conditional breakpoints, logpoints, and exception filters.
-4. DAP transcript and packaging tests for ordered output, writer integrity,
-   capabilities, setting scopes, dependency inventory, and the absence of
-   `Mono.Debugging*.dll` in the final package.
+1. DAP translation and lifecycle ordering without a second control state.
+2. Mature session mapping for attach, real stops, resume, stepping,
+   exceptions, Domain Reload, termination, and breakpoint persistence.
+3. ObjectValue scopes, expansion, Getter/ToString policy, Watch/REPL policy,
+   enum/static member expressions, errors, and stopped-context lifetime.
+4. Extension setting propagation at user, workspace, and workspace-folder
+   scope.
+5. Build and package inventory proving the mature session/evaluation
+   assemblies are shipped and the rejected direct engine is absent from the
+   runtime path.
 
-Real-editor acceptance uses `D:\workspace\sgproj`, explicitly overriding the
-debugger repository's previous MyGame-only test location for this task.
-Existing reachable project code is preferred; modifying sgproj solely to make
-a breakpoint reachable requires separate user approval.
+Real-editor acceptance uses the existing MyGame project at
+`D:\Unity\TuanjieHub\Projects\MyGame`, the existing VS Code window opened from
+that project, the active `SampleScene`, and verified reachable code under
+`Assets/Scripts/GamePlay/Runtime/DevTools`.
 
-For this task the user has authorized Cursor and Unity UI operations. Unity MCP
-is preferred for supported Unity state, refresh, compilation, Console, and
-test operations. Computer Use is reserved for Cursor debug UI and Unity UI
-interactions that Unity MCP cannot perform.
+The user performs VS Code UI actions. Unity MCP controls and inspects the
+MyGame/Tuanjie instance, scene, Play Mode, runtime objects, and Console. No
+Computer Use is required unless the user explicitly changes that instruction.
 
-Real acceptance covers:
+The reference and Pure runs use the same source line and action sequence and
+cover:
 
-- first-breakpoint marker and hit breakpoint ID;
-- repeated Step Into/Over/Out without warnings or marker loss;
-- Hover and Watch enum expressions;
-- Locals/Variables Getter and `ToString()` behavior;
-- slow/failing evaluation without session corruption;
-- Domain Reload breakpoint persistence and rebinding;
-- detach and reconnect.
+- Edit Mode attach and first Play;
+- Domain Reload breakpoint persistence;
+- first-breakpoint marker and hit identity;
+- exception behavior;
+- Step Into/Over/Out and rapid Step input;
+- Hover, Watch, Locals, static properties, imported enum members, Getter,
+  `ToString()`, and variable expansion;
+- stale-context behavior;
+- detach, reattach, and final Unity Console state.
 
-Automated test success is not reported as real Unity success. The final status
-states whether sgproj acceptance is pending or completed.
+## Delivery
 
-## Versioning and Delivery
+The replacement backend releases as UnityDebuggerPure `0.4.0` with a unique
+build ID and refreshed third-party/runtime inventory.
 
-The backend rewrite releases as UnityDebuggerPure `0.3.0`. Every build carries
-a unique build ID in the package metadata and diagnostic startup record.
+No intermediate VSIX is installed. After automated gates and package
+verification pass, exactly one final VSIX is installed into VS Code. VS Code
+must reload before real-editor acceptance, and startup diagnostics must confirm
+the installed semantic version and build ID.
 
-No intermediate build is installed into Cursor. After all automated gates
-pass, one VSIX is packaged and installed. Cursor must reload before the new
-adapter is considered active. Installed files and startup diagnostics must
-confirm both semantic version and build ID before real-editor acceptance.
+The final handoff includes the compatibility matrix. Any remaining divergent
+or unverified item is called out explicitly and prevents a completion claim.

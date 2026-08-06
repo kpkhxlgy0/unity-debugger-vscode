@@ -3,7 +3,7 @@
 ## Real Editor testing
 
 - Use only the existing project at
-  `H:\workspace\Unity\Tuanjie\Projects\MyGame` for real Unity/Tuanjie runs.
+  `D:\Unity\TuanjieHub\Projects\MyGame` for real Unity/Tuanjie runs.
 - The user opens `MyGame` in the Editor. If it is not already running, stop
   and remind the user to open it; do not create or launch another project.
 - Use the VS Code instance opened from `MyGame`. If that instance is not
@@ -26,3 +26,20 @@
 - Prefer verified reachable code under MyGame's `DevTools` for real-Editor
   breakpoint acceptance tests. This preference does not replace the
   reachability check for the specific method and line selected.
+
+## Reference debugger compatibility
+
+- Treat the installed `zlorn.vstuc` debugger as the behavioral reference for
+  UnityDebuggerPure.
+- Whenever an observed debugger behavior, UI state, protocol result, or user
+  experience differs from the reference plugin, stop before preserving or
+  designing around that difference and ask the user whether the current
+  implementation should be replaced to align more closely with the reference.
+- Do not silently introduce or retain a custom debugger behavior when the
+  reference plugin already defines the expected experience.
+- Maintain an explicit reference-compatibility matrix for affected debugger
+  behavior. Mark each item as reference-verified, aligned, divergent, or not
+  yet verified, and retain the concrete comparison evidence.
+- Call out every known or unverified difference in design reviews, test
+  reports, and release handoffs. An unapproved difference blocks claiming
+  reference compatibility or completion.
