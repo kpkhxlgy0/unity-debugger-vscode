@@ -253,3 +253,16 @@ infer an unavailable UI capability.
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T125639975Z-29644.log`.
 - Root cause: the stopped-frame namespace resolver consulted only the mature session's already-loaded type cache.
   `GameRuntimeBootstrapMenu` had not entered that cache yet, although it exists in the stopped frame's assembly.
+
+### 2026-08-06 - Pure 0.3.0 stopped-frame assembly resolver candidate
+
+- Candidate remains version `0.3.0`; build ID is `0.3.0+g21b588b9b309`, from source commit
+  `21b588b9b3094596a600879bd0502a7b48797576`.
+- VSIX SHA-256: `c8290dc32ad2fc6c6dd482473aedf989ef902d429543a354361c1caaef71e3f9`.
+- Adapter SHA-256: `bb7cf6ee3536f606d983238d754b4e44373b23594ffa4e60bd863208a0fc69ce`.
+- Same-namespace identifiers are now resolved against the stopped frame's assembly when they are absent from the
+  mature session's loaded-type cache. Imported namespaces are still not scanned, preserving aligned EVAL-02.
+- Verification passed: type checking, third-party provenance, 142 adapter tests, 9 integration tests, 19 build tests,
+  93 extension tests, 4 package contract tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing
+  upstream unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
+- EVAL-01 remains divergent until this exact candidate is installed and retested in MyGame.
