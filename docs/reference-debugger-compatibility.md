@@ -428,4 +428,6 @@ infer an unavailable UI capability.
   package contract tests passed.
 - The installed predecessor and checksum were preserved as
   `dist/unity-debugger-pure-0.3.0.superseded-before-expandable-locals.vsix` and its adjacent `.sha256` file.
-- Installation and matched MyGame verification remain pending; no compatibility row changes status yet.
+- VS Code installed this exact candidate after debugging and Play Mode were stopped. The installed version, build ID,
+  source commit, and Adapter SHA-256 match the audited VSIX; Reload and matched MyGame verification remain pending,
+  so no compatibility row changes status yet.
