@@ -8,7 +8,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | ATT-01 | Attach in Edit Mode, then enter Play | Breakpoint is gray while attached in Edit Mode; entering Play immediately stops at the breakpoint with a yellow current-statement marker and no source-less user stop | Entering Play stopped directly at line 11 with a yellow marker and no source-less stop | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature lifecycle replacement matches this reference sequence |
 | RLD-01 | Ordinary Play/Domain Reload with default exception filters | No background exception stop; both `All Exceptions` and `User-Unhandled Exceptions` are unchecked by default | No background exception pause occurred before the managed breakpoint | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Expression-context errors occurred only after the managed stop and are tracked separately |
 | BP-01 | First hit at `GameRuntimeBootstrap.Install()` line 11 | Entering Play immediately stops with a yellow current-statement marker | First reachable hit stopped directly at line 11 with a yellow current-statement marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature breakpoint lifecycle matches this reference sequence |
-| EVAL-01 | Hover/Watch `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` | Hover and Watch both evaluate to `true` through the property Getter | Hover failed at the same stopped line | divergent; reference verified | 2026-08-06 MyGame reference and Pure 0.3.0 runs | User approved replacing the mature type-resolution bridge |
+| EVAL-01 | Hover/Watch `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` | Hover and Watch both evaluate to `true` through the property Getter | Hover and Watch both evaluate to `true` | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Same-namespace types resolve through the stopped frame's assembly |
 | EVAL-02 | Hover/Watch `RuntimeInitializeLoadType.AfterSceneLoad` | Hover and Watch both report <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code> | Hover and Watch report the same scope diagnostic | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | The replacement deliberately does not resolve imported Unity types |
 | STEP-01 | Step In, then rapid Step Over input | Step In lands in the property Getter at `GameRuntimeBootstrapMenu.cs:13`; three immediate Step Over clicks remain clickable, emit no warning, stop at caller `GameRuntimeBootstrap.cs:24`, and preserve the yellow marker | Warning/no-response/marker loss observed | divergent; reference verified | 2026-08-06 MyGame reference run | User confirmed replacement: reproduce reference request handling and marker continuity |
 | VAR-01 | Expand variables across resume/new stop | Variables refresh across the recorded Step In/rapid Step Over sequence without exposing a stale-collection warning | `Variable collection is no longer available` observed | divergent; reference verified | 2026-08-06 MyGame reference run | User confirmed replacement of the current variable-handle lifecycle |
@@ -267,4 +267,19 @@ infer an unavailable UI capability.
   upstream unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
 - After the user stopped debugging and exited Play, VS Code installed this exact candidate. The installed version,
   build ID, source commit, and Adapter SHA-256 match the audited VSIX; Reload is required before the real retest.
-- EVAL-01 remains divergent until this exact candidate is installed and retested in MyGame.
+- EVAL-01 remained divergent until this exact candidate was installed and retested in MyGame.
+
+### 2026-08-06 - Pure 0.3.0 stopped-frame assembly resolver real run
+
+- After Reload, Pure attached in Edit Mode and ordinary SampleScene Play stopped at
+  `Assets/Scripts/GamePlay/Runtime/DevTools/GameRuntimeBootstrap.cs:11` with the yellow current-statement marker.
+- Hover and Watch for `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` both evaluated to `true`, aligning EVAL-01.
+- Hover and Watch for `RuntimeInitializeLoadType.AfterSceneLoad` both reported
+  <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code>. The Hover error notification displayed
+  the same diagnostic, matching the recorded reference presentation and preserving EVAL-02 alignment.
+- No additional behavior difference was reported in this sequence.
+- Screenshots:
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-8e8ecefd-0770-43d9-ab9e-42a8e4ad0eb9.png` and
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-3f0779c2-7c5a-4c5f-9d0a-015453b27305.png`.
+- Sanitized adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T131933757Z-32816.log`.
