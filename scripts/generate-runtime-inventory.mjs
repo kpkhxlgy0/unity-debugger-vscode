@@ -28,6 +28,13 @@ const sourceOrigins = new Map([
   ["UnityDebuggerPure.exe", ["project", "MIT"]],
   ["VSCodeDebug.dll", ["source-built:vscode-mono-debug", "MIT"]],
   ["Mono.Debugger.Soft.dll", ["source-built:debugger-libs", "MIT"]],
+  ["Mono.Debugging.dll", ["source-built:debugger-libs", "MIT"]],
+  ["Mono.Debugging.Soft.dll", ["source-built:debugger-libs", "MIT"]],
+  ["ICSharpCode.NRefactory.dll", ["source-built:nrefactory", "MIT"]],
+  [
+    "ICSharpCode.NRefactory.CSharp.dll",
+    ["source-built:nrefactory", "MIT"],
+  ],
 ]);
 const packageAssemblies = new Map([
   ["Microsoft.CodeAnalysis.dll", "Microsoft.CodeAnalysis.Common"],
@@ -39,6 +46,7 @@ const packageAssemblies = new Map([
   ["Mono.Cecil.Mdb.dll", "Mono.Cecil"],
   ["Mono.Cecil.Pdb.dll", "Mono.Cecil"],
   ["Mono.Cecil.Rocks.dll", "Mono.Cecil"],
+  ["Mono.Posix.dll", "Mono.Posix-4.5"],
   ["Newtonsoft.Json.dll", "Newtonsoft.Json"],
   ["System.Buffers.dll", "System.Buffers"],
   ["System.Collections.Immutable.dll", "System.Collections.Immutable"],
@@ -56,12 +64,7 @@ const packageAssemblies = new Map([
   ],
 ]);
 const packageVersions = await readPackageVersions(
-  path.join(
-    repositoryRoot,
-    "adapter",
-    "src",
-    "UnityDebugger.Adapter",
-  ),
+  path.join(repositoryRoot, "adapter"),
 );
 
 const names = (await fs.readdir(stagingDirectory))

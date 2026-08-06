@@ -834,7 +834,7 @@ git commit -m "fix: align mature debugger execution control"
 - Consumes: Tasks 3–5 mature backend.
 - Produces: one production debugger path with no handwritten evaluator/control fallback and an audited package boundary.
 
-- [ ] **Step 1: Add a failing architecture assertion**
+- [x] **Step 1: Add a failing architecture assertion**
 
 Extend `RuntimeDependencyBoundaryTests`:
 
@@ -860,7 +860,7 @@ public void ProductionAssemblyContainsNoRejectedDirectEngineTypes()
 }
 ```
 
-- [ ] **Step 2: Run to verify RED**
+- [x] **Step 2: Run to verify RED**
 
 Run:
 
@@ -870,7 +870,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because direct-engine types still compile into the adapter.
 
-- [ ] **Step 3: Delete the rejected runtime and tests**
+- [x] **Step 3: Delete the rejected runtime and tests**
 
 Remove every file returned by:
 
@@ -880,7 +880,7 @@ rg --files adapter/src/UnityDebugger.Adapter/Engine tests/adapter/UnityDebugger.
 
 Before deletion, use `rg` to prove no mature backend file imports `UnityDebugger.Adapter.Engine`. Remove direct-engine-only package references such as the adapter's direct Roslyn parser dependency only when `dotnet build` proves the mature transitive dependency graph remains complete.
 
-- [ ] **Step 4: Audit mature runtime origins**
+- [x] **Step 4: Audit mature runtime origins**
 
 Add these source-built entries in `scripts/generate-runtime-inventory.mjs`:
 
@@ -893,7 +893,7 @@ Add these source-built entries in `scripts/generate-runtime-inventory.mjs`:
 
 Keep `Mono.Debugger.Soft.dll`, `VSCodeDebug.dll`, and all audited NuGet runtime dependencies. Update notices to say these pinned MIT projects are compiled into the runtime; do not mention the reference binaries as dependencies.
 
-- [ ] **Step 5: Build and make the boundary GREEN**
+- [x] **Step 5: Build and make the boundary GREEN**
 
 Run:
 
@@ -906,7 +906,7 @@ rg -n "UnityDebuggerEngine|ExpressionEvaluator|StepManager|SuspendedState" adapt
 
 Expected: build/test PASS; final `rg` returns no production/custom-engine implementation hits.
 
-- [ ] **Step 6: Commit the engine removal**
+- [x] **Step 6: Commit the engine removal**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter.Tests scripts/generate-runtime-inventory.mjs third-party/sources.json THIRD_PARTY_NOTICES.md

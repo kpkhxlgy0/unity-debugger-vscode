@@ -20,10 +20,12 @@
       "license": "MIT",
       "notice": "third-party/licenses/debugger-libs-MIT.txt",
       "paths": [
-        "adapter/vendor/debugger-libs/Mono.Debugger.Soft"
+        "adapter/vendor/debugger-libs/Mono.Debugger.Soft",
+        "adapter/vendor/debugger-libs/Mono.Debugging",
+        "adapter/vendor/debugger-libs/Mono.Debugging.Soft"
       ],
       "modifications": [
-        "Only Mono.Debugger.Soft is built from source for the net48 x64 Adapter. The project keeps its explicit upstream source list, uses the SDK build entry point and reference-assembly restore, and resolves Mono.Cecil from the locked package graph. Mono.Debugging and Mono.Debugging.Soft are excluded from the solution and runtime; no upstream binaries are shipped."
+        "Mono.Debugger.Soft, Mono.Debugging, and Mono.Debugging.Soft are built from the pinned source for the net48 x64 Adapter. The projects use SDK build entry points and locked reference-assembly/package restore. Mono.Debugging.Soft adds source-level step-target support and invalidates frame state after Set Next Statement; no upstream precompiled binary is shipped."
       ]
     },
     {
@@ -36,7 +38,7 @@
         "adapter/vendor/nrefactory"
       ],
       "modifications": [
-        "The previously imported source is retained with its license for provenance, but its projects are excluded from the solution, Adapter references, and release runtime."
+        "ICSharpCode.NRefactory and ICSharpCode.NRefactory.CSharp are built from the pinned source and shipped for the mature debugger session's C# expression evaluation; no upstream precompiled binary is shipped."
       ]
     }
   ]

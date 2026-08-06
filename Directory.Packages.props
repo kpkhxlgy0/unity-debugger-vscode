@@ -8,6 +8,10 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageVersion Include="Mono.Cecil" Version="0.10.1" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageVersion
+      Include="System.Collections.Immutable"
+      Version="9.0.0"
+      Condition="'$(MSBuildProjectName)' == 'UnityDebugger.Adapter.Tests'" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
