@@ -371,3 +371,15 @@ infer an unavailable UI capability.
   unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
 - This is source evidence only. VAR-02 remains divergent until the resulting `0.3.0` candidate is installed and the
   reference action sequence is repeated at `GamePrototypeRuntime.cs:214`.
+
+### 2026-08-06 - Pure 0.3.0 reference Locals packaged candidate
+
+- Candidate remains version `0.3.0`; build ID is `0.3.0+g22c0cbfa14a6`, from source commit
+  `22c0cbfa14a6fe5ce36b6971ebfc94299de9aa11`.
+- VSIX SHA-256: `3d10cc9b34642ea763a0d78271934755ae282aae481ce5db0b84bb74e2bfc950`.
+- Adapter SHA-256: `fb16b25ec0ec890beda0680f5d40f402b9b51bc48ddecf3a6a2e115e52d4e18c`.
+- Runtime inventory verification passed for 17 assemblies; VSIX verification passed for 33 packaged files; all 4
+  package contract tests passed.
+- The previously installed `0.3.0+gd09610c2dffe` VSIX and checksum were preserved as
+  `dist/unity-debugger-pure-0.3.0.superseded-before-reference-locals.vsix` and its adjacent `.sha256` file.
+- Installation and the MyGame real run remain pending. VAR-02 is not yet aligned.
