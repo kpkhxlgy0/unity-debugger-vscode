@@ -188,20 +188,20 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("returns hover diagnostics without failing the request", async () => {
+  it("preserves expression errors for hover and watch", async () => {
     const client = await start("evaluation-error");
     await initialize(client);
     await attach(client);
 
-    const hover = await client.request("evaluate", {
-      expression: "DefinitelyMissingName",
-      frameId: 1,
-      context: "hover",
-    });
-    expect(hover.body).toEqual({
-      result: "The identifier `DefinitelyMissingName` is not in the scope",
-      variablesReference: 0,
-    });
+    await expect(
+      client.request("evaluate", {
+        expression: "DefinitelyMissingName",
+        frameId: 1,
+        context: "hover",
+      }),
+    ).rejects.toThrow(
+      "The identifier `DefinitelyMissingName` is not in the scope",
+    );
     await expect(
       client.request("evaluate", {
         expression: "DefinitelyMissingName",

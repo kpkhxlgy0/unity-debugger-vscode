@@ -813,17 +813,11 @@ namespace UnityDebugger.Adapter.Dap
             }
             catch (BackendEvaluationException exception)
             {
-                if (string.Equals(context, "hover", StringComparison.Ordinal))
-                {
-                    SendResponse(
-                        response,
-                        new EvaluateResponseBody(exception.DisplayMessage));
-                    return;
-                }
                 SendErrorResponse(
                     response,
                     2026,
-                    exception.DisplayMessage);
+                    exception.DisplayMessage,
+                    user: false);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))

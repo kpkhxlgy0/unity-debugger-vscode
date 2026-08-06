@@ -9,7 +9,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | RLD-01 | Ordinary Play/Domain Reload with default exception filters | No background exception stop; both `All Exceptions` and `User-Unhandled Exceptions` are unchecked by default | No background exception pause occurred before the managed breakpoint | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Expression-context errors occurred only after the managed stop and are tracked separately |
 | BP-01 | First hit at `GameRuntimeBootstrap.Install()` line 11 | Entering Play immediately stops with a yellow current-statement marker | First reachable hit stopped directly at line 11 with a yellow current-statement marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature breakpoint lifecycle matches this reference sequence |
 | EVAL-01 | Hover/Watch `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` | Hover and Watch both evaluate to `true` through the property Getter | Hover and Watch both evaluate to `true` | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Same-namespace types resolve through the stopped frame's assembly |
-| EVAL-02 | Hover/Watch `RuntimeInitializeLoadType.AfterSceneLoad` | Hover and Watch report <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code> without a bottom-right error notification | Same diagnostic; Hover has no global notification and Watch retains its inline error style | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Hover error is a successful diagnostic result; Watch remains a failed inline evaluation |
+| EVAL-02 | Hover/Watch `RuntimeInitializeLoadType.AfterSceneLoad` | Hover and Watch report <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code> with inline presentation only, including automatic Watch refresh at a new stop | Initial Hover had no notification and Watch retained its inline style, but automatic Watch refresh at the next stop raised bottom-right notifications | divergent; value/diagnostic aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Replace user-visible DAP evaluation errors with `showUser=false`; retest across a stop transition |
 | STEP-01 | Step In, then rapid Step Over input | Step In lands in the property Getter at `GameRuntimeBootstrapMenu.cs:13`; three immediate Step Over clicks remain clickable, emit no warning, stop at caller `GameRuntimeBootstrap.cs:24`, and preserve the yellow marker | Same landing lines, responsive controls, no warning, and continuous yellow marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature request handling matches the recorded rapid-input sequence |
 | VAR-01 | Expand variables across resume/new stop | Variables refresh across the recorded Step In/rapid Step Over sequence without exposing a stale-collection warning | Variables refreshed after continuing from the rapid-step stop to the instance breakpoint; no stale-collection warning appeared | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature variable handles match the recorded resume/new-stop sequence |
 | VAR-02 | Instance Locals topology | Locals has peer synthetic entries `Active scene`, `this`, and `this.gameObject`; `transform` is below `this.gameObject`; Getter values display directly with no `Properties` group | Not verified | reference verified | 2026-08-06 MyGame reference run and screenshot | User confirmed replacement of Pure's Locals presentation to preserve this layout |
@@ -319,6 +319,13 @@ infer an unavailable UI capability.
 - Hover and Watch for `RuntimeInitializeLoadType.AfterSceneLoad` retained the exact reference scope diagnostic.
 - Hover raised no bottom-right error notification, while Watch retained its inline error styling.
 - Hover `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` still evaluated to `true`; no new difference or marker loss
-  appeared. This aligns the complete recorded EVAL-02 behavior.
+  appeared. This initially appeared to align EVAL-02.
 - Sanitized adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T133854973Z-82480.log`.
+- After Continue stopped at `GamePrototypeRuntime.cs:214`, automatic Watch refresh raised bottom-right notifications for
+  both `RuntimeInitializeLoadType.AfterSceneLoad` and `DefinitelyMissingName`, even though their Watch rows retained
+  the correct inline diagnostic style. The reference debugger never raises these notifications, so EVAL-02 remains
+  divergent across stop transitions.
+- Screenshots:
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-31e0d672-fed1-47f9-8c74-535cabbbc20c.png` and
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-f8a1c901-ceef-4464-91e6-033d468ea551.png`.

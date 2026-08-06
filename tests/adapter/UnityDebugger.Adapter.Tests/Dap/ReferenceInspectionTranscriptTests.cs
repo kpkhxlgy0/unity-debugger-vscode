@@ -161,7 +161,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void HoverEvaluationErrorReturnsTheDiagnosticWithoutFailingTheRequest()
+        public void HoverEvaluationErrorDoesNotRequestAUserNotification()
         {
             var backend = new FakeDebuggerBackend
             {
@@ -181,13 +181,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     }));
 
             var response = DapTestProtocol.Response(messages, "evaluate");
-            Assert.True(response["success"]!.Value<bool>());
+            Assert.False(response["success"]!.Value<bool>());
             Assert.Equal(
                 "The identifier `DefinitelyMissingName` is not in the scope",
-                response["body"]!["result"]!.Value<string>());
-            Assert.Equal(
-                0,
-                response["body"]!["variablesReference"]!.Value<int>());
+                response["message"]!.Value<string>());
+            Assert.False(
+                response["body"]!["error"]!["showUser"]!.Value<bool>());
         }
 
         [Fact]
@@ -215,6 +214,8 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(
                 "The identifier `DefinitelyMissingName` is not in the scope",
                 response["message"]!.Value<string>());
+            Assert.False(
+                response["body"]!["error"]!["showUser"]!.Value<bool>());
         }
 
         [Fact]
