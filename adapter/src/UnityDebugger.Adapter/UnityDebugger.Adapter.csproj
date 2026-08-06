@@ -20,5 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\vendor\vscode-mono-debug\VSCodeDebug.csproj" />
     <ProjectReference Include="..\..\vendor\debugger-libs\Mono.Debugger.Soft\Mono.Debugger.Soft.csproj" />
+    <ProjectReference Include="..\..\vendor\debugger-libs\Mono.Debugging\Mono.Debugging.csproj" />
+    <ProjectReference Include="..\..\vendor\debugger-libs\Mono.Debugging.Soft\Mono.Debugging.Soft.csproj" />
   </ItemGroup>
 </Project>

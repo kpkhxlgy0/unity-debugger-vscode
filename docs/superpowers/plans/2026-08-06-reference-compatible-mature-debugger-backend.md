@@ -216,7 +216,7 @@ git commit -m "docs: establish reference debugger compatibility matrix"
 - Consumes: pinned vendor projects already present under `adapter/vendor`.
 - Produces: build references for `Mono.Debugging`, `Mono.Debugging.Soft`, NRefactory, and `Mono.Debugger.Soft` without any reference-extension binary.
 
-- [ ] **Step 1: Reverse the current dependency-boundary assertion**
+- [x] **Step 1: Reverse the current dependency-boundary assertion**
 
 Replace the current `ProductionAdapterUsesOnlyTheNewEngineDependencies` test with a compile-time boundary test:
 
@@ -236,7 +236,7 @@ public void SolutionExposesThePinnedMatureDebuggerStack()
 }
 ```
 
-- [ ] **Step 2: Run the test to verify RED**
+- [x] **Step 2: Run the test to verify RED**
 
 Run:
 
@@ -246,7 +246,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: compile FAIL because the solution/test dependency graph does not expose `Mono.Debugging` or `Mono.Debugging.Soft`.
 
-- [ ] **Step 3: Restore the mature projects and adapter references**
+- [x] **Step 3: Restore the mature projects and adapter references**
 
 Add the four project blocks and matching Debug/Release configurations from lawful baseline commit `bfaeac62e22f17060287aecb3ea8366c50cdc852` to `UnityDebugger.sln`:
 
@@ -266,7 +266,7 @@ Add these adapter project references:
 
 Keep the existing `VSCodeDebug` and `Mono.Debugger.Soft` references. Do not add any file from the installed reference extension.
 
-- [ ] **Step 4: Add a minimal compile-time mature-stack use**
+- [x] **Step 4: Add a minimal compile-time mature-stack use**
 
 Create the `UnitySoftDebuggerSession` skeleton needed to make the adapter reference both mature assemblies:
 
@@ -287,7 +287,7 @@ namespace UnityDebugger.Adapter.Backend
 
 In `Program.cs`, do not switch the production factory yet; Task 3 supplies the backend before the cutover.
 
-- [ ] **Step 5: Restore and run the boundary test**
+- [x] **Step 5: Restore and run the boundary test**
 
 Run:
 
