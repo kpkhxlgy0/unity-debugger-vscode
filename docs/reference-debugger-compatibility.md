@@ -185,3 +185,12 @@ infer an unavailable UI capability.
   33-file VSIX audit.
 - Two earlier same-name artifacts were preserved under explicit `superseded-*` filenames because
   local deletion was blocked. Neither is the standard candidate path and neither is installed by this procedure.
+
+### 2026-08-06 - UnityDebuggerPure 0.3.0 installation
+
+- VS Code CLI reports the active extension as exactly `kpk.unity-debugger-pure@0.3.0`.
+- Installed path: `C:\Users\Admin\.vscode\extensions\kpk.unity-debugger-pure-0.3.0`.
+- Installed version, source commit, build ID, and adapter SHA-256 exactly match the immutable 0.3.0 candidate.
+- The old 0.4.0 extension directory remains inactive on disk; it is absent from the CLI's active extension listing.
+  No manual deletion was attempted.
+- VS Code still requires one `Developer: Reload Window` before runtime acceptance.
