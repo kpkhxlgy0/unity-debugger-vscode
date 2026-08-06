@@ -156,3 +156,16 @@ infer an unavailable UI capability.
   restore. Six pre-existing vendor lock files remain unstaged with line-ending-only changes.
 - The candidate has not yet been installed. Its embedded source commit intentionally precedes the test-only package
   expectation correction and this evidence entry; the candidate itself was not rebuilt or overwritten afterward.
+
+### 2026-08-06 - UnityDebuggerPure 0.4.0 installation
+
+- Unity MCP selected `MyGame@c3cd500d` and confirmed project `MyGame`, active scene
+  `Assets/Scenes/SampleScene.scene`, Tuanjie `2022.3.62t12`, Edit Mode, idle compilation, and no project or compile
+  errors. The only Console errors were two controller-disconnect notifications for `Flydigi Vader 5 Pro`.
+- The ordinary acceptance entry is SampleScene Play Mode, targeting
+  `Assets/Scripts/GamePlay/Runtime/DevTools/GameRuntimeBootstrap.cs:11`; the source still has
+  `RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)` immediately above `Install()`.
+- Installed exactly `kpk.unity-debugger-pure@0.4.0` from the immutable candidate into
+  `C:\Users\Admin\.vscode\extensions\kpk.unity-debugger-pure-0.4.0`.
+- Installed build ID is `0.4.0+g08acea12c5b2`; installed source commit and adapter SHA-256 exactly match the
+  immutable candidate. VS Code has not yet been reloaded and no Pure behavior row has been marked aligned.

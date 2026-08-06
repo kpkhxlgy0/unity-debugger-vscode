@@ -1143,11 +1143,11 @@ Record VSIX hash, adapter hash, semantic version, build ID, commit, and worktree
 - Consumes: the Task 9 immutable artifact and Task 1 reference results.
 - Produces: per-row `aligned`/`divergent` evidence; only all-aligned rows permit completion.
 
-- [ ] **Step 1: Confirm MyGame/Tuanjie preconditions without UI automation**
+- [x] **Step 1: Confirm MyGame/Tuanjie preconditions without UI automation**
 
 Use Unity MCP to select the MyGame instance, confirm active scene `Assets/Scenes/SampleScene.scene`, Tuanjie `2022.3.62t12`, zero real compile/Console errors, and reachability of `GameRuntimeBootstrap.Install()` line 11 through `RuntimeInitializeOnLoadMethod(AfterSceneLoad)`. State that the acceptance entry is ordinary SampleScene Play Mode and the target is line 11 before changing Play Mode.
 
-- [ ] **Step 2: Install exactly the verified VSIX**
+- [x] **Step 2: Install exactly the verified VSIX**
 
 Run:
 
