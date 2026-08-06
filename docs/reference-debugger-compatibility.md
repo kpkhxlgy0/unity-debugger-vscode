@@ -11,7 +11,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | EVAL-01 | Hover/Watch `GameRuntimeBootstrapMenu.IsRuntimeInstallEnabled` | Hover and Watch both evaluate to `true` through the property Getter | Hover and Watch both evaluate to `true` | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Same-namespace types resolve through the stopped frame's assembly |
 | EVAL-02 | Hover/Watch `RuntimeInitializeLoadType.AfterSceneLoad` | Hover and Watch both report <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code> | Hover and Watch report the same scope diagnostic | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | The replacement deliberately does not resolve imported Unity types |
 | STEP-01 | Step In, then rapid Step Over input | Step In lands in the property Getter at `GameRuntimeBootstrapMenu.cs:13`; three immediate Step Over clicks remain clickable, emit no warning, stop at caller `GameRuntimeBootstrap.cs:24`, and preserve the yellow marker | Same landing lines, responsive controls, no warning, and continuous yellow marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature request handling matches the recorded rapid-input sequence |
-| VAR-01 | Expand variables across resume/new stop | Variables refresh across the recorded Step In/rapid Step Over sequence without exposing a stale-collection warning | `Variable collection is no longer available` observed | divergent; reference verified | 2026-08-06 MyGame reference run | User confirmed replacement of the current variable-handle lifecycle |
+| VAR-01 | Expand variables across resume/new stop | Variables refresh across the recorded Step In/rapid Step Over sequence without exposing a stale-collection warning | Variables refreshed after continuing from the rapid-step stop to the instance breakpoint; no stale-collection warning appeared | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature variable handles match the recorded resume/new-stop sequence |
 | VAR-02 | Instance Locals topology | Locals has peer synthetic entries `Active scene`, `this`, and `this.gameObject`; `transform` is below `this.gameObject`; Getter values display directly with no `Properties` group | Not verified | reference verified | 2026-08-06 MyGame reference run and screenshot | User confirmed replacement of Pure's Locals presentation to preserve this layout |
 | BP-02 | Conditional breakpoint at `GamePrototypeRuntime.cs:214` | `_status == null` never stops; `_status != null` stops normally with the yellow marker and Variables | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
 | BP-03 | Logpoint at `GamePrototypeRuntime.cs:214` | `Reference log status={_status}` outputs `Reference log status=等待登录` without stopping; no warning, expression error, or marker loss | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
@@ -283,6 +283,9 @@ infer an unavailable UI capability.
 - Step Into landed in the property Getter at `GameRuntimeBootstrapMenu.cs:13`. Three immediate Step Over clicks stayed
   responsive, produced no warning, stopped at `GameRuntimeBootstrap.cs:24`, and preserved the yellow marker throughout,
   aligning STEP-01.
+- A normal breakpoint was set at `GamePrototypeRuntime.cs:214`, then Continue moved from the rapid-step stop to that
+  reachable instance frame immediately. Variables refreshed normally, the yellow marker was present, and no
+  `Variable collection is no longer available` warning appeared, aligning VAR-01.
 - No additional behavior difference was reported in this sequence.
 - Screenshots:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-8e8ecefd-0770-43d9-ab9e-42a8e4ad0eb9.png` and
