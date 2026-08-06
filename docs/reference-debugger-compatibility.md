@@ -193,4 +193,4 @@ infer an unavailable UI capability.
 - Installed version, source commit, build ID, and adapter SHA-256 exactly match the immutable 0.3.0 candidate.
 - The old 0.4.0 extension directory remains inactive on disk; it is absent from the CLI's active extension listing.
   No manual deletion was attempted.
-- VS Code still requires one `Developer: Reload Window` before runtime acceptance.
+- The user completed `Developer: Reload Window`; runtime build-ID verification is the next acceptance gate.

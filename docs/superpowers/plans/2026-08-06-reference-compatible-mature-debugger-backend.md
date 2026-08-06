@@ -1158,7 +1158,7 @@ Run:
 
 Expected: exactly `kpk.unity-debugger-pure@0.3.0` is listed. Verify the installed `build-info.json` and `UnityDebuggerPure.exe` hashes match Task 9.
 
-- [ ] **Step 3: Ask the user for one VS Code action**
+- [x] **Step 3: Ask the user for one VS Code action**
 
 Tell the user:
 
