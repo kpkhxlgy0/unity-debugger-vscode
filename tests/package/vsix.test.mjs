@@ -39,7 +39,7 @@ test("packaged VSIX satisfies the audited production contract", () => {
   assert.equal(manifest.version, "0.4.0");
   assert.equal(buildInfo.version, "0.4.0");
   assert.match(buildInfo.commit, /^[0-9a-f]{40}$/);
-  assert.match(buildInfo.buildId, /^0\.3\.0\+g[0-9a-f]{12}$/);
+  assert.match(buildInfo.buildId, /^0\.4\.0\+g[0-9a-f]{12}$/);
   assert.equal(
     buildInfo.buildId,
     `0.4.0+g${buildInfo.commit.slice(0, 12)}`,

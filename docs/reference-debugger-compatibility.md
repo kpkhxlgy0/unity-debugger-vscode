@@ -141,3 +141,18 @@ infer an unavailable UI capability.
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-c8d174db-6571-4873-8d57-b73c8af63793.png`.
 - A failing Getter and slow-loading placeholder refresh remain unverified because MyGame did not expose them without
   source modification.
+
+### 2026-08-06 - UnityDebuggerPure 0.4.0 immutable candidate
+
+- Candidate: `dist/unity-debugger-pure-0.4.0.vsix`.
+- VSIX SHA-256: `27647cc1a0fc84dd55ef5132cd8e8aded972ede991ecd0e97f9109c8a66dc883`.
+- Adapter SHA-256: `6c7801f043dc6d51a42df1a1eddbbb9785e2cba4c9958a26048f3d917ea95cd0`.
+- Version: `0.4.0`.
+- Build ID: `0.4.0+g08acea12c5b2`.
+- Source commit embedded in the candidate: `08acea12c5b2adfec2616ee0a680c0749ace31ee`.
+- Automated verification: 19 build tests, 93 extension tests, 140 adapter tests, 9 integration tests, and 4 package
+  contract tests passed. The VSIX verifier accepted 33 packaged files and all 17 audited runtime assemblies.
+- Repository/dependency verification passed `git diff --check`, third-party provenance verification, and locked
+  restore. Six pre-existing vendor lock files remain unstaged with line-ending-only changes.
+- The candidate has not yet been installed. Its embedded source commit intentionally precedes the test-only package
+  expectation correction and this evidence entry; the candidate itself was not rebuilt or overwritten afterward.
