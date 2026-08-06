@@ -1,5 +1,9 @@
 # Reference Engine Foundation Implementation Plan
 
+> **Historical only:** This checkpoint records the direct-engine work that the user later approved removing. Do not
+> extend or restore it; follow
+> `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md`.
+
 **Checkpoint:** Completed on 2026-08-06. Focused foundation tests: 60 passed. Full adapter suite: 183 passed. No foundation build was installed.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task in the current checkout. Steps use checkbox (`- [ ]`) syntax for tracking.

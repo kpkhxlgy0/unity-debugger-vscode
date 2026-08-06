@@ -19,8 +19,8 @@
 - Do not add telemetry; sanitized local diagnostics remain the only adapter diagnostics.
 - Lawful implementation inputs are the repository's pinned MIT sources and the project-owned history at commit `bfaeac62e22f17060287aecb3ea8366c50cdc852`; history is a source baseline, not behavioral authority.
 - Remove the complete `adapter/src/UnityDebugger.Adapter/Engine/**` runtime path and its custom evaluator/control tests; do not retain it as a fallback.
-- `unityDebuggerPure.enableImplicitEvaluation` defaults to `true`, has VS Code `resource` scope, and therefore supports user, workspace, and workspace-folder resolution.
-- Automatic Hover, Locals, and variable expansion obey that setting; Watch and REPL remain explicit evaluation contexts.
+- Remove `unityDebuggerPure.enableImplicitEvaluation` and its private Attach argument completely; the installed reference contributes no equivalent setting.
+- Hover, Locals, variable expansion, Watch, and REPL use the mature session's built-in reference-compatible evaluation behavior with no custom safe-mode fallback.
 - Work in the current `master` checkout without switching branches or creating a worktree.
 - Preserve the six pre-existing line-ending-only `adapter/vendor/**/packages.lock.json` worktree changes unless a locked restore proves a real content update is required.
 - Real Editor testing uses only `D:\Unity\TuanjieHub\Projects\MyGame` and the existing VS Code window opened from MyGame.
@@ -45,7 +45,6 @@ Mature backend:
 - Create: `adapter/src/UnityDebugger.Adapter/Backend/SoftDebuggerSessionFacade.cs` — maps `UnitySoftDebuggerSession`, stack frames, breakpoints, and `ObjectValue` handles.
 - Create: `adapter/src/UnityDebugger.Adapter/Backend/MonoObjectValueStore.cs` — stop-scoped frame/ObjectValue handle registry and mechanical value mapper.
 - Create: `adapter/src/UnityDebugger.Adapter/Backend/UnitySoftDebuggerSession.cs` — Unity-specific `SoftDebuggerSession` subclass.
-- Create: `adapter/src/UnityDebugger.Adapter/Backend/EvaluationOptionsPolicy.cs` — approved implicit-evaluation option mapping only.
 - Create: `adapter/src/UnityDebugger.Adapter/Diagnostics/MonoDebuggerLogger.cs` — sanitized mature-stack diagnostics.
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/BackendModels.cs` — preserve mature error/value metadata required by DAP.
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/IDebuggerBackend.cs` — only signatures required to expose reference-verified mature operations/events.
@@ -79,18 +78,21 @@ Backend tests:
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MatureEvaluationTests.cs`.
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MatureControlTests.cs`.
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MonoObjectValueStoreTests.cs`.
-- Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/EvaluationOptionsPolicyTests.cs`.
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/MonoDebuggerLoggerTests.cs`.
 - Modify: `tests/adapter/UnityDebugger.Adapter.Tests/Build/RuntimeDependencyBoundaryTests.cs`.
 - Modify: `tests/adapter/UnityDebugger.Adapter.Tests/Fakes/FakeDebuggerBackend.cs`.
 - Modify: `tests/integration/UnityDebugger.TestAdapter/ScenarioDebuggerBackend.cs`.
 - Modify: `tests/integration/adapter.integration.test.ts`.
 
-Setting verification:
+Implicit-evaluation setting removal:
 
+- Modify: `package.json`.
+- Modify: `extension/src/extension.ts`, `extension/src/model.ts`, and `extension/src/debugConfigurationProvider.ts`.
+- Modify: `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs` and `adapter/src/UnityDebugger.Adapter/Backend/BackendModels.cs`.
 - Modify: `tests/extension/debugConfigurationProvider.test.ts`.
 - Modify: `tests/extension/productIdentity.test.ts`.
 - Modify: `tests/package/vsix.test.mjs`.
+- Modify: `tests/build/scaffold.test.mjs`, `tests/integration/adapter.integration.test.ts`, and affected adapter DAP tests.
 - Modify: `scripts/verify-vsix.mjs`.
 
 Release `0.4.0`:
@@ -116,7 +118,7 @@ Release `0.4.0`:
 - Consumes: approved design matrix and the user's observed MyGame failures.
 - Produces: a single evidence table used as the acceptance gate by every later task.
 
-- [ ] **Step 1: Create the matrix with the known evidence**
+- [x] **Step 1: Create the matrix with the known evidence**
 
 Use this exact schema and initial state:
 
@@ -146,7 +148,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | END-01 | Detach and reattach | Not recorded | Not verified | not verified | none | Await A/B |
 ```
 
-- [ ] **Step 2: Add an evidence rule and action script**
+- [x] **Step 2: Add an evidence rule and action script**
 
 Below the table, require each evidence entry to record date, source line, exact user actions, visible result, sanitized log file, and screenshot path when available. Record the shared source fixture as:
 
@@ -158,7 +160,7 @@ RuntimeInitializeLoadType.AfterSceneLoad
 
 State that a row cannot move to `aligned` until the same action sequence is run with reference and Pure on that fixture. If an unlisted difference appears, add a `divergent` row and stop for the user's decision.
 
-- [ ] **Step 3: Complete the reference-only baseline before production edits**
+- [x] **Step 3: Complete the reference-only baseline before production edits**
 
 Ask the user to run the installed reference debugger in the existing MyGame VS Code window. Use the same reachable bootstrap and record these exact scenarios before Task 2 begins:
 
@@ -176,7 +178,7 @@ END-01: detach, reattach, and first subsequent breakpoint.
 
 No Pure result is collected in this step. Mark each captured reference row `reference-verified`; leave a scenario `not verified` if MyGame cannot expose it without modifying the project. Do not infer an unavailable UI capability.
 
-- [ ] **Step 4: Link the living matrix from the approved design**
+- [x] **Step 4: Link the living matrix from the approved design**
 
 Add one sentence under the design's matrix heading:
 
@@ -185,7 +187,7 @@ The maintained execution matrix and evidence index is
 [`docs/reference-debugger-compatibility.md`](../../reference-debugger-compatibility.md).
 ```
 
-- [ ] **Step 5: Verify and commit the contract**
+- [x] **Step 5: Verify and commit the contract**
 
 Run:
 
@@ -526,14 +528,12 @@ git commit -m "refactor: restore mature debugger session lifecycle"
 
 **Files:**
 
-- Create: `adapter/src/UnityDebugger.Adapter/Backend/EvaluationOptionsPolicy.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/ISoftDebuggerSessionFacade.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/SoftDebuggerSessionFacade.cs`
 - Create: `adapter/src/UnityDebugger.Adapter/Backend/MonoObjectValueStore.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/MonoDebuggingBackend.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Backend/BackendModels.cs`
 - Modify: `adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs`
-- Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/EvaluationOptionsPolicyTests.cs`
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MatureEvaluationTests.cs`
 - Create: `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MonoObjectValueStoreTests.cs`
 - Modify: `tests/adapter/UnityDebugger.Adapter.Tests/Dap/ReferenceInspectionTranscriptTests.cs`
@@ -559,31 +559,14 @@ Clear() -> void
 
 The implementation uses monotonically increasing `long` handles and dictionaries of mature frames/ObjectValues. `Clear()` empties both dictionaries but does not reset counters, so a stale handle can never alias a new stop.
 
-- [ ] **Step 1: Write the evaluation-policy RED tests**
+- [ ] **Step 1: Write the mature evaluation-delegation RED tests**
 
-Use the approved setting contract:
-
-```csharp
-[Theory]
-[InlineData(BackendEvaluationMode.Safe, false, false, false)]
-[InlineData(BackendEvaluationMode.Explicit, true, true, true)]
-public void CreateMapsTargetInvocationPolicyWithoutMutatingBaseline(
-    BackendEvaluationMode mode,
-    bool allowTargetInvoke,
-    bool allowMethodEvaluation,
-    bool allowToStringCalls)
-{
-    var baseline = EvaluationOptions.DefaultOptions.Clone();
-    var result = EvaluationOptionsPolicy.Create(baseline, mode);
-
-    Assert.Equal(allowTargetInvoke, result.AllowTargetInvoke);
-    Assert.Equal(allowMethodEvaluation, result.AllowMethodEvaluation);
-    Assert.Equal(allowToStringCalls, result.AllowToStringCalls);
-    Assert.NotSame(baseline, result);
-}
-```
-
-Add a DAP transcript test asserting Hover uses the automatic mode, Watch and REPL always use `Explicit`, and Scopes/Variables use the automatic mode.
+Add tests proving Hover, Watch, REPL, Locals, and Variables all delegate to
+the mature session's evaluation options without consulting an Attach flag or
+constructing a custom safe mode. Record the reference expectations already
+captured in `EVAL-01` through `EVAL-04`: automatic Getter values are available,
+`ToString()` supplies object display values, and unavailable identifiers retain
+their specific mature error text.
 
 - [ ] **Step 2: Write ObjectValue mapping RED tests**
 
@@ -632,7 +615,7 @@ Add handle-lifetime tests: a handle remains usable while stopped, the resume eve
 Run:
 
 ```powershell
-dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~EvaluationOptionsPolicyTests|FullyQualifiedName~MatureEvaluationTests|FullyQualifiedName~ReferenceInspectionTranscriptTests"
+dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~MatureEvaluationTests|FullyQualifiedName~ReferenceInspectionTranscriptTests"
 ```
 
 Expected: FAIL because evaluation still lacks the mature ObjectValue path and exact reference error/lifetime mapping.
@@ -642,9 +625,7 @@ Expected: FAIL because evaluation still lacks the mature ObjectValue path and ex
 The core calls must be direct:
 
 ```csharp
-var options = EvaluationOptionsPolicy.Create(
-    session.EvaluationOptions,
-    mode);
+var options = session.EvaluationOptions;
 var value = frame.GetExpressionValue(expression, options);
 WaitForValue(value, options, cancellationToken);
 ```
@@ -688,11 +669,11 @@ catch (BackendEvaluationException exception)
 Run:
 
 ```powershell
-dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~EvaluationOptionsPolicyTests|FullyQualifiedName~MatureEvaluationTests|FullyQualifiedName~ReferenceInspectionTranscriptTests"
+dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~MatureEvaluationTests|FullyQualifiedName~ReferenceInspectionTranscriptTests"
 npm run test:integration
 ```
 
-Expected: PASS; integration covers automatic-safe versus explicit Watch/REPL forwarding and stopped-context invalidation.
+Expected: PASS; integration covers built-in implicit Getter/`ToString()` evaluation, specific mature errors, and stopped-context invalidation.
 
 - [ ] **Step 7: Commit mature evaluation**
 
@@ -921,53 +902,88 @@ git add -- adapter/src/UnityDebugger.Adapter tests/adapter/UnityDebugger.Adapter
 git commit -m "refactor: remove handwritten debugger engines"
 ```
 
-### Task 7: Prove user, workspace, and workspace-folder setting resolution
+### Task 7: Remove the implicit-evaluation setting and Attach policy
 
 **Files:**
 
+- Modify: `package.json`
+- Modify: `extension/src/extension.ts`
+- Modify: `extension/src/model.ts`
+- Modify: `extension/src/debugConfigurationProvider.ts`
+- Modify: `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs`
+- Modify: `adapter/src/UnityDebugger.Adapter/Backend/BackendModels.cs`
+- Modify affected adapter DAP/integration tests
 - Modify: `tests/extension/debugConfigurationProvider.test.ts`
 - Modify: `tests/extension/productIdentity.test.ts`
 - Modify: `tests/package/vsix.test.mjs`
+- Modify: `tests/build/scaffold.test.mjs`
 - Modify: `scripts/verify-vsix.mjs`
 
 **Interfaces:**
 
-- Consumes: existing `vscode.workspace.getConfiguration("unityDebuggerPure", resourceUri)` wiring.
-- Produces: explicit automated proof that VS Code's resource-scoped setting defaults on and resolves at all three requested scopes.
+- Consumes: reference evidence `CFG-01`, which proves that `zlorn.vstuc 1.2.1` contributes no implicit-evaluation setting.
+- Produces: no public setting, no `__enableImplicitEvaluation` Attach argument, and no backend mode controlled by extension configuration.
 
-- [ ] **Step 1: Add failing manifest and resource-resolution assertions**
+- [ ] **Step 1: Add failing absence assertions**
 
-Assert the contributed setting exactly:
+Assert the manifest and resolved Attach configuration do not contain the removed contract:
 
 ```typescript
-expect(setting).toMatchObject({
-  type: "boolean",
-  default: true,
-  scope: "resource",
-});
+expect(manifest.contributes.configuration.properties)
+  .not.toHaveProperty("unityDebuggerPure.enableImplicitEvaluation");
+expect(resolved).not.toHaveProperty("__enableImplicitEvaluation");
 ```
 
-Add a provider test with two workspace roots that returns different values from `readImplicitEvaluation(workspaceRoot)` and assert each attach receives its folder-specific `__enableImplicitEvaluation`. Name the test `resolves user workspace and workspace-folder precedence through the resource URI` and document that VS Code owns the precedence calculation before the callback returns.
+Add adapter parsing and integration assertions that an incoming legacy
+`__enableImplicitEvaluation` property is ignored as an unknown private field and
+cannot change Getter/`ToString()` behavior. Remove tests that expect disabled
+automatic evaluation.
 
-- [ ] **Step 2: Run extension/package tests**
+- [ ] **Step 2: Verify RED**
 
 Run:
 
 ```powershell
 npm exec vitest -- run tests/extension/debugConfigurationProvider.test.ts tests/extension/productIdentity.test.ts
+npm run test:integration
+dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~AttachArgumentsTests|FullyQualifiedName~InspectionRequestTests|FullyQualifiedName~ReferenceInspectionTranscriptTests"
 ```
 
-Expected: existing code should pass the resource-resolution behavior; if it fails, fix only the folder URI passed to `getConfiguration`. Do not invent another settings store.
+Expected: FAIL because the setting, private Attach argument, and disabled-policy tests still exist.
 
-- [ ] **Step 3: Strengthen the VSIX verifier**
+- [ ] **Step 3: Remove the setting propagation chain**
 
-Have `scripts/verify-vsix.mjs` reject any packaged implicit-evaluation contribution whose `type`, `default`, or `scope` differs from the values above. Keep the existing negative package test and add scope mutation to its fixture.
+Delete the manifest contribution, extension configuration read, model field,
+provider propagation, Attach parser field, backend model flag, and evaluation
+mode branches. Do not retain an environment variable, launch option, or hidden
+fallback switch.
 
-- [ ] **Step 4: Commit setting proof**
+- [ ] **Step 4: Make package verification reject reintroduction**
+
+Change `scripts/verify-vsix.mjs` and its negative package test so a packaged
+`unityDebuggerPure.enableImplicitEvaluation` contribution or a generated launch
+configuration containing `__enableImplicitEvaluation` fails verification.
+
+- [ ] **Step 5: Run removal tests GREEN**
+
+Run the commands from Step 2 plus:
 
 ```powershell
-git add -- tests/extension/debugConfigurationProvider.test.ts tests/extension/productIdentity.test.ts tests/package/vsix.test.mjs scripts/verify-vsix.mjs
-git commit -m "test: prove implicit evaluation setting scopes"
+npm test
+npm run test:package
+```
+
+Expected: PASS, and this search returns no production occurrences:
+
+```powershell
+rg -n "enableImplicitEvaluation|__enableImplicitEvaluation" package.json extension adapter/src scripts
+```
+
+- [ ] **Step 6: Commit setting removal**
+
+```powershell
+git add -- package.json extension adapter/src tests scripts/verify-vsix.mjs
+git commit -m "refactor: make implicit evaluation built in"
 ```
 
 ### Task 8: Prepare the traceable `0.4.0` release
@@ -979,7 +995,7 @@ git commit -m "test: prove implicit evaluation setting scopes"
 
 **Interfaces:**
 
-- Consumes: completed mature backend and setting contract.
+- Consumes: completed mature backend and removal of the obsolete setting contract.
 - Produces: `0.4.0+g<12 lowercase Git characters>` build identity and `dist/unity-debugger-pure-0.4.0.vsix`.
 
 - [ ] **Step 1: Change release tests to `0.4.0` first**
@@ -1157,9 +1173,11 @@ VAR-01: Expand the same variables before and after the recorded resume/new-stop 
 
 The user performs breakpoint, Hover, Watch, expansion, and step actions. Unity MCP performs/observes Play Mode and Console. Capture sanitized log paths and user-provided screenshots, then update each row.
 
-- [ ] **Step 6: Verify implicit evaluation scopes and remaining matrix rows**
+- [ ] **Step 6: Verify built-in implicit evaluation and remaining matrix rows**
 
-With default `true`, test Hover, Locals, Getter, `ToString()`, and expansion. Then set the setting at workspace-folder scope to `false`, reattach, and confirm automatic contexts follow the reference-safe result while Watch/REPL remain explicit. Repeat user/workspace values only as needed to prove VS Code precedence; do not edit MyGame project settings unless the user chooses workspace scope.
+Without changing any setting, test Hover, Locals, Getter, `ToString()`, and
+expansion against the recorded reference behavior. Confirm the VSIX contributes
+no implicit-evaluation setting and Attach sends no private evaluation flag.
 
 Run the remaining reference-recorded breakpoint, exception, control, Set Variable, detach, and reattach sequences. A scenario not actually run remains `not verified`.
 

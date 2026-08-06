@@ -1,5 +1,9 @@
 # Reference Evaluation and Variable Parity Implementation Plan
 
+> **Superseded 2026-08-06:** Do not execute this direct-engine/Roslyn plan. The user approved removing the direct
+> engine and the implicit-evaluation setting in favor of the mature Mono.Debugging/NRefactory backend described in
+> `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task in the current checkout. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Implement reference-compatible Roslyn expression evaluation, lazy debugger properties, Getter and `ToString()` invocation, enum semantics, collection expansion, and Unity-specific debug values on the new direct Mono engine.

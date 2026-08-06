@@ -1,5 +1,9 @@
 # Implicit Evaluation Setting Implementation Plan
 
+> **Superseded 2026-08-06:** The user explicitly chose to remove the setting and use the reference debugger's
+> built-in implicit-evaluation behavior. The active replacement plan is
+> `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [x]) syntax for tracking.
 
 **Goal:** Enable implicit evaluation by default for Hover, Locals, and variable expansion while exposing a resource-scoped Cursor setting that restores safe automatic inspection.

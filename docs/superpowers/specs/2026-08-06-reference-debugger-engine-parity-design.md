@@ -38,7 +38,8 @@ In scope:
   overload resolution, getters, and `ToString()`.
 - Domain Reload, module and AppDomain lifecycle, source mapping, breakpoint
   persistence, unbinding, and rebinding.
-- User-, workspace-, and workspace-folder-scoped implicit-evaluation control.
+- Built-in implicit Getter and `ToString()` evaluation with no public setting,
+  matching the reference debugger.
 - A maintained reference-compatibility matrix and concrete A/B evidence.
 
 Permanently out of scope:
@@ -194,12 +195,11 @@ way. Evaluation errors, timeout presentation, lazy loading, grouping,
 DebuggerDisplay, debugger proxies, collections, enums, and `ToString()` follow
 the reference result established by A/B evidence.
 
-`unityDebuggerPure.enableImplicitEvaluation` is an explicitly approved
-UnityDebuggerPure addition. It defaults to `true` and supports user,
-workspace, and workspace-folder scope. With the setting enabled, automatic
-Hover, Locals, and Variables evaluation uses the reference plugin's implicit
-Getter and `ToString()` behavior. With it disabled, automatic contexts disable
-target invocation while explicit Watch and REPL evaluation remain available.
+Implicit Getter and `ToString()` evaluation is built into the mature session,
+matching the reference debugger. UnityDebuggerPure contributes no public
+implicit-evaluation setting and sends no private Attach policy flag. Hover,
+Locals, Variables, Watch, and REPL use the reference-compatible mature-session
+evaluation options; the adapter does not retain a second safe-mode evaluator.
 
 ## Error Handling and Diagnostics
 
@@ -218,6 +218,9 @@ values, source contents, credentials, or unredacted user paths. The extension
 has no telemetry.
 
 ## Reference-Compatibility Matrix
+
+The maintained execution matrix and evidence index is
+[`docs/reference-debugger-compatibility.md`](../../reference-debugger-compatibility.md).
 
 The repository maintains an explicit matrix for every affected behavior. Each
 row contains:
@@ -258,8 +261,8 @@ Automated verification covers:
    exceptions, Domain Reload, termination, and breakpoint persistence.
 3. ObjectValue scopes, expansion, Getter/ToString policy, Watch/REPL policy,
    enum/static member expressions, errors, and stopped-context lifetime.
-4. Extension setting propagation at user, workspace, and workspace-folder
-   scope.
+4. Extension/package assertions that the removed implicit-evaluation setting
+   and private Attach flag cannot reappear.
 5. Build and package inventory proving the mature session/evaluation
    assemblies are shipped and the rejected direct engine is absent from the
    runtime path.

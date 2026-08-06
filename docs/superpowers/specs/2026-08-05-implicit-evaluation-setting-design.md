@@ -1,6 +1,7 @@
 # Implicit Evaluation Setting
 
-**Status:** Approved design
+**Status:** Superseded on 2026-08-06 by the reference-compatible mature debugger design. The user explicitly chose to
+remove the setting and use the reference debugger's built-in implicit-evaluation behavior.
 
 **Date:** 2026-08-05
 **Scope:** Hover, Locals, and variable expansion evaluation policy
