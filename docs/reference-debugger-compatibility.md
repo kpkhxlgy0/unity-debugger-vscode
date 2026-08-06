@@ -293,3 +293,19 @@ infer an unavailable UI capability.
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-3f0779c2-7c5a-4c5f-9d0a-015453b27305.png`.
 - Sanitized adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T131933757Z-32816.log`.
+
+### 2026-08-06 - Pure 0.3.0 reference Hover-error presentation candidate
+
+- The user confirmed that the reference debugger does not raise a bottom-right error notification for the invalid
+  Hover and approved replacing Pure's divergent response behavior.
+- Candidate remains version `0.3.0`; build ID is `0.3.0+g5d7538137831`, from source commit
+  `5d75381378317b6eeeaceeeee75d5a7324475c21`.
+- VSIX SHA-256: `9b24c916025c37f6c80aa80306426386bc98e09afa0d29575d34c5a00be0d801`.
+- Adapter SHA-256: `c2efe6dc092d37b8358f8b879e6bd17b16506c72036a5391a6df57a15182a2d5`.
+- A `BackendEvaluationException` in the `hover` context is now returned as a successful Evaluate response containing
+  the diagnostic and no expandable handle. `watch` remains a failed Evaluate response so VS Code preserves its
+  inline error presentation; valid evaluation is unchanged.
+- Verification passed: type checking, third-party provenance, 143 adapter tests, 9 integration tests, 19 build tests,
+  93 extension tests, 4 package contract tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing
+  upstream unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
+- EVAL-02 remains divergent until this exact candidate is installed and the identical Hover is retested in MyGame.
