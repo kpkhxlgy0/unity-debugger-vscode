@@ -78,6 +78,14 @@ namespace Mono.Debugging.Client
 		public DebuggerSession DebuggerSession {
 			get { return session; }
 		}
+
+		public void ConnectObjectValue (ObjectValue value)
+		{
+			if (value == null)
+				throw new ArgumentNullException (nameof (value));
+
+			ObjectValue.ConnectCallbacks (this, value);
+		}
 		
 		public SourceLocation SourceLocation {
 			get { return location; }

@@ -100,6 +100,31 @@ namespace UnityDebugger.Adapter.Tests.Backend
         }
 
         [Fact]
+        public void ReferenceVariableOptionsPreserveBaseAndInlineMembers()
+        {
+            var sessionOptions = EvaluationOptions.DefaultOptions;
+
+            var variableOptions =
+                SoftDebuggerSessionFacade.CreateReferenceVariableOptions(
+                    sessionOptions);
+
+            Assert.False(variableOptions.FlattenHierarchy);
+            Assert.False(variableOptions.GroupPrivateMembers);
+            Assert.True(sessionOptions.FlattenHierarchy);
+            Assert.True(sessionOptions.GroupPrivateMembers);
+        }
+
+        [Fact]
+        public void StackFrameCanConnectSyntheticObjectValues()
+        {
+            var method = typeof(StackFrame).GetMethod(
+                "ConnectObjectValue",
+                new[] { typeof(ObjectValue) });
+
+            Assert.NotNull(method);
+        }
+
+        [Fact]
         public void AllInspectionOperationsDelegateToTheMatureFacade()
         {
             var facade = new FakeSoftDebuggerSessionFacade();

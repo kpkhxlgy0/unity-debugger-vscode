@@ -312,7 +312,8 @@ namespace UnityDebugger.Adapter.Backend
         {
             ThrowIfDisposed();
             var frame = objectValues.GetFrame(frameId);
-            var options = session.EvaluationOptions;
+            var options = CreateReferenceVariableOptions(
+                session.EvaluationOptions);
             var thisReference = frame.GetThisReference(options);
             var localVariables = frame.GetLocalVariables(options);
             var parameters = frame.GetParameters(options);
@@ -326,6 +327,10 @@ namespace UnityDebugger.Adapter.Backend
                 out isUnityMainThread,
                 out activeScene,
                 out thisGameObject);
+            if (activeScene != null)
+                frame.ConnectObjectValue(activeScene);
+            if (thisGameObject != null)
+                frame.ConnectObjectValue(thisGameObject);
             var values = ComposeFrameLocals(
                 isUnityMainThread,
                 activeScene,
@@ -386,6 +391,17 @@ namespace UnityDebugger.Adapter.Backend
             return values.ToArray();
         }
 
+        internal static EvaluationOptions CreateReferenceVariableOptions(
+            EvaluationOptions sessionOptions)
+        {
+            if (sessionOptions == null)
+                throw new ArgumentNullException(nameof(sessionOptions));
+            var options = sessionOptions.Clone();
+            options.FlattenHierarchy = false;
+            options.GroupPrivateMembers = false;
+            return options;
+        }
+
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
             int timeoutMilliseconds,
@@ -394,7 +410,8 @@ namespace UnityDebugger.Adapter.Backend
             ThrowIfDisposed();
             return objectValues.GetVariables(
                 variablesReference,
-                session.EvaluationOptions,
+                CreateReferenceVariableOptions(
+                    session.EvaluationOptions),
                 cancellationToken);
         }
 
@@ -492,7 +509,8 @@ namespace UnityDebugger.Adapter.Backend
                 variablesReference,
                 name,
                 expression,
-                session.EvaluationOptions,
+                CreateReferenceVariableOptions(
+                    session.EvaluationOptions),
                 cancellationToken);
         }
 
