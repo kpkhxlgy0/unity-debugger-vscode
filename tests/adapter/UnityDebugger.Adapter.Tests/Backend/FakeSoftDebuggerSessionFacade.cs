@@ -46,6 +46,10 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public int StepOverCount { get; private set; }
         public int StepOutCount { get; private set; }
         public int GotoCount { get; private set; }
+        public long? LastStepInThreadId { get; private set; }
+        public long? LastStepInTargetId { get; private set; }
+        public long? LastGotoThreadId { get; private set; }
+        public long? LastGotoTargetId { get; private set; }
         public int GetScopesCount { get; private set; }
         public int GetVariablesCount { get; private set; }
         public int EvaluateCount { get; private set; }
@@ -104,9 +108,11 @@ namespace UnityDebugger.Adapter.Tests.Backend
             PauseCount++;
         }
 
-        public void StepIn()
+        public void StepIn(long threadId, long? targetId)
         {
             StepInCount++;
+            LastStepInThreadId = threadId;
+            LastStepInTargetId = targetId;
         }
 
         public void StepOver()
@@ -200,6 +206,8 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public void Goto(long threadId, long targetId)
         {
             GotoCount++;
+            LastGotoThreadId = threadId;
+            LastGotoTargetId = targetId;
         }
 
         public void Dispose()

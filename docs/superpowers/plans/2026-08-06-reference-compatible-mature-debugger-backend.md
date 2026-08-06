@@ -713,7 +713,7 @@ git commit -m "refactor: delegate evaluation to mature object values"
 - Consumes: Task 1 reference observations for command availability, rapid-input behavior, marker continuity, Set Variable, Goto, and Step-in Targets.
 - Produces: direct mature `Continue`, `Stop`, `StepLine`, `NextLine`, `Finish`, `SetNextStatement`, and `ObjectValue.SetValue` translations only where the reference exposes them.
 
-- [ ] **Step 1: Finish the missing reference observations before choosing capability behavior**
+- [x] **Step 1: Finish the missing reference observations before choosing capability behavior**
 
 Ask the user to perform, in the existing MyGame VS Code window with the reference debugger, these exact actions while stopped at `GameRuntimeBootstrap.Install()` line 11:
 
@@ -728,7 +728,7 @@ Ask the user to perform, in the existing MyGame VS Code window with the referenc
 
 Record each visible command state, warning, marker transition, and final stop in `docs/reference-debugger-compatibility.md`. If a Pure capability is currently advertised but the reference does not advertise it, stop and ask whether to remove the Pure capability before editing `Initialize`.
 
-- [ ] **Step 2: Replace current self-authored control tests with reference assertions**
+- [x] **Step 2: Replace current self-authored control tests with reference assertions**
 
 Delete assertions such as “every rapid request reaches the backend” or “no continued event is emitted” unless Step 1 observed them. Encode the already observed smooth sequence as two accepted commands separated by their real mature stops:
 
@@ -768,7 +768,7 @@ public void StepInThenEnabledStepOverProducesTwoUsableStopsWithoutWarning()
 
 For any additional rapid-input edge captured in Step 1, add a separate literal test beside this one before changing production; never derive the expected sequence from Pure.
 
-- [ ] **Step 3: Run control tests to verify RED**
+- [x] **Step 3: Run control tests to verify RED**
 
 Run:
 
@@ -778,7 +778,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL at the first observable mismatch with the recorded reference sequence.
 
-- [ ] **Step 4: Implement only direct mature control calls**
+- [x] **Step 4: Implement only direct mature control calls**
 
 Use:
 
@@ -795,11 +795,11 @@ Do not add request queues, coalescing, retry loops, artificial delays, warning s
 
 Only advertise `supportsStepInTargetsRequest`, `supportsGotoTargetsRequest`, and `supportsSetVariable` when the corresponding reference row is verified and the mature implementation passes its test. An unsupported reference capability is removed rather than simulated.
 
-- [ ] **Step 5: Verify marker and handle event ordering**
+- [x] **Step 5: Verify marker and handle event ordering**
 
 Add/adjust transcript assertions so each real mature stop produces exactly one DAP `stopped` event after the control response and before stack/scopes requests. Resume invalidates prior handles only at the mature resume boundary. A synchronous new stop must never be discarded by cleanup belonging to the preceding request.
 
-- [ ] **Step 6: Run control and integration tests GREEN**
+- [x] **Step 6: Run control and integration tests GREEN**
 
 Run:
 
@@ -810,7 +810,7 @@ npm run test:integration
 
 Expected: PASS and no test preserves a behavior that lacks reference evidence.
 
-- [ ] **Step 7: Commit the reference-aligned control path**
+- [x] **Step 7: Commit the reference-aligned control path**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter/Backend adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs tests/adapter/UnityDebugger.Adapter.Tests/Backend/MatureControlTests.cs tests/adapter/UnityDebugger.Adapter.Tests/Dap tests/integration/adapter.integration.test.ts docs/reference-debugger-compatibility.md

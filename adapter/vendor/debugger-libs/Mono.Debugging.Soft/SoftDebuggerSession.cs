@@ -41,6 +41,7 @@ using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 using Newtonsoft.Json;
+using Mono.Cecil.Cil;
 
 using Mono.Debugger.Soft;
 
@@ -51,6 +52,18 @@ using StackFrame = Mono.Debugger.Soft.StackFrame;
 
 namespace Mono.Debugging.Soft
 {
+	public sealed class SoftStepInTarget
+	{
+		internal SoftStepInTarget (string label, MethodMirror method)
+		{
+			Label = label;
+			Method = method;
+		}
+
+		public string Label { get; }
+		internal MethodMirror Method { get; }
+	}
+
 	public class SoftDebuggerSession : DebuggerSession
 	{
 		readonly Dictionary<AppDomainMirror, HashSet<AssemblyMirror>> domainAssembliesToUnload = new Dictionary<AppDomainMirror, HashSet<AssemblyMirror>> ();
@@ -64,6 +77,7 @@ namespace Mono.Debugging.Soft
 		readonly LinkedList<List<Event>> queuedEventSets = new LinkedList<List<Event>> ();
 		readonly Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
 		readonly List<BreakInfo> pending_bes = new List<BreakInfo> ();
+		readonly HashSet<BreakpointEventRequest> targetedStepRequests = new HashSet<BreakpointEventRequest> ();
 		TypeLoadEventRequest typeLoadReq, typeLoadTypeNameReq;
 		ExceptionEventRequest unhandledExceptionRequest;
 		Dictionary<string, string> assemblyPathMap;
@@ -731,6 +745,7 @@ namespace Mono.Debugging.Soft
 
 		public override void Dispose ()
 		{
+			DisableTargetedStepRequests ();
 			base.Dispose ();
 
 			if (disposed)
@@ -1080,6 +1095,70 @@ namespace Mono.Debugging.Soft
 			get { return vm.Version.AtLeast (2, 29); }
 		}
 
+		public IReadOnlyList<SoftStepInTarget> GetStepInTargets (Mono.Debugging.Client.StackFrame frame)
+		{
+			var softFrame = frame as SoftDebuggerStackFrame;
+			if (softFrame == null)
+				return Array.Empty<SoftStepInTarget> ();
+
+			try {
+				var runtimeFrame = softFrame.StackFrame;
+				var current = runtimeFrame.Location;
+				var endOffset = runtimeFrame.Method.Locations
+					.Where (location => location.ILOffset > current.ILOffset)
+					.Select (location => location.ILOffset)
+					.DefaultIfEmpty (int.MaxValue)
+					.Min ();
+				return runtimeFrame.Method.GetMethodBody ().Instructions
+					.Where (instruction =>
+						instruction.Offset >= current.ILOffset &&
+						instruction.Offset < endOffset &&
+						IsCall (instruction.OpCode) &&
+						instruction.Operand is MethodMirror)
+					.Select (instruction => (MethodMirror) instruction.Operand)
+					.Where (method => method.Locations.Count > 0)
+					.GroupBy (method => method.FullName)
+					.Select (group => group.First ())
+					.Select (method => new SoftStepInTarget (GetMethodLabel (method), method))
+					.ToArray ();
+			} catch (AbsentInformationException) {
+				return Array.Empty<SoftStepInTarget> ();
+			} catch (InvalidStackFrameException) {
+				return Array.Empty<SoftStepInTarget> ();
+			} catch (VMNotSuspendedException) {
+				return Array.Empty<SoftStepInTarget> ();
+			} catch (NotSupportedException) {
+				return Array.Empty<SoftStepInTarget> ();
+			}
+		}
+
+		public void StepIntoTarget (long threadId, SoftStepInTarget target)
+		{
+			if (target == null)
+				throw new ArgumentNullException (nameof (target));
+			if (!IsConnected || IsRunning)
+				throw new NotSupportedException ();
+
+			var location = target.Method.Locations.FirstOrDefault ();
+			if (location == null)
+				throw new NotSupportedException ("Step target has no code.");
+			var thread = GetThread (threadId);
+			if (thread == null)
+				throw new ArgumentException ("Unknown thread.", nameof (threadId));
+
+			var request = vm.CreateBreakpointRequest (location);
+			request.Thread = thread;
+			lock (targetedStepRequests)
+				targetedStepRequests.Add (request);
+			try {
+				request.Enable ();
+				Continue ();
+			} catch {
+				RemoveTargetedStepRequest (request);
+				throw;
+			}
+		}
+
 		protected override void OnSetNextStatement (long threadId, string fileName, int line, int column)
 		{
 			if (!CanSetNextStatement)
@@ -1101,6 +1180,7 @@ namespace Mono.Debugging.Soft
 				thread.SetIP (location);
 				currentAddress = location.ILOffset;
 				currentStackDepth = frames.Length;
+				StackVersion++;
 			} catch (ArgumentException) {
 				throw new NotSupportedException ();
 			}
@@ -2100,6 +2180,12 @@ namespace Mono.Debugging.Soft
 				foreach (Event e in es) {
 					if (e.EventType == EventType.Breakpoint) {
 						var be = (BreakpointEvent) e;
+						if (RemoveTargetedStepRequest (be.Request)) {
+							etype = TargetEventType.TargetStopped;
+							autoStepInto = false;
+							resume = false;
+							continue;
+						}
 						var hasBreakInfo = breakpoints.TryGetValue (be.Request, out binfo);
 
 						if (!HandleBreakpoint (e.Thread, be.Request)) {
@@ -2548,6 +2634,50 @@ namespace Mono.Debugging.Soft
 
 			// Continue execution if we don't have break action.
 			return (bp.HitAction & HitAction.Break) == HitAction.None;
+		}
+
+		bool RemoveTargetedStepRequest (EventRequest request)
+		{
+			var breakpoint = request as BreakpointEventRequest;
+			if (breakpoint == null)
+				return false;
+			lock (targetedStepRequests) {
+				if (!targetedStepRequests.Remove (breakpoint))
+					return false;
+			}
+			try {
+				if (breakpoint.Enabled)
+					breakpoint.Disable ();
+			} catch (VMDisconnectedException) {
+			}
+			return true;
+		}
+
+		void DisableTargetedStepRequests ()
+		{
+			BreakpointEventRequest[] requests;
+			lock (targetedStepRequests) {
+				requests = targetedStepRequests.ToArray ();
+				targetedStepRequests.Clear ();
+			}
+			foreach (var request in requests) {
+				try {
+					if (request.Enabled)
+						request.Disable ();
+				} catch (VMDisconnectedException) {
+				}
+			}
+		}
+
+		static string GetMethodLabel (MethodMirror method)
+		{
+			return method.DeclaringType.Name + "." + method.Name + "(" +
+				string.Join (", ", method.GetParameters ().Select (parameter => parameter.ParameterType.Name)) + ")";
+		}
+
+		static bool IsCall (OpCode code)
+		{
+			return code == OpCodes.Call || code == OpCodes.Callvirt || code == OpCodes.Newobj;
 		}
 
 		string EvaluateTrace (ThreadMirror thread, string exp)

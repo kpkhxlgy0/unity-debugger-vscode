@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
-using UnityDebugger.Adapter.Engine.Control;
-using UnityDebugger.Adapter.Engine.State;
 using UnityDebugger.Adapter.Tests.Fakes;
 using Xunit;
 
@@ -69,7 +65,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void GotoTargetsMapRangesAndGotoRaisesOneStoppedEvent()
+        public void GotoTargetsMapRangesAndGotoCompletesWithoutWarning()
         {
             var backend = CreateBackend();
             backend.GotoTargets.Add(
@@ -115,57 +111,11 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             Assert.Equal(1, backend.GotoCount);
             Assert.Equal(71, backend.LastGotoTargetId);
-            var stopped = Assert.Single(
-                DapTestProtocol.Events(gotoMessages, "stopped"));
-            Assert.Equal(
-                "goto",
-                stopped["body"]!["reason"]!.Value<string>());
-        }
-
-        [Fact]
-        public void StepTargetsExpireWhenSuspendedStateResets()
-        {
-            var state = new SuspendedState();
-            var codePath = new object();
-            var runtime = new StepTargetRuntime(
-                new RuntimeStepInTarget("Call", codePath));
-            var manager = new StepTargetManager(state, runtime);
-            manager.RegisterFrame(10, 100);
-
-            var target = Assert.Single(manager.GetTargets(10));
-            state.Reset();
-
-            Assert.Empty(manager.GetTargets(10));
-            Assert.False(manager.TryStepIn(42, target.Id));
-            Assert.Null(runtime.SelectedCodePath);
-        }
-
-        [Fact]
-        public void GotoPreservesCurrentSuspendedHandles()
-        {
-            var state = new SuspendedState();
-            var property = new object();
-            var propertyId = state.RegisterProperty(property);
-            var codeContext = new object();
-            var runtime = new GotoRuntime(
-                new RuntimeGotoTarget(
-                    "line 18",
-                    18,
-                    1,
-                    18,
-                    10,
-                    codeContext));
-            var manager = new GotoManager(state, runtime);
-            var target = Assert.Single(
-                manager.GetTargets("Player.cs", 18, 1));
-
-            Assert.True(manager.TryGoto(42, target.Id));
-            Assert.Same(codeContext, runtime.SelectedCodeContext);
             Assert.True(
-                state.TryGetProperty<object>(
-                    propertyId,
-                    out var preserved));
-            Assert.Same(property, preserved);
+                DapTestProtocol.Response(
+                    gotoMessages,
+                    "goto")["success"]!.Value<bool>());
+            Assert.Empty(DapTestProtocol.Events(gotoMessages, "output"));
         }
 
         private static FakeDebuggerBackend CreateBackend()
@@ -207,46 +157,5 @@ namespace UnityDebugger.Adapter.Tests.Dap
             return session;
         }
 
-        private sealed class StepTargetRuntime : IStepTargetRuntime
-        {
-            private readonly RuntimeStepInTarget target;
-
-            public StepTargetRuntime(RuntimeStepInTarget target)
-            {
-                this.target = target;
-            }
-
-            public object? SelectedCodePath { get; private set; }
-
-            public IReadOnlyList<RuntimeStepInTarget> GetStepInTargets(
-                long runtimeFrameId) => new[] { target };
-
-            public void StepIn(long threadId, object codePath)
-            {
-                SelectedCodePath = codePath;
-            }
-        }
-
-        private sealed class GotoRuntime : IGotoRuntime
-        {
-            private readonly RuntimeGotoTarget target;
-
-            public GotoRuntime(RuntimeGotoTarget target)
-            {
-                this.target = target;
-            }
-
-            public object? SelectedCodeContext { get; private set; }
-
-            public IReadOnlyList<RuntimeGotoTarget> GetGotoTargets(
-                string sourcePath,
-                int line,
-                int column) => new[] { target };
-
-            public void Goto(long threadId, object codeContext)
-            {
-                SelectedCodeContext = codeContext;
-            }
-        }
     }
 }

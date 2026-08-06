@@ -200,7 +200,7 @@ namespace UnityDebugger.Adapter.Backend
 
         public void StepIn(long threadId, long? targetId)
         {
-            RequireAttached().StepIn();
+            RequireAttached().StepIn(threadId, targetId);
         }
 
         public void StepOver(long threadId)

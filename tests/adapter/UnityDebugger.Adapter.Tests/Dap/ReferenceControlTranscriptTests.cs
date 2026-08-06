@@ -52,99 +52,43 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             Assert.Single(DapTestProtocol.Responses(messages, "next"));
             Assert.Single(DapTestProtocol.Events(messages, "stopped"));
-            Assert.Empty(DapTestProtocol.Events(messages, "continued"));
         }
 
         [Fact]
-        public void RapidDifferentStepRequestsBothReachBackend()
+        public void StepInThenEnabledStepOverProducesTwoUsableStopsWithoutWarning()
         {
             var backend = CreateStoppedBackend();
             var session = AttachAndStop(backend);
 
-            var messages = DapTestProtocol.Run(
+            backend.StepStoppedEvent = new BackendStoppedEventArgs(
+                BackendStopReason.Step,
+                42,
+                null);
+            var stepIn = DapTestProtocol.Run(
                 session,
                 DapTestProtocol.Request(
                     "stepIn",
-                    new { threadId = 1 }),
+                    new { threadId = 1 }));
+            var stepOver = DapTestProtocol.Run(
+                session,
                 DapTestProtocol.Request(
                     "next",
                     new { threadId = 1 }));
 
             Assert.True(
                 DapTestProtocol.Response(
-                    messages,
+                    stepIn,
                     "stepIn")["success"]!.Value<bool>());
             Assert.True(
                 DapTestProtocol.Response(
-                    messages,
+                    stepOver,
                     "next")["success"]!.Value<bool>());
+            Assert.Single(DapTestProtocol.Events(stepIn, "stopped"));
+            Assert.Single(DapTestProtocol.Events(stepOver, "stopped"));
             Assert.Equal(1, backend.StepInCount);
             Assert.Equal(1, backend.StepOverCount);
-            Assert.Empty(DapTestProtocol.Events(messages, "continued"));
-            Assert.Empty(DapTestProtocol.Events(messages, "output"));
-        }
-
-        [Fact]
-        public void RepeatedStepRequestsAreNotCoalescedByDapLayer()
-        {
-            var backend = CreateStoppedBackend();
-            var session = AttachAndStop(backend);
-
-            var messages = DapTestProtocol.Run(
-                session,
-                DapTestProtocol.Request(
-                    "next",
-                    new { threadId = 1 }),
-                DapTestProtocol.Request(
-                    "next",
-                    new { threadId = 1 }));
-
-            Assert.Equal(2, DapTestProtocol.Responses(messages, "next").Count);
-            Assert.All(
-                DapTestProtocol.Responses(messages, "next"),
-                response => Assert.True(
-                    response["success"]!.Value<bool>()));
-            Assert.Equal(2, backend.StepOverCount);
-        }
-
-        [Fact]
-        public void BackendContinuedNotificationDoesNotCreateDapEvent()
-        {
-            var backend = CreateStoppedBackend();
-            backend.RaiseContinuedSynchronously = true;
-            var session = AttachAndStop(backend);
-
-            var messages = DapTestProtocol.Run(
-                session,
-                DapTestProtocol.Request(
-                    "continue",
-                    new { threadId = 1 }));
-
-            Assert.True(
-                DapTestProtocol.Response(
-                    messages,
-                    "continue")["success"]!.Value<bool>());
-            Assert.Empty(DapTestProtocol.Events(messages, "continued"));
-        }
-
-        [Fact]
-        public void EveryPauseStopIsForwarded()
-        {
-            var backend = CreateStoppedBackend();
-            backend.SynchronousStoppedEventCount = 2;
-            var session = AttachWithoutStop(backend);
-
-            var messages = DapTestProtocol.Run(
-                session,
-                DapTestProtocol.Request(
-                    "pause",
-                    new { threadId = 1 }));
-
-            Assert.True(
-                DapTestProtocol.Response(
-                    messages,
-                    "pause")["success"]!.Value<bool>());
-            Assert.Equal(2, DapTestProtocol.Events(messages, "stopped").Count);
+            Assert.Empty(DapTestProtocol.Events(stepIn, "output"));
+            Assert.Empty(DapTestProtocol.Events(stepOver, "output"));
         }
 
         [Fact]

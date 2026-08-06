@@ -31,7 +31,7 @@ namespace UnityDebugger.Adapter.Backend
         void Detach();
         void Continue();
         void Pause();
-        void StepIn();
+        void StepIn(long threadId, long? targetId);
         void StepOver();
         void StepOut();
         void ConfigureExceptions(ExceptionBreakMode mode);

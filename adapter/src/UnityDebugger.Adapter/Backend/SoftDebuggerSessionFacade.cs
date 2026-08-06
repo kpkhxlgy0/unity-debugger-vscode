@@ -20,9 +20,15 @@ namespace UnityDebugger.Adapter.Backend
             new Dictionary<long, BreakEvent>();
         private readonly Dictionary<BreakEvent, long> breakpointIds =
             new Dictionary<BreakEvent, long>();
+        private readonly object controlTargetLock = new object();
+        private readonly Dictionary<long, SoftStepInTarget> stepInTargets =
+            new Dictionary<long, SoftStepInTarget>();
+        private readonly Dictionary<long, GotoLocation> gotoTargets =
+            new Dictionary<long, GotoLocation>();
         private readonly MonoObjectValueStore objectValues =
             new MonoObjectValueStore();
         private long nextBreakpointId = 1;
+        private long nextControlTargetId = 1;
         private ExceptionBreakMode exceptionMode;
         private BackendStopReason? expectedStopReason;
         private bool detachCompleted;
@@ -195,10 +201,26 @@ namespace UnityDebugger.Adapter.Backend
             session.Stop();
         }
 
-        public void StepIn()
+        public void StepIn(long threadId, long? targetId)
         {
             ThrowIfDisposed();
             expectedStopReason = BackendStopReason.Step;
+            if (targetId.HasValue)
+            {
+                SoftStepInTarget target;
+                lock (controlTargetLock)
+                {
+                    if (!stepInTargets.TryGetValue(
+                        targetId.Value,
+                        out target))
+                    {
+                        throw new DebuggerBackendException(
+                            "The requested step target is unavailable.");
+                    }
+                }
+                session.StepIntoTarget(threadId, target);
+                return;
+            }
             session.StepLine();
         }
 
@@ -451,17 +473,61 @@ namespace UnityDebugger.Adapter.Backend
         }
 
         public IReadOnlyList<BackendStepInTarget> GetStepInTargets(
-            long frameId) => Array.Empty<BackendStepInTarget>();
+            long frameId)
+        {
+            ThrowIfDisposed();
+            var frame = objectValues.GetFrame(frameId);
+            return session.GetStepInTargets(frame)
+                .Select(RegisterStepInTarget)
+                .ToArray();
+        }
 
         public IReadOnlyList<BackendGotoTarget> GetGotoTargets(
             string sourcePath,
             int line,
-            int column) => Array.Empty<BackendGotoTarget>();
+            int column)
+        {
+            ThrowIfDisposed();
+            if (
+                !session.CanSetNextStatement ||
+                string.IsNullOrEmpty(sourcePath) ||
+                line < 1)
+            {
+                return Array.Empty<BackendGotoTarget>();
+            }
+            var location = new GotoLocation(
+                sourcePath,
+                line,
+                Math.Max(1, column));
+            var id = RegisterGotoTarget(location);
+            return new[]
+            {
+                new BackendGotoTarget(
+                    id,
+                    $"line {line}",
+                    line,
+                    location.Column,
+                    line,
+                    location.Column),
+            };
+        }
 
         public void Goto(long threadId, long targetId)
         {
-            throw new DebuggerBackendException(
-                "Goto requires mature target mapping.");
+            ThrowIfDisposed();
+            GotoLocation target;
+            lock (controlTargetLock)
+            {
+                if (!gotoTargets.TryGetValue(targetId, out target))
+                {
+                    throw new DebuggerBackendException(
+                        "The requested goto target is unavailable.");
+                }
+            }
+            session.SetNextStatement(
+                target.SourcePath,
+                target.Line,
+                target.Column);
         }
 
         public void Dispose()
@@ -617,8 +683,46 @@ namespace UnityDebugger.Adapter.Backend
         private long RegisterFrame(Mono.Debugging.Client.StackFrame frame)
             => objectValues.RegisterFrame(frame);
 
+        private BackendStepInTarget RegisterStepInTarget(
+            SoftStepInTarget target)
+        {
+            lock (controlTargetLock)
+            {
+                var id = NextControlTargetId();
+                stepInTargets.Add(id, target);
+                return new BackendStepInTarget(id, target.Label);
+            }
+        }
+
+        private long RegisterGotoTarget(GotoLocation target)
+        {
+            lock (controlTargetLock)
+            {
+                var id = NextControlTargetId();
+                gotoTargets.Add(id, target);
+                return id;
+            }
+        }
+
+        private long NextControlTargetId()
+        {
+            if (nextControlTargetId == long.MaxValue)
+            {
+                throw new InvalidOperationException(
+                    "Debugger control target handle space is exhausted.");
+            }
+            return nextControlTargetId++;
+        }
+
         private void ClearFrames()
-            => objectValues.Clear();
+        {
+            objectValues.Clear();
+            lock (controlTargetLock)
+            {
+                stepInTargets.Clear();
+                gotoTargets.Clear();
+            }
+        }
 
         private void ThrowIfDisposed()
         {
@@ -644,6 +748,23 @@ namespace UnityDebugger.Adapter.Backend
                 string.IsNullOrWhiteSpace(message)
                     ? "Expression evaluation failed."
                     : message);
+        }
+
+        private sealed class GotoLocation
+        {
+            public GotoLocation(
+                string sourcePath,
+                int line,
+                int column)
+            {
+                SourcePath = sourcePath;
+                Line = line;
+                Column = column;
+            }
+
+            public string SourcePath { get; }
+            public int Line { get; }
+            public int Column { get; }
         }
     }
 }
