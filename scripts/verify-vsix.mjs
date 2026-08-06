@@ -103,7 +103,7 @@ const buildInfo = JSON.parse(
 if (
   buildInfo.version !== "0.3.0" ||
   !/^[0-9a-f]{40}$/.test(buildInfo.commit) ||
-  !/^0\.4\.0\+g[0-9a-f]{12}$/.test(buildInfo.buildId) ||
+  !/^0\.3\.0\+g[0-9a-f]{12}$/.test(buildInfo.buildId) ||
   buildInfo.buildId !== `0.3.0+g${buildInfo.commit.slice(0, 12)}`
 ) {
   throw new Error("Packaged build identity is invalid.");
