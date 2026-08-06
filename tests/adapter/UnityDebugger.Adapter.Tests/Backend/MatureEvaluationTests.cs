@@ -12,10 +12,13 @@ namespace UnityDebugger.Adapter.Tests.Backend
         [Fact]
         public void ResolverUsesOnlyTheStoppedFramesEnclosingNamespace()
         {
-            var types = new HashSet<string>(StringComparer.Ordinal)
+            var loadedTypes = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "UnityEngine.RuntimeInitializeLoadType",
+            };
+            var frameAssemblyTypes = new HashSet<string>(StringComparer.Ordinal)
             {
                 "MyGame.Runtime.DevTools.GameRuntimeBootstrapMenu",
-                "UnityEngine.RuntimeInitializeLoadType",
             };
 
             Assert.Equal(
@@ -23,12 +26,14 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 SoftDebuggerSessionFacade.ResolveIdentifierInFrameNamespace(
                     "MyGame.Runtime.DevTools",
                     "GameRuntimeBootstrapMenu",
-                    types.Contains));
+                    loadedTypes.Contains,
+                    frameAssemblyTypes.Contains));
             Assert.Null(
                 SoftDebuggerSessionFacade.ResolveIdentifierInFrameNamespace(
                     "MyGame.Runtime.DevTools",
                     "RuntimeInitializeLoadType",
-                    types.Contains));
+                    loadedTypes.Contains,
+                    frameAssemblyTypes.Contains));
         }
 
         [Fact]

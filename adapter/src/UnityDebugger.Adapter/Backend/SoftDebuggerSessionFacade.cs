@@ -400,14 +400,17 @@ namespace UnityDebugger.Adapter.Backend
         internal static string? ResolveIdentifierInFrameNamespace(
             string? namespaceName,
             string identifier,
-            Func<string, bool> typeExists)
+            Func<string, bool> loadedTypeExists,
+            Func<string, bool> frameAssemblyTypeExists)
         {
-            if (typeExists(identifier))
+            if (loadedTypeExists(identifier) || frameAssemblyTypeExists(identifier))
                 return identifier;
             if (string.IsNullOrWhiteSpace(namespaceName))
                 return null;
             var candidate = namespaceName + "." + identifier;
-            return typeExists(candidate) ? candidate : null;
+            return loadedTypeExists(candidate) || frameAssemblyTypeExists(candidate)
+                ? candidate
+                : null;
         }
 
         internal static string NormalizeEvaluationError(string? message)
@@ -803,7 +806,11 @@ namespace UnityDebugger.Adapter.Backend
                     return ResolveIdentifierInFrameNamespace(
                         frameType?.Namespace,
                         identifier,
-                        candidate => session.GetType(candidate) != null);
+                        candidate => session.GetType(candidate) != null,
+                        candidate => frameType?.Assembly.GetType(
+                            candidate,
+                            false,
+                            false) != null);
                 };
                 try
                 {
