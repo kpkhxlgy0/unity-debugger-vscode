@@ -12,7 +12,7 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
             using (var directory = new TemporaryDirectory())
             {
                 Assert.Equal(
-                    "0.4.0+gunknown",
+                    "0.3.0+gunknown",
                     BuildIdentity.ReadFromDirectory(directory.Path));
             }
         }
@@ -27,7 +27,7 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
                     "{not-json");
 
                 Assert.Equal(
-                    "0.4.0+gunknown",
+                    "0.3.0+gunknown",
                     BuildIdentity.ReadFromDirectory(directory.Path));
             }
         }
@@ -39,12 +39,12 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
             {
                 File.WriteAllText(
                     System.IO.Path.Combine(directory.Path, "build-info.json"),
-                    "{\"version\":\"0.4.0\"," +
+                    "{\"version\":\"0.3.0\"," +
                     "\"commit\":\"0123456789abcdef0123456789abcdef01234567\"," +
-                    "\"buildId\":\"0.4.0+g0123456789ab\"}");
+                    "\"buildId\":\"0.3.0+g0123456789ab\"}");
 
                 Assert.Equal(
-                    "0.4.0+g0123456789ab",
+                    "0.3.0+g0123456789ab",
                     BuildIdentity.ReadFromDirectory(directory.Path));
             }
         }

@@ -7,7 +7,7 @@ import test from "node:test";
 import AdmZip from "adm-zip";
 import { verifyReleaseArtifact } from "../../scripts/verify-release-artifact.mjs";
 
-const artifactFileName = "unity-debugger-pure-0.4.0.vsix";
+const artifactFileName = "unity-debugger-pure-0.3.0.vsix";
 
 test("accepts the audited VSIX, checksum, manifest, and tag", async (t) => {
   const fixture = await createFixture(t);
@@ -15,13 +15,13 @@ test("accepts the audited VSIX, checksum, manifest, and tag", async (t) => {
   const verified = await verifyReleaseArtifact({
     vsixPath: fixture.vsixPath,
     checksumPath: fixture.checksumPath,
-    expectedTag: "v0.4.0",
+    expectedTag: "v0.3.0",
   });
 
   assert.equal(verified.sha256, fixture.sha256);
   assert.equal(verified.publisher, "kpk");
   assert.equal(verified.name, "unity-debugger-pure");
-  assert.equal(verified.version, "0.4.0");
+  assert.equal(verified.version, "0.3.0");
 });
 
 test("rejects a VSIX changed after its checksum was written", async (t) => {
@@ -32,7 +32,7 @@ test("rejects a VSIX changed after its checksum was written", async (t) => {
     verifyReleaseArtifact({
       vsixPath: fixture.vsixPath,
       checksumPath: fixture.checksumPath,
-      expectedTag: "v0.4.0",
+      expectedTag: "v0.3.0",
     }),
     /Release artifact SHA-256 mismatch/,
   );
@@ -68,7 +68,7 @@ async function createFixture(t) {
       JSON.stringify({
         publisher: "kpk",
         name: "unity-debugger-pure",
-        version: "0.4.0",
+        version: "0.3.0",
       }),
       "utf8",
     ),

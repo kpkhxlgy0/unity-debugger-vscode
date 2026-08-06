@@ -169,3 +169,5 @@ infer an unavailable UI capability.
   `C:\Users\Admin\.vscode\extensions\kpk.unity-debugger-pure-0.4.0`.
 - Installed build ID is `0.4.0+g08acea12c5b2`; installed source commit and adapter SHA-256 exactly match the
   immutable candidate. VS Code has not yet been reloaded and no Pure behavior row has been marked aligned.
+- The user superseded this semantic-version choice before any Reload confirmation or Pure acceptance. Subsequent
+  local candidates retain the unpublished `0.3.0` version and use build ID/commit for identity.

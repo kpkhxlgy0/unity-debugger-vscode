@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace UnityDebuggerPure's handwritten debugger control and expression engines with the pinned mature Mono.Debugging/NRefactory session stack, then release and install one traceable `0.4.0` VSIX whose debugger behavior is validated against installed `zlorn.vstuc 1.2.1` in MyGame.
+**Goal:** Replace UnityDebuggerPure's handwritten debugger control and expression engines with the pinned mature Mono.Debugging/NRefactory session stack, then install one traceable unpublished `0.3.0` VSIX whose debugger behavior is validated against installed `zlorn.vstuc 1.2.1` in MyGame.
 
 **Architecture:** `UnityDebugSession` remains a DAP translator, `MonoDebuggingBackend` maps the DAP-neutral backend contract to one active `UnitySoftDebuggerSession`, and Mono.Debugging owns target lifecycle, stepping, breakpoints, stack frames, `ObjectValue` inspection, and NRefactory evaluation. The installed reference extension is a black-box behavioral authority only; its proprietary assemblies are never read as implementation inputs, copied, decompiled, linked, or packaged.
 
@@ -26,7 +26,7 @@
 - Real Editor testing uses only `D:\Unity\TuanjieHub\Projects\MyGame` and the existing VS Code window opened from MyGame.
 - The user performs VS Code UI actions. Do not invoke Computer Use; state the exact action the user needs to perform.
 - Use Unity MCP for MyGame/Tuanjie state, Play Mode, Console, and supported runtime inspection.
-- Release exactly `0.4.0`; do not install any intermediate VSIX.
+- Retain the unpublished `0.3.0` semantic version; distinguish local candidates only by build ID and commit.
 - Install at most one final verified VSIX into VS Code. If UI acceptance exposes a defect after installation, stop and ask before replacing that installation.
 
 ---
@@ -95,7 +95,7 @@ Implicit-evaluation setting removal:
 - Modify: `tests/build/scaffold.test.mjs`, `tests/integration/adapter.integration.test.ts`, and affected adapter DAP tests.
 - Modify: `scripts/verify-vsix.mjs`.
 
-Release `0.4.0`:
+Unpublished `0.3.0` candidate:
 
 - Modify: `package.json`, `package-lock.json`, `CHANGELOG.md`, `README.md`, and `SECURITY.md`.
 - Modify: `extension/src/productIdentity.ts` and `extension/src/versionPolicy.ts`.
@@ -992,7 +992,7 @@ rg -n "enableImplicitEvaluation|__enableImplicitEvaluation" package.json extensi
 
 The package verifier's setting/Attach-argument negative cases are run here.
 The full positive `test:package` gate is run in Tasks 8–9 after the one allowed
-`0.4.0` candidate exists; Task 7 does not create an obsolete `0.3.0` VSIX.
+candidate exists; Task 7 does not create a VSIX.
 
 - [x] **Step 6: Commit setting removal**
 
@@ -1001,27 +1001,27 @@ git add -- package.json extension adapter/src tests scripts/verify-vsix.mjs
 git commit -m "refactor: make implicit evaluation built in"
 ```
 
-### Task 8: Prepare the traceable `0.4.0` release
+### Task 8: Prepare the traceable unpublished `0.3.0` candidate
 
 **Files:**
 
-- Modify every project-owned version file listed in the Release `0.4.0` section of the File Map.
+- Modify every project-owned version file listed in the unpublished `0.3.0` section of the File Map.
 - Modify: `third-party/runtime-assemblies.json`
 
 **Interfaces:**
 
 - Consumes: completed mature backend and removal of the obsolete setting contract.
-- Produces: `0.4.0+g<12 lowercase Git characters>` build identity and `dist/unity-debugger-pure-0.4.0.vsix`.
+- Produces: `0.3.0+g<12 lowercase Git characters>` build identity and `dist/unity-debugger-pure-0.3.0.vsix`.
 
-- [x] **Step 1: Change release tests to `0.4.0` first**
+- [x] **Step 1: Change candidate tests back to `0.3.0` first**
 
 Update package/build/extension/adapter tests so they expect:
 
 ```text
-version: 0.4.0
-artifact: dist/unity-debugger-pure-0.4.0.vsix
-tag: v0.4.0
-build ID regex: ^0\.4\.0\+g[0-9a-f]{12}$
+version: 0.3.0
+artifact: dist/unity-debugger-pure-0.3.0.vsix
+tag: v0.3.0
+build ID regex: ^0\.3\.0\+g[0-9a-f]{12}$
 ```
 
 Run:
@@ -1032,17 +1032,17 @@ npm run test:extension
 dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Tests.csproj -c Release --no-restore --filter "FullyQualifiedName~BuildIdentityTests|FullyQualifiedName~AttachArgumentsTests"
 ```
 
-Expected: FAIL on remaining `0.3.0` production metadata.
+Expected: FAIL on remaining `0.4.0` production metadata.
 
 - [x] **Step 2: Update production version metadata**
 
-Change only project-owned `0.3.0` occurrences returned by:
+Change only project-owned `0.4.0` occurrences returned by:
 
 ```powershell
-rg -n "0\.3\.0" CHANGELOG.md README.md SECURITY.md package.json package-lock.json extension adapter/src scripts tests/build tests/extension tests/package --glob '!**/packages.lock.json'
+rg -n "0\.4\.0" CHANGELOG.md README.md SECURITY.md package.json package-lock.json extension adapter/src scripts tests/build tests/extension tests/package --glob '!**/packages.lock.json'
 ```
 
-Do not change dependency versions such as `unicorn-magic 0.3.0`. Add a `CHANGELOG.md` `0.4.0` entry stating that the direct control/evaluation engines were replaced by the pinned mature session stack and that compatibility is tracked in the matrix; do not claim full parity before Task 10.
+Do not change dependency versions such as `unicorn-magic 0.3.0`. Replace the unpublished `CHANGELOG.md` `0.3.0` entry so it states that the direct control/evaluation engines were replaced by the pinned mature session stack and that compatibility is tracked in the matrix; do not claim full parity before Task 10.
 
 - [x] **Step 3: Run version tests GREEN**
 
@@ -1065,7 +1065,7 @@ Expected: staging contains `UnityDebuggerPure.exe`, `Mono.Debugging.dll`, `Mono.
 
 ```powershell
 git add -- package.json package-lock.json CHANGELOG.md README.md SECURITY.md extension/src adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs adapter/src/UnityDebugger.Adapter/Diagnostics/BuildIdentity.cs scripts tests/build tests/extension tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/BuildIdentityTests.cs tests/package/vsix.test.mjs third-party/runtime-assemblies.json third-party/sources.json THIRD_PARTY_NOTICES.md
-git commit -m "build: prepare mature debugger 0.4.0 release"
+git commit -m "build: retain mature debugger 0.3.0 version"
 ```
 
 ### Task 9: Run every automated gate and package one final candidate
@@ -1079,7 +1079,7 @@ git commit -m "build: prepare mature debugger 0.4.0 release"
 - Consumes: Tasks 1–8.
 - Produces: one verified, hashed VSIX candidate; no installation yet.
 
-- [x] **Step 1: Verify repository and dependency boundaries**
+- [ ] **Step 1: Verify repository and dependency boundaries**
 
 Run:
 
@@ -1091,7 +1091,7 @@ dotnet restore UnityDebugger.sln --locked-mode
 
 Expected: no whitespace, provenance, or lock violations. Review the six pre-existing vendor lock-file status entries separately; do not stage line-ending-only changes.
 
-- [x] **Step 2: Run all source tests**
+- [ ] **Step 2: Run all source tests**
 
 Run:
 
@@ -1105,7 +1105,7 @@ npm run test:integration
 
 Expected: all pass. Record exact test counts rather than reusing the earlier `257/94/19/7` counts.
 
-- [x] **Step 3: Package and verify**
+- [ ] **Step 3: Package and verify**
 
 Run:
 
@@ -1115,14 +1115,14 @@ npm run test:package
 npm run verify:vsix
 ```
 
-Expected: `dist/unity-debugger-pure-0.4.0.vsix` passes manifest, runtime inventory, setting scope, build ID, forbidden-binary, and test-binary checks.
+Expected: `dist/unity-debugger-pure-0.3.0.vsix` passes manifest, runtime inventory, setting scope, build ID, forbidden-binary, and test-binary checks.
 
-- [x] **Step 4: Record immutable candidate identity**
+- [ ] **Step 4: Record immutable candidate identity**
 
 Run:
 
 ```powershell
-Get-FileHash 'dist\unity-debugger-pure-0.4.0.vsix' -Algorithm SHA256
+Get-FileHash 'dist\unity-debugger-pure-0.3.0.vsix' -Algorithm SHA256
 Get-FileHash 'adapter\win32-x64\UnityDebuggerPure.exe' -Algorithm SHA256
 Get-Content -Raw 'adapter\win32-x64\build-info.json'
 git status --short
@@ -1147,16 +1147,16 @@ Record VSIX hash, adapter hash, semantic version, build ID, commit, and worktree
 
 Use Unity MCP to select the MyGame instance, confirm active scene `Assets/Scenes/SampleScene.scene`, Tuanjie `2022.3.62t12`, zero real compile/Console errors, and reachability of `GameRuntimeBootstrap.Install()` line 11 through `RuntimeInitializeOnLoadMethod(AfterSceneLoad)`. State that the acceptance entry is ordinary SampleScene Play Mode and the target is line 11 before changing Play Mode.
 
-- [x] **Step 2: Install exactly the verified VSIX**
+- [ ] **Step 2: Install exactly the verified VSIX**
 
 Run:
 
 ```powershell
-& 'C:\Users\Admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd' --install-extension 'D:\Unity\unity-debugger-vscode\dist\unity-debugger-pure-0.4.0.vsix' --force
-& 'C:\Users\Admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd' --list-extensions --show-versions | Select-String '^kpk\.unity-debugger-pure@0\.4\.0$'
+& 'C:\Users\Admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd' --install-extension 'D:\Unity\unity-debugger-vscode\dist\unity-debugger-pure-0.3.0.vsix' --force
+& 'C:\Users\Admin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd' --list-extensions --show-versions | Select-String '^kpk\.unity-debugger-pure@0\.3\.0$'
 ```
 
-Expected: exactly `kpk.unity-debugger-pure@0.4.0` is listed. Verify the installed `build-info.json` and `UnityDebuggerPure.exe` hashes match Task 9.
+Expected: exactly `kpk.unity-debugger-pure@0.3.0` is listed. Verify the installed `build-info.json` and `UnityDebuggerPure.exe` hashes match Task 9.
 
 - [ ] **Step 3: Ask the user for one VS Code action**
 
@@ -1170,7 +1170,7 @@ Do not use Computer Use and do not launch another VS Code profile.
 
 - [ ] **Step 4: Verify installed build before behavior testing**
 
-After the user reloads, ask them to select `Attach to Unity Debugger Pure` and start debugging once. Read the newest sanitized adapter log and require version `0.4.0` plus the Task 9 build ID before continuing.
+After the user reloads, ask them to select `Attach to Unity Debugger Pure` and start debugging once. Read the newest sanitized adapter log and require version `0.3.0` plus the Task 9 build ID before continuing.
 
 - [ ] **Step 5: Repeat the known divergent scenarios with Pure**
 

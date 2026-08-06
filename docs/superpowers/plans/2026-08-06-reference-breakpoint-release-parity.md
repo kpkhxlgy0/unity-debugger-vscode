@@ -1,7 +1,8 @@
 # Reference Breakpoint, Release, and sgproj Acceptance Implementation Plan
 
 > **Superseded 2026-08-06:** Do not execute this direct-engine `0.3.0` release plan. The active replacement removes
-> the direct engine and targets the mature Mono.Debugging/NRefactory `0.4.0` release in
+> the direct engine and targets the mature Mono.Debugging/NRefactory implementation while retaining the unpublished
+> `0.3.0` version in
 > `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md`.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task in the current checkout. Steps use checkbox (`- [ ]`) syntax for tracking.

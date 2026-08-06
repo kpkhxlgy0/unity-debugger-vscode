@@ -291,7 +291,7 @@ cover:
 
 ## Delivery
 
-The replacement backend releases as UnityDebuggerPure `0.4.0` with a unique
+The replacement backend remains on the unpublished UnityDebuggerPure `0.3.0` version with a unique
 build ID and refreshed third-party/runtime inventory.
 
 No intermediate VSIX is installed. After automated gates and package

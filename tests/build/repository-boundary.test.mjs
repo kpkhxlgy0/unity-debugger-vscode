@@ -11,7 +11,7 @@ test("source repository exposes a debugger-only manifest and public API", () => 
   );
 
   assert.equal(manifest.name, "unity-debugger-pure");
-  assert.equal(manifest.version, "0.4.0");
+  assert.equal(manifest.version, "0.3.0");
   assert.equal(manifest.workspaces, undefined);
   assert.equal(
     fs.existsSync(path.join(repositoryRoot, "extension/src/publicApi.ts")),

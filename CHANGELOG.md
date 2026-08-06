@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0
+## 0.3.0
 
 - Replace the handwritten execution-control and expression-evaluation engines
   with the pinned mature Mono.Debugging, Mono.Debugging.Soft, and NRefactory
@@ -13,18 +13,6 @@
 - Track reference-plugin compatibility and MyGame acceptance evidence in
   `docs/reference-debugger-compatibility.md`; full parity is not claimed before
   final same-project acceptance.
-
-## 0.3.0
-
-- Replace the MonoDevelop debugger backend with a direct Mono soft-debugger
-  engine aligned to the installed Unity debugger's stop, step, breakpoint,
-  exception, and evaluation behavior.
-- Preserve pending breakpoints across Unity Domain Reload and report the first
-  stopped location correctly to Cursor.
-- Enable implicit Getter and `ToString()` evaluation by default for Hover,
-  Locals, and variable expansion, with workspace and user settings support.
-- Add a packaged build identity to diagnostics and remove obsolete
-  Mono.Debugging and NRefactory runtime dependencies.
 
 ## 0.2.0
 

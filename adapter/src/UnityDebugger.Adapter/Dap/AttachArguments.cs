@@ -79,7 +79,7 @@ namespace UnityDebugger.Adapter.Dap
                     StringComparison.Ordinal))
             {
                 throw new AttachArgumentException(
-                    "The Editor version is outside the version 0.4.0 " +
+                    "The Editor version is outside the version 0.3.0 " +
                     "compatibility policy.");
             }
 
