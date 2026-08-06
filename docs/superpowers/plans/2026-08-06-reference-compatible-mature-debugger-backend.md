@@ -1013,7 +1013,7 @@ git commit -m "refactor: make implicit evaluation built in"
 - Consumes: completed mature backend and removal of the obsolete setting contract.
 - Produces: `0.4.0+g<12 lowercase Git characters>` build identity and `dist/unity-debugger-pure-0.4.0.vsix`.
 
-- [ ] **Step 1: Change release tests to `0.4.0` first**
+- [x] **Step 1: Change release tests to `0.4.0` first**
 
 Update package/build/extension/adapter tests so they expect:
 
@@ -1034,7 +1034,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL on remaining `0.3.0` production metadata.
 
-- [ ] **Step 2: Update production version metadata**
+- [x] **Step 2: Update production version metadata**
 
 Change only project-owned `0.3.0` occurrences returned by:
 
@@ -1044,11 +1044,11 @@ rg -n "0\.3\.0" CHANGELOG.md README.md SECURITY.md package.json package-lock.jso
 
 Do not change dependency versions such as `unicorn-magic 0.3.0`. Add a `CHANGELOG.md` `0.4.0` entry stating that the direct control/evaluation engines were replaced by the pinned mature session stack and that compatibility is tracked in the matrix; do not claim full parity before Task 10.
 
-- [ ] **Step 3: Run version tests GREEN**
+- [x] **Step 3: Run version tests GREEN**
 
 Run the Step 1 commands again. Expected: PASS.
 
-- [ ] **Step 4: Build, stage, and explicitly regenerate runtime inventory**
+- [x] **Step 4: Build, stage, and explicitly regenerate runtime inventory**
 
 Run:
 
@@ -1061,7 +1061,7 @@ npm run verify:third-party
 
 Expected: staging contains `UnityDebuggerPure.exe`, `Mono.Debugging.dll`, `Mono.Debugging.Soft.dll`, `Mono.Debugger.Soft.dll`, both NRefactory DLLs, `VSCodeDebug.dll`, audited transitive DLLs, and `build-info.json`; it contains no test or `SyntaxTree.*` binary.
 
-- [ ] **Step 5: Commit release metadata and inventory**
+- [x] **Step 5: Commit release metadata and inventory**
 
 ```powershell
 git add -- package.json package-lock.json CHANGELOG.md README.md SECURITY.md extension/src adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs adapter/src/UnityDebugger.Adapter/Diagnostics/BuildIdentity.cs scripts tests/build tests/extension tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/BuildIdentityTests.cs tests/package/vsix.test.mjs third-party/runtime-assemblies.json third-party/sources.json THIRD_PARTY_NOTICES.md

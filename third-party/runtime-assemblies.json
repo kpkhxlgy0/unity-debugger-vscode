@@ -3,38 +3,32 @@
   "generatedFrom": "adapter/win32-x64",
   "assemblies": [
     {
+      "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.CSharp.dll",
+      "sha256": "1cf616c412485e54f48fc6da68c6ae12e15e06b0568f76b14169b0b448d6b5b6",
+      "origin": "source-built:nrefactory",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/ICSharpCode.NRefactory.dll",
+      "sha256": "f5882121b390fbc9f1c3a6e2c50828befc44b94e8a7ba8d9d14cf7fe910f1021",
+      "origin": "source-built:nrefactory",
+      "license": "MIT"
+    },
+    {
       "path": "extension/adapter/win32-x64/Microsoft.CodeAnalysis.CSharp.dll",
-      "sha256": "38d562bdabed0476bc77ec7a85c79fb44a19d13062227896ce4e04dd371ace88",
-      "origin": "nuget:Microsoft.CodeAnalysis.CSharp/4.14.0",
+      "sha256": "75e17c4aa3d0374ecf1d04c2de449f6eee9f13cf5f291bb8c8c0d170b1cea4c8",
+      "origin": "nuget:Microsoft.CodeAnalysis.CSharp/2.10.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Microsoft.CodeAnalysis.dll",
-      "sha256": "7a82cdac046b0f96c0ef99d44c960db950705b41bd26db68ba38972f514c4c5d",
-      "origin": "nuget:Microsoft.CodeAnalysis.Common/4.14.0",
+      "sha256": "85bbfdb35ee97be5dd5722076f7bb2a0ec674b2cdceb15179d72b87c336f5e1b",
+      "origin": "nuget:Microsoft.CodeAnalysis.Common/2.10.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Cecil.dll",
       "sha256": "4457ef2ba0d3b802cdc5384f044c9cbddab6fc8b25aad794b4bce3249d106054",
-      "origin": "nuget:Mono.Cecil/0.10.1",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/Mono.Cecil.Mdb.dll",
-      "sha256": "042efa57f54050fa44340368b5fc9ccb6409bb780d84e03e1910713a37c0a4da",
-      "origin": "nuget:Mono.Cecil/0.10.1",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/Mono.Cecil.Pdb.dll",
-      "sha256": "064da61ed489f55d6baa3c999b2e38033b6bf08f2d69c748195b59b5335aca04",
-      "origin": "nuget:Mono.Cecil/0.10.1",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/Mono.Cecil.Rocks.dll",
-      "sha256": "63e4089c2f4e5a87de36d89692490b3add87ab635003f03158cb88997a06ec8e",
       "origin": "nuget:Mono.Cecil/0.10.1",
       "license": "MIT"
     },
@@ -45,6 +39,24 @@
       "license": "MIT"
     },
     {
+      "path": "extension/adapter/win32-x64/Mono.Debugging.dll",
+      "sha256": "11863c36056142e7188f18c67d3455387b81219b1cbd9a9195cde2693077cfdc",
+      "origin": "source-built:debugger-libs",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Debugging.Soft.dll",
+      "sha256": "f9cdcd0ce5cb4d1480cac88ac0644b8b86fed2cfa41327825af77c692e0ceb30",
+      "origin": "source-built:debugger-libs",
+      "license": "MIT"
+    },
+    {
+      "path": "extension/adapter/win32-x64/Mono.Posix.dll",
+      "sha256": "46fdc2c503517caba5e21b5debf6e6774d0636fa1a5ab3be56ebac2ab94870f7",
+      "origin": "nuget:Mono.Posix-4.5/4.5.0",
+      "license": "MIT"
+    },
+    {
       "path": "extension/adapter/win32-x64/Newtonsoft.Json.dll",
       "sha256": "f0c07af0e84d4dd4da4bd7823ba4535bc0481b3bf623ed40b659b68147a6bb75",
       "origin": "nuget:Newtonsoft.Json/13.0.4",
@@ -52,55 +64,37 @@
     },
     {
       "path": "extension/adapter/win32-x64/System.Buffers.dll",
-      "sha256": "accccfbe45d9f08ffeed9916e37b33e98c65be012cfff6e7fa7b67210ce1fefb",
-      "origin": "nuget:System.Buffers/4.5.1",
+      "sha256": "72b10a7d404778fed460f3ff0204cf7e81a8a5a79c99132821928b63f6ae99cb",
+      "origin": "nuget:System.Buffers/4.5.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/System.Collections.Immutable.dll",
-      "sha256": "77d705fe51f224d77b25fc06ede39e2921f08b46a961a027d6ee49a4bb19c127",
-      "origin": "nuget:System.Collections.Immutable/9.0.0",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/System.Memory.dll",
-      "sha256": "bf3fb84664f4097f1a8a9bc71a51dcf8cf1a905d4080a4d290da1730866e856f",
-      "origin": "nuget:System.Memory/4.5.5",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/System.Numerics.Vectors.dll",
-      "sha256": "1d3ef8698281e7cf7371d1554afef5872b39f96c26da772210a33da041ba1183",
-      "origin": "nuget:System.Numerics.Vectors/4.5.0",
+      "sha256": "2f05a2c489c2d30a6cca346d4ce184323d70eb4f5afa6bed34d5800274444e57",
+      "origin": "nuget:System.Collections.Immutable/1.5.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/System.Reflection.Metadata.dll",
-      "sha256": "8fc17840e7b7db173e84fc6c7daaf92441069b83a07b2cb054599e7dd36ab86b",
-      "origin": "nuget:System.Reflection.Metadata/9.0.0",
-      "license": "MIT"
-    },
-    {
-      "path": "extension/adapter/win32-x64/System.Runtime.CompilerServices.Unsafe.dll",
-      "sha256": "37768488e8ef45729bc7d9a2677633c6450042975bb96516e186da6cb9cd0dcf",
-      "origin": "nuget:System.Runtime.CompilerServices.Unsafe/6.0.0",
+      "sha256": "2e180767f1415cb5bbed14450e1d4003cf56a9da6aeaf91ce969a4b9d2a54314",
+      "origin": "nuget:System.Reflection.Metadata/1.6.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/System.Text.Encoding.CodePages.dll",
-      "sha256": "67d868132552144c49ad929af33b774b371e3d1e5cb6ad2b67523bcd08351553",
-      "origin": "nuget:System.Text.Encoding.CodePages/7.0.0",
+      "sha256": "8e85e80455b362d6fbd549e336ca1f7558df3f6c598291e864ddefbced8ed430",
+      "origin": "nuget:System.Text.Encoding.CodePages/4.3.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/System.Threading.Tasks.Extensions.dll",
-      "sha256": "4f81ffd0dc7204db75afc35ea4291769b07c440592f28894260eea76626a23c6",
-      "origin": "nuget:System.Threading.Tasks.Extensions/4.5.4",
+      "sha256": "2804e53913a5f6b8663f27a902ee8e939559c0991ce02399ff10595392f2340a",
+      "origin": "nuget:System.Threading.Tasks.Extensions/4.3.0",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
-      "sha256": "9e372ce627f61b236e465c0a8f974c5be4de4dca9ef7fb37c1a447ed0c5d8350",
+      "sha256": "6c7801f043dc6d51a42df1a1eddbbb9785e2cba4c9958a26048f3d917ea95cd0",
       "origin": "project",
       "license": "MIT"
     },

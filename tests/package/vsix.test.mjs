@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import AdmZip from "adm-zip";
 
-const artifactPath = "dist/unity-debugger-pure-0.3.0.vsix";
+const artifactPath = "dist/unity-debugger-pure-0.4.0.vsix";
 
 function verifyVsix(vsixPath) {
   return spawnSync(process.execPath, ["scripts/verify-vsix.mjs", vsixPath], {
@@ -36,13 +36,13 @@ test("packaged VSIX satisfies the audited production contract", () => {
   const buildInfo = JSON.parse(
     buildInfoEntry.getData().toString("utf8"),
   );
-  assert.equal(manifest.version, "0.3.0");
-  assert.equal(buildInfo.version, "0.3.0");
+  assert.equal(manifest.version, "0.4.0");
+  assert.equal(buildInfo.version, "0.4.0");
   assert.match(buildInfo.commit, /^[0-9a-f]{40}$/);
   assert.match(buildInfo.buildId, /^0\.3\.0\+g[0-9a-f]{12}$/);
   assert.equal(
     buildInfo.buildId,
-    `0.3.0+g${buildInfo.commit.slice(0, 12)}`,
+    `0.4.0+g${buildInfo.commit.slice(0, 12)}`,
   );
 });
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0
+
+- Replace the handwritten execution-control and expression-evaluation engines
+  with the pinned mature Mono.Debugging, Mono.Debugging.Soft, and NRefactory
+  session stack.
+- Make Getter and `ToString()` evaluation part of the mature debugger behavior
+  and remove the obsolete implicit-evaluation setting and Attach flag.
+- Preserve the reference debugger's source/function breakpoint, exception,
+  stepping, Step Into Target, Goto, and Set Variable capabilities through the
+  mature backend.
+- Track reference-plugin compatibility and MyGame acceptance evidence in
+  `docs/reference-debugger-compatibility.md`; full parity is not claimed before
+  final same-project acceptance.
+
 ## 0.3.0
 
 - Replace the MonoDevelop debugger backend with a direct Mono soft-debugger
