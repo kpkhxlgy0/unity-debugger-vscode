@@ -20,6 +20,7 @@ namespace UnityDebugger.Adapter.Backend
             new Dictionary<long, BreakEvent>();
         private readonly Dictionary<BreakEvent, long> breakpointIds =
             new Dictionary<BreakEvent, long>();
+        private readonly object evaluationResolverLock = new object();
         private readonly object controlTargetLock = new object();
         private readonly Dictionary<long, SoftStepInTarget> stepInTargets =
             new Dictionary<long, SoftStepInTarget>();
@@ -359,10 +360,16 @@ namespace UnityDebugger.Adapter.Backend
         {
             ThrowIfDisposed();
             var frame = objectValues.GetFrame(frameId);
-            var options = session.EvaluationOptions;
+            var options = session.EvaluationOptions.Clone();
             try
             {
-                var value = frame.GetExpressionValue(expression, options);
+                var resolvedExpression = ResolveExpression(
+                    frame,
+                    expression,
+                    options);
+                var value = frame.GetExpressionValue(
+                    resolvedExpression,
+                    options);
                 MonoObjectValueStore.WaitForValue(
                     value,
                     options,
@@ -385,11 +392,43 @@ namespace UnityDebugger.Adapter.Backend
             catch (Exception exception)
             {
                 throw new BackendEvaluationException(
-                    string.IsNullOrWhiteSpace(exception.Message)
-                        ? "Expression evaluation failed."
-                        : exception.Message,
+                    NormalizeEvaluationError(exception.Message),
                     exception);
             }
+        }
+
+        internal static string? ResolveIdentifierInFrameNamespace(
+            string? namespaceName,
+            string identifier,
+            Func<string, bool> typeExists)
+        {
+            if (typeExists(identifier))
+                return identifier;
+            if (string.IsNullOrWhiteSpace(namespaceName))
+                return null;
+            var candidate = namespaceName + "." + identifier;
+            return typeExists(candidate) ? candidate : null;
+        }
+
+        internal static string NormalizeEvaluationError(string? message)
+        {
+            const string unknownIdentifierPrefix = "Unknown identifier: ";
+            if (message == null || message.Trim().Length == 0)
+                return "Expression evaluation failed.";
+            if (
+                message.StartsWith(
+                    unknownIdentifierPrefix,
+                    StringComparison.Ordinal))
+            {
+                var identifier = message.Substring(
+                    unknownIdentifierPrefix.Length);
+                if (!string.IsNullOrWhiteSpace(identifier))
+                {
+                    return "The identifier `" + identifier +
+                        "` is not in the scope";
+                }
+            }
+            return message;
         }
 
         public BackendSetVariableResult? SetVariable(
@@ -745,9 +784,38 @@ namespace UnityDebugger.Adapter.Backend
             }
             var message = value.DisplayValue;
             throw new BackendEvaluationException(
-                string.IsNullOrWhiteSpace(message)
-                    ? "Expression evaluation failed."
-                    : message);
+                NormalizeEvaluationError(message));
+        }
+
+        private string ResolveExpression(
+            Mono.Debugging.Client.StackFrame frame,
+            string expression,
+            EvaluationOptions options)
+        {
+            if (!options.UseExternalTypeResolver)
+                return expression;
+            lock (evaluationResolverLock)
+            {
+                var previousResolver = session.TypeResolverHandler;
+                session.TypeResolverHandler = (identifier, _) =>
+                {
+                    var frameType = session.GetType(frame.FullTypeName);
+                    return ResolveIdentifierInFrameNamespace(
+                        frameType?.Namespace,
+                        identifier,
+                        candidate => session.GetType(candidate) != null);
+                };
+                try
+                {
+                    var resolved = frame.ResolveExpression(expression);
+                    options.UseExternalTypeResolver = false;
+                    return resolved;
+                }
+                finally
+                {
+                    session.TypeResolverHandler = previousResolver;
+                }
+            }
         }
 
         private sealed class GotoLocation

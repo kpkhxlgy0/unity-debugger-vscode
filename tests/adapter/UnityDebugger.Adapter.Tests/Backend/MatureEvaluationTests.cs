@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using UnityDebugger.Adapter.Backend;
@@ -7,6 +9,37 @@ namespace UnityDebugger.Adapter.Tests.Backend
 {
     public sealed class MatureEvaluationTests
     {
+        [Fact]
+        public void ResolverUsesOnlyTheStoppedFramesEnclosingNamespace()
+        {
+            var types = new HashSet<string>(StringComparer.Ordinal)
+            {
+                "MyGame.Runtime.DevTools.GameRuntimeBootstrapMenu",
+                "UnityEngine.RuntimeInitializeLoadType",
+            };
+
+            Assert.Equal(
+                "MyGame.Runtime.DevTools.GameRuntimeBootstrapMenu",
+                SoftDebuggerSessionFacade.ResolveIdentifierInFrameNamespace(
+                    "MyGame.Runtime.DevTools",
+                    "GameRuntimeBootstrapMenu",
+                    types.Contains));
+            Assert.Null(
+                SoftDebuggerSessionFacade.ResolveIdentifierInFrameNamespace(
+                    "MyGame.Runtime.DevTools",
+                    "RuntimeInitializeLoadType",
+                    types.Contains));
+        }
+
+        [Fact]
+        public void UnknownIdentifierUsesTheReferenceDiagnostic()
+        {
+            Assert.Equal(
+                "The identifier `RuntimeInitializeLoadType` is not in the scope",
+                SoftDebuggerSessionFacade.NormalizeEvaluationError(
+                    "Unknown identifier: RuntimeInitializeLoadType"));
+        }
+
         [Fact]
         public void AllInspectionOperationsDelegateToTheMatureFacade()
         {
