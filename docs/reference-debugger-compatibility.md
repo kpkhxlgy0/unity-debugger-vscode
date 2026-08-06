@@ -417,3 +417,15 @@ infer an unavailable UI capability.
   unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
 - VAR-02, VAR-03, and EVAL-03 remain divergent until this source candidate is packaged, installed, and exercised at
   the matched MyGame instance frame.
+
+### 2026-08-06 - Pure 0.3.0 expandable Locals packaged candidate
+
+- Candidate remains version `0.3.0`; build ID is `0.3.0+g74de71ec9004`, from source commit
+  `74de71ec9004675ac5a303b73cec2609d931a2ee`.
+- VSIX SHA-256: `6a538ee7d4b5042aee53fc63950678a843580cc71f9c85a530054b48d3ef5e40`.
+- Adapter SHA-256: `d86575927c0005c3aff93f98a28df8b31d05efd38db8bad547fdd2f25f4c1143`.
+- Runtime inventory verification passed for 17 assemblies; VSIX verification passed for 33 packaged files; all 4
+  package contract tests passed.
+- The installed predecessor and checksum were preserved as
+  `dist/unity-debugger-pure-0.3.0.superseded-before-expandable-locals.vsix` and its adjacent `.sha256` file.
+- Installation and matched MyGame verification remain pending; no compatibility row changes status yet.
