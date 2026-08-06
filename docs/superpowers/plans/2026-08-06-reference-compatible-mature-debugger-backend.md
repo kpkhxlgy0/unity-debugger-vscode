@@ -1079,7 +1079,7 @@ git commit -m "build: retain mature debugger 0.3.0 version"
 - Consumes: Tasks 1–8.
 - Produces: one verified, hashed VSIX candidate; no installation yet.
 
-- [ ] **Step 1: Verify repository and dependency boundaries**
+- [x] **Step 1: Verify repository and dependency boundaries**
 
 Run:
 
@@ -1091,7 +1091,7 @@ dotnet restore UnityDebugger.sln --locked-mode
 
 Expected: no whitespace, provenance, or lock violations. Review the six pre-existing vendor lock-file status entries separately; do not stage line-ending-only changes.
 
-- [ ] **Step 2: Run all source tests**
+- [x] **Step 2: Run all source tests**
 
 Run:
 
@@ -1105,7 +1105,7 @@ npm run test:integration
 
 Expected: all pass. Record exact test counts rather than reusing the earlier `257/94/19/7` counts.
 
-- [ ] **Step 3: Package and verify**
+- [x] **Step 3: Package and verify**
 
 Run:
 
@@ -1117,7 +1117,7 @@ npm run verify:vsix
 
 Expected: `dist/unity-debugger-pure-0.3.0.vsix` passes manifest, runtime inventory, setting scope, build ID, forbidden-binary, and test-binary checks.
 
-- [ ] **Step 4: Record immutable candidate identity**
+- [x] **Step 4: Record immutable candidate identity**
 
 Run:
 

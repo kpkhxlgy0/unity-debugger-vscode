@@ -171,3 +171,17 @@ infer an unavailable UI capability.
   immutable candidate. VS Code has not yet been reloaded and no Pure behavior row has been marked aligned.
 - The user superseded this semantic-version choice before any Reload confirmation or Pure acceptance. Subsequent
   local candidates retain the unpublished `0.3.0` version and use build ID/commit for identity.
+
+### 2026-08-06 - UnityDebuggerPure 0.3.0 immutable candidate
+
+- Candidate: `dist/unity-debugger-pure-0.3.0.vsix`.
+- VSIX SHA-256: `dcd6c1089984a9bb1e9685e92c617808a1a87e1118e21b774a1ca91bfd0fcf2c`.
+- Adapter SHA-256: `bd31667903584bbf1e8f50afff8b7e2d6be3aa30fe6c825a5295bcccb1bec674`.
+- Version: `0.3.0`.
+- Build ID: `0.3.0+ged2012f404fd`.
+- Source commit embedded in the candidate: `ed2012f404fd3854e524739cd2e1d20f20035c97`.
+- Automated verification passed: typecheck, 19 build tests, 93 extension tests, 140 adapter tests, 9 integration
+  tests, 4 package contract tests, third-party provenance, locked restore, 17-entry runtime inventory, and the
+  33-file VSIX audit.
+- Two earlier same-name artifacts were preserved under explicit `superseded-*` filenames because
+  local deletion was blocked. Neither is the standard candidate path and neither is installed by this procedure.
