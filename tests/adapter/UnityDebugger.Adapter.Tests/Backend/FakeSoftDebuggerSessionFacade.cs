@@ -46,6 +46,10 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public int StepOverCount { get; private set; }
         public int StepOutCount { get; private set; }
         public int GotoCount { get; private set; }
+        public int GetScopesCount { get; private set; }
+        public int GetVariablesCount { get; private set; }
+        public int EvaluateCount { get; private set; }
+        public int SetVariableCount { get; private set; }
         public ExceptionBreakMode? ExceptionMode { get; private set; }
         public List<LogicalBreakpoint> Bound { get; } =
             new List<LogicalBreakpoint>();
@@ -129,30 +133,42 @@ namespace UnityDebugger.Adapter.Tests.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
-            CancellationToken cancellationToken) => Scopes;
+            CancellationToken cancellationToken)
+        {
+            GetScopesCount++;
+            return Scopes;
+        }
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
-            CancellationToken cancellationToken) => Variables;
+            CancellationToken cancellationToken)
+        {
+            GetVariablesCount++;
+            return Variables;
+        }
 
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
-            CancellationToken cancellationToken) => EvaluationResult;
+            CancellationToken cancellationToken)
+        {
+            EvaluateCount++;
+            return EvaluationResult;
+        }
 
         public BackendSetVariableResult? SetVariable(
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
-            CancellationToken cancellationToken) => SetVariableResult;
+            CancellationToken cancellationToken)
+        {
+            SetVariableCount++;
+            return SetVariableResult;
+        }
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

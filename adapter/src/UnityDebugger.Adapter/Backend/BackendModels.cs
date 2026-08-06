@@ -413,4 +413,17 @@ namespace UnityDebugger.Adapter.Backend
         {
         }
     }
+
+    internal sealed class BackendEvaluationException : Exception
+    {
+        public BackendEvaluationException(
+            string displayMessage,
+            Exception? innerException = null)
+            : base(displayMessage, innerException)
+        {
+            DisplayMessage = displayMessage;
+        }
+
+        public string DisplayMessage { get; }
+    }
 }

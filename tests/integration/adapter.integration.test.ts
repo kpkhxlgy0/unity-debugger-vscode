@@ -188,6 +188,55 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
+  it("preserves the mature expression error text", async () => {
+    const client = await start("evaluation-error");
+    await initialize(client);
+    await attach(client);
+
+    await expect(
+      client.request("evaluate", {
+        expression: "DefinitelyMissingName",
+        frameId: 1,
+        context: "hover",
+      }),
+    ).rejects.toThrow(
+      "The identifier `DefinitelyMissingName` is not in the scope",
+    );
+
+    await client.request("disconnect", {});
+    await client.expectCleanExit(0);
+  });
+
+  it("returns an empty collection for a stale stopped-context handle", async () => {
+    const client = await start("stale-handle");
+    await initialize(client);
+    await attach(client);
+    await client.request("setBreakpoints", {
+      source: { path: fixtureSource },
+      breakpoints: [{ line: 12 }],
+    });
+    const stopped = await client.waitForEvent("stopped");
+    const stack = await client.request("stackTrace", {
+      threadId: stopped.body.threadId,
+      startFrame: 0,
+      levels: 20,
+    });
+    const scopes = await client.request("scopes", {
+      frameId: stack.body.stackFrames[0].id,
+    });
+    const staleReference = scopes.body.scopes[0].variablesReference;
+
+    await client.request("continue", { threadId: stopped.body.threadId });
+    await client.waitForEvent("stopped");
+    const stale = await client.request("variables", {
+      variablesReference: staleReference,
+    });
+
+    expect(stale.body.variables).toEqual([]);
+    await client.request("disconnect", {});
+    await client.expectCleanExit(0);
+  });
+
   it("omits unavailable pause sources and enables implicit evaluation by default", async () => {
     const client = await start("pause-source");
     const capabilities = await client.request("initialize", {
@@ -239,7 +288,7 @@ describe("Unity debug adapter process", () => {
     await client.expectCleanExit(0);
   });
 
-  it("keeps automatic inspection safe when implicit evaluation is disabled", async () => {
+  it("keeps mature implicit evaluation enabled regardless of the attach flag", async () => {
     const client = await start("pause-source");
     await initialize(client);
     await attach(client, false);
@@ -258,14 +307,14 @@ describe("Unity debug adapter process", () => {
     const variables = await client.request("variables", {
       variablesReference: scopes.body.scopes[0].variablesReference,
     });
-    expect(variables.body.variables[0].value).toBe("implicit-disabled");
+    expect(variables.body.variables[0].value).toBe("implicit-enabled");
 
     const hover = await client.request("evaluate", {
       expression: "_isVisible",
       frameId,
       context: "hover",
     });
-    expect(hover.body.result).toBe("implicit-disabled");
+    expect(hover.body.result).toBe("implicit-enabled");
 
     const watch = await client.request("evaluate", {
       expression: "_isVisible",

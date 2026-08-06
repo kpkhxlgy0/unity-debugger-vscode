@@ -360,7 +360,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void Disabled_implicit_evaluation_keeps_automatic_inspection_safe()
+        public void Attach_flag_does_not_disable_mature_implicit_evaluation()
         {
             var fixture = Fixture();
             AttachAndStop(fixture, false);
@@ -384,13 +384,13 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.True(Required<bool>(
                 Response(messages, "evaluate")["success"]));
             Assert.Equal(
-                BackendEvaluationMode.Safe,
+                BackendEvaluationMode.Explicit,
                 fixture.Backend.LastScopesMode);
             Assert.Equal(
-                BackendEvaluationMode.Safe,
+                BackendEvaluationMode.Explicit,
                 fixture.Backend.LastVariablesMode);
             Assert.Equal(
-                BackendEvaluationMode.Safe,
+                BackendEvaluationMode.Explicit,
                 fixture.Backend.LastEvaluationMode);
 
             var watch = Run(

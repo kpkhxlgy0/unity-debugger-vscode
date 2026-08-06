@@ -20,12 +20,9 @@ namespace UnityDebugger.Adapter.Backend
             new Dictionary<long, BreakEvent>();
         private readonly Dictionary<BreakEvent, long> breakpointIds =
             new Dictionary<BreakEvent, long>();
-        private readonly object frameLock = new object();
-        private readonly Dictionary<long, Mono.Debugging.Client.StackFrame>
-            frames =
-                new Dictionary<long, Mono.Debugging.Client.StackFrame>();
+        private readonly MonoObjectValueStore objectValues =
+            new MonoObjectValueStore();
         private long nextBreakpointId = 1;
-        private long nextFrameId = 1;
         private ExceptionBreakMode exceptionMode;
         private BackendStopReason? expectedStopReason;
         private bool detachCompleted;
@@ -284,41 +281,109 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
-            throw EvaluationPending();
+            ThrowIfDisposed();
+            var frame = objectValues.GetFrame(frameId);
+            var options = session.EvaluationOptions;
+            var values = new List<ObjectValue>();
+            var thisReference = frame.GetThisReference(options);
+            if (thisReference != null)
+                values.Add(thisReference);
+            values.AddRange(frame.GetParameters(options));
+            values.AddRange(frame.GetLocalVariables(options));
+            foreach (var value in values)
+            {
+                MonoObjectValueStore.WaitForValue(
+                    value,
+                    options,
+                    cancellationToken);
+            }
+            var locals = ObjectValue.CreateObject(
+                null,
+                new ObjectPath("Locals"),
+                string.Empty,
+                string.Empty,
+                ObjectValueFlags.Group | ObjectValueFlags.ReadOnly,
+                values.ToArray());
+            var mapped = objectValues.Map(locals);
+            return new[]
+            {
+                new BackendScope(
+                    "Locals",
+                    mapped.VariablesReference,
+                    false),
+            };
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
-            throw EvaluationPending();
+            ThrowIfDisposed();
+            return objectValues.GetVariables(
+                variablesReference,
+                session.EvaluationOptions,
+                cancellationToken);
         }
 
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
-            throw EvaluationPending();
+            ThrowIfDisposed();
+            var frame = objectValues.GetFrame(frameId);
+            var options = session.EvaluationOptions;
+            try
+            {
+                var value = frame.GetExpressionValue(expression, options);
+                MonoObjectValueStore.WaitForValue(
+                    value,
+                    options,
+                    cancellationToken);
+                ThrowIfEvaluationFailed(value);
+                var mapped = objectValues.Map(value);
+                return new BackendEvaluationResult(
+                    mapped.DisplayValue,
+                    mapped.TypeName,
+                    mapped.VariablesReference);
+            }
+            catch (BackendEvaluationException)
+            {
+                throw;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                throw new BackendEvaluationException(
+                    string.IsNullOrWhiteSpace(exception.Message)
+                        ? "Expression evaluation failed."
+                        : exception.Message,
+                    exception);
+            }
         }
 
         public BackendSetVariableResult? SetVariable(
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
-            throw EvaluationPending();
+            ThrowIfDisposed();
+            return objectValues.SetVariable(
+                variablesReference,
+                name,
+                expression,
+                session.EvaluationOptions,
+                cancellationToken);
         }
 
         public BackendBoundBreakpoint BindBreakpoint(
@@ -550,20 +615,10 @@ namespace UnityDebugger.Adapter.Backend
         }
 
         private long RegisterFrame(Mono.Debugging.Client.StackFrame frame)
-        {
-            lock (frameLock)
-            {
-                var id = nextFrameId++;
-                frames.Add(id, frame);
-                return id;
-            }
-        }
+            => objectValues.RegisterFrame(frame);
 
         private void ClearFrames()
-        {
-            lock (frameLock)
-                frames.Clear();
-        }
+            => objectValues.Clear();
 
         private void ThrowIfDisposed()
         {
@@ -574,8 +629,21 @@ namespace UnityDebugger.Adapter.Backend
             }
         }
 
-        private static DebuggerBackendException EvaluationPending() =>
-            new DebuggerBackendException(
-                "Mature ObjectValue evaluation is not initialized.");
+        private static void ThrowIfEvaluationFailed(ObjectValue value)
+        {
+            if (
+                !value.IsError &&
+                !value.IsUnknown &&
+                !value.IsNotSupported &&
+                !value.IsImplicitNotSupported)
+            {
+                return;
+            }
+            var message = value.DisplayValue;
+            throw new BackendEvaluationException(
+                string.IsNullOrWhiteSpace(message)
+                    ? "Expression evaluation failed."
+                    : message);
+        }
     }
 }

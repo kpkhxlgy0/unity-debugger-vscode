@@ -108,7 +108,6 @@ namespace UnityDebugger.Adapter.Backend
         {
             return RequireAttached().GetScopes(
                 frameId,
-                mode,
                 timeoutMilliseconds,
                 cancellationToken);
         }
@@ -121,7 +120,6 @@ namespace UnityDebugger.Adapter.Backend
         {
             return RequireAttached().GetVariables(
                 variablesReference,
-                mode,
                 timeoutMilliseconds,
                 cancellationToken);
         }
@@ -136,7 +134,6 @@ namespace UnityDebugger.Adapter.Backend
             return RequireAttached().Evaluate(
                 frameId,
                 expression,
-                mode,
                 timeoutMilliseconds,
                 cancellationToken);
         }
@@ -153,7 +150,6 @@ namespace UnityDebugger.Adapter.Backend
                 variablesReference,
                 name,
                 expression,
-                mode,
                 timeoutMilliseconds,
                 cancellationToken);
         }

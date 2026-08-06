@@ -30,8 +30,6 @@ namespace UnityDebugger.Adapter.Dap
         private FunctionBreakpointManager? functionBreakpointManager;
         private SourceMapper? sourceMapper;
         private bool terminatedSent;
-        private BackendEvaluationMode automaticEvaluationMode =
-            BackendEvaluationMode.Explicit;
 
         public UnityDebugSession(Func<IDebuggerBackend> backendFactory)
         {
@@ -94,9 +92,6 @@ namespace UnityDebugger.Adapter.Dap
             try
             {
                 var target = AttachArguments.Parse((JObject)arguments);
-                automaticEvaluationMode = target.EnableImplicitEvaluation
-                    ? BackendEvaluationMode.Explicit
-                    : BackendEvaluationMode.Safe;
                 var createdBackend = backendFactory();
                 backend = createdBackend;
                 Subscribe(createdBackend);
@@ -385,6 +380,13 @@ namespace UnityDebugger.Adapter.Dap
             {
                 SendResponse(response);
             }
+            catch (BackendEvaluationException exception)
+            {
+                SendErrorResponse(
+                    response,
+                    2028,
+                    exception.DisplayMessage);
+            }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
@@ -657,7 +659,7 @@ namespace UnityDebugger.Adapter.Dap
             {
                 var backendScopes = value.GetScopes(
                     frameHandle,
-                    automaticEvaluationMode,
+                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None).ToArray();
                 var scopes = new List<Scope>();
@@ -697,7 +699,7 @@ namespace UnityDebugger.Adapter.Dap
                 var dapVariables = new List<Variable>();
                 var variables = value.GetVariables(
                     reference,
-                    automaticEvaluationMode,
+                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 foreach (var variable in variables)
@@ -758,27 +760,19 @@ namespace UnityDebugger.Adapter.Dap
                 return;
             var request = arguments as JObject;
             var context = request?["context"]?.Value<string>();
-            BackendEvaluationMode mode;
-            if (string.Equals(
-                context,
-                "hover",
-                StringComparison.Ordinal))
-            {
-                mode = automaticEvaluationMode;
-            }
-            else if (
-                string.Equals(
+            if (
+                !string.Equals(
+                    context,
+                    "hover",
+                    StringComparison.Ordinal) &&
+                !string.Equals(
                     context,
                     "watch",
-                    StringComparison.Ordinal) ||
-                string.Equals(
+                    StringComparison.Ordinal) &&
+                !string.Equals(
                     context,
                     "repl",
                     StringComparison.Ordinal))
-            {
-                mode = BackendEvaluationMode.Explicit;
-            }
-            else
             {
                 SendErrorResponse(
                     response,
@@ -803,7 +797,7 @@ namespace UnityDebugger.Adapter.Dap
                 var result = value.Evaluate(
                     frameHandle,
                     expression!,
-                    mode,
+                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 if (result == null)
@@ -820,6 +814,13 @@ namespace UnityDebugger.Adapter.Dap
             catch (OperationCanceledException)
             {
                 SendEmptyEvaluation(response);
+            }
+            catch (BackendEvaluationException exception)
+            {
+                SendErrorResponse(
+                    response,
+                    2026,
+                    exception.DisplayMessage);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))

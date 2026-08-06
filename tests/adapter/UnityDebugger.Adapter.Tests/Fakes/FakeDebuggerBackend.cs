@@ -67,6 +67,7 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public BackendStoppedEventArgs? StepStoppedEvent { get; set; }
         public BackendEvaluationResult? EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
+        public Exception? EvaluationException { get; set; }
         public BackendSetVariableResult? SetVariableResult { get; set; } =
             new BackendSetVariableResult("", "", 0);
         public Exception? VariablesException { get; set; }
@@ -181,6 +182,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             LastExpression = expression;
             LastEvaluationMode = mode;
             LastEvaluateTimeoutMilliseconds = timeoutMilliseconds;
+            if (EvaluationException != null)
+                throw EvaluationException;
             EvaluateEnteredSignal?.Set();
             ContinueEvaluateSignal?.Wait(TimeSpan.FromSeconds(5));
             return EvaluationResult;

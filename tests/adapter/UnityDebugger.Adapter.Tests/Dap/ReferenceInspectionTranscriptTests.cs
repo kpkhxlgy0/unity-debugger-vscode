@@ -116,7 +116,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void DisabledImplicitEvaluationKeepsOnlyAutomaticInspectionSafe()
+        public void AttachFlagCannotDisableMatureImplicitEvaluation()
         {
             var backend = new FakeDebuggerBackend();
 
@@ -136,10 +136,14 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         context = "hover",
                     }));
 
-            Assert.Equal(BackendEvaluationMode.Safe, backend.LastScopesMode);
-            Assert.Equal(BackendEvaluationMode.Safe, backend.LastVariablesMode);
             Assert.Equal(
-                BackendEvaluationMode.Safe,
+                BackendEvaluationMode.Explicit,
+                backend.LastScopesMode);
+            Assert.Equal(
+                BackendEvaluationMode.Explicit,
+                backend.LastVariablesMode);
+            Assert.Equal(
+                BackendEvaluationMode.Explicit,
                 backend.LastEvaluationMode);
 
             RunAttached(
@@ -165,6 +169,33 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(
                 BackendEvaluationMode.Explicit,
                 backend.LastEvaluationMode);
+        }
+
+        [Fact]
+        public void MatureEvaluationErrorPreservesItsSpecificMessage()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                EvaluationException = new BackendEvaluationException(
+                    "The identifier `DefinitelyMissingName` is not in the scope"),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "DefinitelyMissingName",
+                        context = "hover",
+                    }));
+
+            var response = DapTestProtocol.Response(messages, "evaluate");
+            Assert.False(response["success"]!.Value<bool>());
+            Assert.Equal(
+                "The identifier `DefinitelyMissingName` is not in the scope",
+                response["message"]!.Value<string>());
         }
 
         [Fact]

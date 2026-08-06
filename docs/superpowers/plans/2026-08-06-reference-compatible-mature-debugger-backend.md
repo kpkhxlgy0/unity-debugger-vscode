@@ -570,7 +570,7 @@ Clear() -> void
 
 The implementation uses monotonically increasing `long` handles and dictionaries of mature frames/ObjectValues. `Clear()` empties both dictionaries but does not reset counters, so a stale handle can never alias a new stop.
 
-- [ ] **Step 1: Write the mature evaluation-delegation RED tests**
+- [x] **Step 1: Write the mature evaluation-delegation RED tests**
 
 Add tests proving Hover, Watch, REPL, Locals, and Variables all delegate to
 the mature session's evaluation options without consulting an Attach flag or
@@ -579,7 +579,7 @@ captured in `EVAL-01` through `EVAL-04`: automatic Getter values are available,
 `ToString()` supplies object display values, and unavailable identifiers retain
 their specific mature error text.
 
-- [ ] **Step 2: Write ObjectValue mapping RED tests**
+- [x] **Step 2: Write ObjectValue mapping RED tests**
 
 Construct `ObjectValue.CreatePrimitive`, `ObjectValue.CreateObject`, and an error `ObjectValue`, register them in `MonoObjectValueStore`, and assert:
 
@@ -621,7 +621,7 @@ Assert.Equal("Getter failed", mappedChildren[1].DisplayValue);
 
 Add handle-lifetime tests: a handle remains usable while stopped, the resume event invalidates it once, and the next stop allocates a new nonzero handle. The stale request must follow the reference result recorded in matrix row `VAR-01`; do not preserve the current custom warning by assumption.
 
-- [ ] **Step 3: Run focused tests to verify RED**
+- [x] **Step 3: Run focused tests to verify RED**
 
 Run:
 
@@ -631,7 +631,7 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because evaluation still lacks the mature ObjectValue path and exact reference error/lifetime mapping.
 
-- [ ] **Step 4: Implement the single mature evaluation path**
+- [x] **Step 4: Implement the single mature evaluation path**
 
 The core calls must be direct:
 
@@ -662,7 +662,7 @@ internal sealed class BackendEvaluationException : Exception
 }
 ```
 
-- [ ] **Step 5: Update DAP inspection translation**
+- [x] **Step 5: Update DAP inspection translation**
 
 `UnityDebugSession.Evaluate` must return the mature display/type/reference on success and the reference-recorded DAP error on failure. Remove the unconditional generic error path:
 
@@ -675,7 +675,7 @@ catch (BackendEvaluationException exception)
 
 `BackendEvaluationException.DisplayMessage` must come from mature evaluation metadata and must not include expression text or an unredacted path in diagnostics.
 
-- [ ] **Step 6: Run evaluation and integration tests GREEN**
+- [x] **Step 6: Run evaluation and integration tests GREEN**
 
 Run:
 
@@ -686,7 +686,7 @@ npm run test:integration
 
 Expected: PASS; integration covers built-in implicit Getter/`ToString()` evaluation, specific mature errors, and stopped-context invalidation.
 
-- [ ] **Step 7: Commit mature evaluation**
+- [x] **Step 7: Commit mature evaluation**
 
 ```powershell
 git add -- adapter/src/UnityDebugger.Adapter/Backend adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs tests/adapter/UnityDebugger.Adapter.Tests/Backend tests/adapter/UnityDebugger.Adapter.Tests/Dap/ReferenceInspectionTranscriptTests.cs tests/integration/adapter.integration.test.ts

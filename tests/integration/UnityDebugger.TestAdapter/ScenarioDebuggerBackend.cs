@@ -19,6 +19,7 @@ namespace UnityDebugger.TestAdapter
         private long nextBreakpointId = 1;
         private int firstBreakpoint;
         private int pauseRequested;
+        private int resumed;
 
 #pragma warning disable CS0067
         public event EventHandler<BackendStoppedEventArgs>? Stopped;
@@ -128,6 +129,12 @@ namespace UnityDebugger.TestAdapter
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfCrashScenario();
+            if (
+                scenario == "stale-handle" &&
+                Volatile.Read(ref resumed) != 0)
+            {
+                return Array.Empty<BackendVariable>();
+            }
             var displayValue = scenario == "pause-source"
                 ? ToImplicitEvaluationDisplay(mode)
                 : "0";
@@ -150,6 +157,11 @@ namespace UnityDebugger.TestAdapter
         {
             cancellationToken.ThrowIfCancellationRequested();
             ThrowIfCrashScenario();
+            if (scenario == "evaluation-error")
+            {
+                throw new BackendEvaluationException(
+                    "The identifier `DefinitelyMissingName` is not in the scope");
+            }
             if (
                 scenario == "pause-source" &&
                 string.Equals(
@@ -249,6 +261,7 @@ namespace UnityDebugger.TestAdapter
 
         public void Continue(long threadId)
         {
+            Interlocked.Exchange(ref resumed, 1);
             Continued?.Invoke(this, EventArgs.Empty);
             ScheduleStop(BackendStopReason.Pause, 30);
         }
