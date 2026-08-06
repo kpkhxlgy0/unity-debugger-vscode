@@ -329,3 +329,18 @@ infer an unavailable UI capability.
 - Screenshots:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-31e0d672-fed1-47f9-8c74-535cabbbc20c.png` and
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-f8a1c901-ceef-4464-91e6-033d468ea551.png`.
+
+### 2026-08-06 - Pure 0.3.0 silent evaluation-error candidate
+
+- Candidate remains version `0.3.0`; build ID is `0.3.0+gd09610c2dffe`, from source commit
+  `d09610c2dffea9594c8be3f2c2563aec93d81830`.
+- VSIX SHA-256: `cd74f5bc1b481cc8568db6aff2e6d35438e9a7952a02d0817f60490130f4cdcf`.
+- Adapter SHA-256: `520eb0cbd158201a0e1aa53e10ca1b013c82d106472ef18973ea00c977ed4d89`.
+- Hover and Watch evaluation failures remain failed DAP Evaluate responses with their exact diagnostics, but now set
+  `body.error.showUser` to `false`. This preserves inline error styling while suppressing global notifications on
+  initial evaluation and automatic Watch refresh at a later stop.
+- Verification passed: type checking, third-party provenance, 143 adapter tests, 9 integration tests, 19 build tests,
+  93 extension tests, 4 package contract tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing
+  upstream unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
+- EVAL-02 remains divergent until this exact candidate is installed and retested through the same line 11 to line 214
+  stop transition in MyGame.
