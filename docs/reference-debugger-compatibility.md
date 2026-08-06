@@ -265,4 +265,6 @@ infer an unavailable UI capability.
 - Verification passed: type checking, third-party provenance, 142 adapter tests, 9 integration tests, 19 build tests,
   93 extension tests, 4 package contract tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing
   upstream unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
+- After the user stopped debugging and exited Play, VS Code installed this exact candidate. The installed version,
+  build ID, source commit, and Adapter SHA-256 match the audited VSIX; Reload is required before the real retest.
 - EVAL-01 remains divergent until this exact candidate is installed and retested in MyGame.
