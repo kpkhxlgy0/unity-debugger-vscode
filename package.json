@@ -51,17 +51,6 @@
         "title": "Unity Debugger Pure: Copy Sanitized Diagnostics"
       }
     ],
-    "configuration": {
-      "title": "Unity Debugger Pure",
-      "properties": {
-        "unityDebuggerPure.enableImplicitEvaluation": {
-          "type": "boolean",
-          "default": true,
-          "scope": "resource",
-          "description": "Allow Hover, Locals, and variable expansion to execute target code for property getters and ToString(). This can cause side effects or delays. Changes apply on the next Attach."
-        }
-      }
-    },
     "breakpoints": [
       {
         "language": "csharp"

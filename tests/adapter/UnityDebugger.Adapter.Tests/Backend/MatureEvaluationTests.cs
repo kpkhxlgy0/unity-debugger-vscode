@@ -17,25 +17,21 @@ namespace UnityDebugger.Adapter.Tests.Backend
 
                 backend.GetScopes(
                     1,
-                    BackendEvaluationMode.Safe,
                     10000,
                     CancellationToken.None);
                 backend.GetVariables(
                     2,
-                    BackendEvaluationMode.Safe,
                     10000,
                     CancellationToken.None);
                 backend.Evaluate(
                     1,
                     "value.ToString()",
-                    BackendEvaluationMode.Safe,
                     10000,
                     CancellationToken.None);
                 backend.SetVariable(
                     2,
                     "value",
                     "43",
-                    BackendEvaluationMode.Safe,
                     10000,
                     CancellationToken.None);
 

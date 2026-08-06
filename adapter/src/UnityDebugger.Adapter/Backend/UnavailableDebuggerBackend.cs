@@ -44,21 +44,18 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken) =>
             throw NotAttached();
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken) => throw NotAttached();
 
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken) => throw NotAttached();
 
@@ -66,7 +63,6 @@ namespace UnityDebugger.Adapter.Backend
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken) => throw NotAttached();
 

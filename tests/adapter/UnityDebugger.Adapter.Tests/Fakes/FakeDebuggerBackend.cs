@@ -72,9 +72,6 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new BackendSetVariableResult("", "", 0);
         public Exception? VariablesException { get; set; }
         public string? LastExpression { get; private set; }
-        public BackendEvaluationMode? LastEvaluationMode { get; private set; }
-        public BackendEvaluationMode? LastScopesMode { get; private set; }
-        public BackendEvaluationMode? LastVariablesMode { get; private set; }
         public int? LastScopesTimeoutMilliseconds { get; private set; }
         public int? LastVariablesTimeoutMilliseconds { get; private set; }
         public int? LastEvaluateTimeoutMilliseconds { get; private set; }
@@ -141,24 +138,20 @@ namespace UnityDebugger.Adapter.Tests.Fakes
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
             ScopesCount++;
-            LastScopesMode = mode;
             LastScopesTimeoutMilliseconds = timeoutMilliseconds;
             return Scopes;
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
             VariablesCount++;
-            LastVariablesMode = mode;
             LastVariablesTimeoutMilliseconds = timeoutMilliseconds;
             if (VariablesException != null)
                 throw VariablesException;
@@ -174,13 +167,11 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
             EvaluateCount++;
             LastExpression = expression;
-            LastEvaluationMode = mode;
             LastEvaluateTimeoutMilliseconds = timeoutMilliseconds;
             if (EvaluationException != null)
                 throw EvaluationException;
@@ -193,7 +184,6 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {

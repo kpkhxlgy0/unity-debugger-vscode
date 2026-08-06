@@ -4,12 +4,6 @@ using System.Net;
 
 namespace UnityDebugger.Adapter.Backend
 {
-    internal enum BackendEvaluationMode
-    {
-        Safe,
-        Explicit,
-    }
-
     internal sealed class AttachTarget
     {
         public AttachTarget(
@@ -17,15 +11,13 @@ namespace UnityDebugger.Adapter.Backend
             IPAddress address,
             int port,
             string workspaceRoot,
-            string projectVersion,
-            bool enableImplicitEvaluation = true)
+            string projectVersion)
         {
             ProcessId = processId;
             Address = address;
             Port = port;
             WorkspaceRoot = workspaceRoot;
             ProjectVersion = projectVersion;
-            EnableImplicitEvaluation = enableImplicitEvaluation;
         }
 
         public int ProcessId { get; }
@@ -33,7 +25,6 @@ namespace UnityDebugger.Adapter.Backend
         public int Port { get; }
         public string WorkspaceRoot { get; }
         public string ProjectVersion { get; }
-        public bool EnableImplicitEvaluation { get; }
     }
 
     internal sealed class BackendThread

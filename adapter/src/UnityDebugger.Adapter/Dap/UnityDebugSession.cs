@@ -361,7 +361,6 @@ namespace UnityDebugger.Adapter.Dap
                     reference,
                     name!,
                     expression!,
-                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 if (result == null)
@@ -659,7 +658,6 @@ namespace UnityDebugger.Adapter.Dap
             {
                 var backendScopes = value.GetScopes(
                     frameHandle,
-                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None).ToArray();
                 var scopes = new List<Scope>();
@@ -699,7 +697,6 @@ namespace UnityDebugger.Adapter.Dap
                 var dapVariables = new List<Variable>();
                 var variables = value.GetVariables(
                     reference,
-                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 foreach (var variable in variables)
@@ -797,7 +794,6 @@ namespace UnityDebugger.Adapter.Dap
                 var result = value.Evaluate(
                     frameHandle,
                     expression!,
-                    BackendEvaluationMode.Explicit,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 if (result == null)

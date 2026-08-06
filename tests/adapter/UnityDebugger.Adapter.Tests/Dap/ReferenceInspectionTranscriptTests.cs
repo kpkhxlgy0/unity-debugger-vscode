@@ -82,9 +82,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(
                 "true",
                 response["body"]!["result"]!.Value<string>());
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                backend.LastEvaluationMode);
             Assert.Equal(10000, backend.LastEvaluateTimeoutMilliseconds);
         }
 
@@ -116,7 +113,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void AttachFlagCannotDisableMatureImplicitEvaluation()
+        public void LegacyAttachFlagCannotDisableBuiltInEvaluation()
         {
             var backend = new FakeDebuggerBackend();
 
@@ -136,15 +133,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         context = "hover",
                     }));
 
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                backend.LastScopesMode);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                backend.LastVariablesMode);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                backend.LastEvaluationMode);
+            Assert.Equal(1, backend.ScopesCount);
+            Assert.Equal(1, backend.VariablesCount);
+            Assert.Equal(1, backend.EvaluateCount);
 
             RunAttached(
                 backend,
@@ -166,9 +157,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         context = "repl",
                     }));
 
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                backend.LastEvaluationMode);
+            Assert.Equal(3, backend.EvaluateCount);
         }
 
         [Fact]

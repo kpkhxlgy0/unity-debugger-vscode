@@ -102,7 +102,6 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -114,7 +113,6 @@ namespace UnityDebugger.Adapter.Backend
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -127,7 +125,6 @@ namespace UnityDebugger.Adapter.Backend
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -142,7 +139,6 @@ namespace UnityDebugger.Adapter.Backend
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {

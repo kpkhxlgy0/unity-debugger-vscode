@@ -23,5 +23,8 @@ describe("PRODUCT_IDENTITY", () => {
         (command: { command: string }) => command.command,
       ),
     );
+    expect(
+      manifest.contributes.configuration?.properties ?? {},
+    ).not.toHaveProperty("unityDebuggerPure.enableImplicitEvaluation");
   });
 });

@@ -103,12 +103,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     "body.variablesReference")) > 0);
             Assert.Equal(1, fixture.Backend.EvaluateCount);
             Assert.Equal("player.Health", fixture.Backend.LastExpression);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastScopesMode);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastVariablesMode);
         }
 
         [Fact]
@@ -327,15 +321,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Theory]
-        [InlineData("hover", (int)BackendEvaluationMode.Explicit)]
-        [InlineData("watch", (int)BackendEvaluationMode.Explicit)]
-        [InlineData("repl", (int)BackendEvaluationMode.Explicit)]
-        public void Evaluation_context_selects_backend_mode(
-            string context,
-            int expectedModeValue)
+        [InlineData("hover")]
+        [InlineData("watch")]
+        [InlineData("repl")]
+        public void Supported_evaluation_context_reaches_backend(
+            string context)
         {
-            var expectedMode =
-                (BackendEvaluationMode)expectedModeValue;
             var fixture = Fixture();
             AttachAndStop(fixture);
             var messages = Run(
@@ -356,11 +347,11 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.True(Required<bool>(
                 Response(messages, "evaluate")["success"]));
             Assert.Equal(1, fixture.Backend.EvaluateCount);
-            Assert.Equal(expectedMode, fixture.Backend.LastEvaluationMode);
+            Assert.Equal("player.Health", fixture.Backend.LastExpression);
         }
 
         [Fact]
-        public void Attach_flag_does_not_disable_mature_implicit_evaluation()
+        public void Legacy_attach_flag_does_not_change_built_in_evaluation()
         {
             var fixture = Fixture();
             AttachAndStop(fixture, false);
@@ -383,15 +374,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             Assert.True(Required<bool>(
                 Response(messages, "evaluate")["success"]));
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastScopesMode);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastVariablesMode);
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastEvaluationMode);
+            Assert.Equal(1, fixture.Backend.ScopesCount);
+            Assert.Equal(1, fixture.Backend.VariablesCount);
+            Assert.Equal(1, fixture.Backend.EvaluateCount);
 
             var watch = Run(
                 fixture.Session,
@@ -406,9 +391,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             Assert.True(Required<bool>(
                 Response(watch, "evaluate")["success"]));
-            Assert.Equal(
-                BackendEvaluationMode.Explicit,
-                fixture.Backend.LastEvaluationMode);
+            Assert.Equal(2, fixture.Backend.EvaluateCount);
         }
 
         [Fact]

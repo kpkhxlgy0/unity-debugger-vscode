@@ -131,25 +131,33 @@ if (
     "Packaged manifest has the wrong initial debug configuration.",
   );
 }
-const expectedImplicitEvaluationSetting = {
-  type: "boolean",
-  default: true,
-  scope: "resource",
-  description:
-    "Allow Hover, Locals, and variable expansion to execute target code " +
-    "for property getters and ToString(). This can cause side effects or " +
-    "delays. Changes apply on the next Attach.",
-};
+const implicitEvaluationSettingKey = [
+  "unityDebuggerPure.enableImplicit",
+  "Evaluation",
+].join("");
 const implicitEvaluationSetting =
   manifest.contributes?.configuration?.properties?.[
-    "unityDebuggerPure.enableImplicitEvaluation"
+    implicitEvaluationSettingKey
   ];
+if (implicitEvaluationSetting !== undefined) {
+  throw new Error(
+    "Packaged manifest must not contribute an implicit evaluation setting.",
+  );
+}
+const privateImplicitEvaluationArgument = [
+  "__enable",
+  "ImplicitEvaluation",
+].join("");
 if (
-  JSON.stringify(implicitEvaluationSetting) !==
-  JSON.stringify(expectedImplicitEvaluationSetting)
+  files
+    .get("extension/dist/extension.cjs")
+    .bytes.includes(
+      Buffer.from(privateImplicitEvaluationArgument, "utf8"),
+    )
 ) {
   throw new Error(
-    "Packaged manifest has the wrong implicit evaluation setting.",
+    "Packaged extension must not emit the private implicit evaluation " +
+      "Attach argument.",
   );
 }
 if (

@@ -34,9 +34,6 @@ export class DebugConfigurationProvider {
       currentFolder: string,
     ) => readonly string[],
     private readonly apiAttachRequests?: ApiAttachRequestResolver,
-    private readonly readImplicitEvaluation: (
-      workspaceRoot: string,
-    ) => boolean = () => true,
   ) {}
 
   public async resolveDebugConfiguration(
@@ -62,9 +59,6 @@ export class DebugConfigurationProvider {
       return undefined;
     }
 
-    const enableImplicitEvaluation = this.readImplicitEvaluation(
-      folder.uri.fsPath,
-    );
     const hasApiRequestId = Object.prototype.hasOwnProperty.call(
       configuration,
       "__apiAttachRequestId",
@@ -94,7 +88,6 @@ export class DebugConfigurationProvider {
       return this.applyCandidatePolicy(
         candidate,
         String(configuration.name ?? PRODUCT_IDENTITY.defaultConfigurationName),
-        enableImplicitEvaluation,
         apiRequestId,
       );
     }
@@ -130,14 +123,12 @@ export class DebugConfigurationProvider {
     return this.applyCandidatePolicy(
       candidate,
       String(configuration.name ?? PRODUCT_IDENTITY.defaultConfigurationName),
-      enableImplicitEvaluation,
     );
   }
 
   private async applyCandidatePolicy(
     candidate: EditorCandidate,
     name: string,
-    enableImplicitEvaluation: boolean,
     apiAttachRequestId?: string,
   ): Promise<UnityAttachConfiguration | undefined> {
     const decision = classifyVersion(candidate.projectVersion);
@@ -149,7 +140,6 @@ export class DebugConfigurationProvider {
     return toAttachConfiguration(
       candidate,
       name,
-      enableImplicitEvaluation,
       apiAttachRequestId,
     );
   }
@@ -164,7 +154,6 @@ export class DebugConfigurationProvider {
 function toAttachConfiguration(
   candidate: EditorCandidate,
   name: string,
-  enableImplicitEvaluation: boolean,
   apiAttachRequestId?: string,
 ): UnityAttachConfiguration {
   return {
@@ -176,7 +165,6 @@ function toAttachConfiguration(
     __port: candidate.port,
     __workspaceRoot: candidate.workspaceRoot,
     __projectVersion: candidate.projectVersion,
-    __enableImplicitEvaluation: enableImplicitEvaluation,
     ...(apiAttachRequestId
       ? { __apiAttachRequestId: apiAttachRequestId }
       : {}),

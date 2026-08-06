@@ -109,7 +109,6 @@ namespace UnityDebugger.TestAdapter
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -123,7 +122,6 @@ namespace UnityDebugger.TestAdapter
 
         public IReadOnlyList<BackendVariable> GetVariables(
             long variablesReference,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -136,7 +134,7 @@ namespace UnityDebugger.TestAdapter
                 return Array.Empty<BackendVariable>();
             }
             var displayValue = scenario == "pause-source"
-                ? ToImplicitEvaluationDisplay(mode)
+                ? "implicit-enabled"
                 : "0";
             return new[]
             {
@@ -151,7 +149,6 @@ namespace UnityDebugger.TestAdapter
         public BackendEvaluationResult? Evaluate(
             long frameId,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -170,7 +167,7 @@ namespace UnityDebugger.TestAdapter
                     StringComparison.Ordinal))
             {
                 return new BackendEvaluationResult(
-                    ToImplicitEvaluationDisplay(mode),
+                    "implicit-enabled",
                     "System.String",
                     0);
             }
@@ -184,7 +181,6 @@ namespace UnityDebugger.TestAdapter
             long variablesReference,
             string name,
             string expression,
-            BackendEvaluationMode mode,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -195,12 +191,6 @@ namespace UnityDebugger.TestAdapter
                 "System.Int32",
                 0);
         }
-
-        private static string ToImplicitEvaluationDisplay(
-            BackendEvaluationMode mode) =>
-            mode == BackendEvaluationMode.Explicit
-                ? "implicit-enabled"
-                : "implicit-disabled";
 
         public BackendBoundBreakpoint BindBreakpoint(
             LogicalBreakpoint breakpoint)

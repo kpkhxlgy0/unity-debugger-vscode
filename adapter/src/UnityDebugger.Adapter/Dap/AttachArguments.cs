@@ -83,18 +83,12 @@ namespace UnityDebugger.Adapter.Dap
                     "compatibility policy.");
             }
 
-            var enableImplicitEvaluation = OptionalBoolean(
-                arguments,
-                "__enableImplicitEvaluation",
-                true);
-
             return new AttachTarget(
                 processId,
                 address,
                 port,
                 workspaceRoot,
-                projectVersion,
-                enableImplicitEvaluation);
+                projectVersion);
         }
 
         private static int RequiredInteger(
@@ -130,21 +124,6 @@ namespace UnityDebugger.Adapter.Dap
             return token.Value<string>()!;
         }
 
-        private static bool OptionalBoolean(
-            JObject arguments,
-            string property,
-            bool defaultValue)
-        {
-            var token = arguments[property];
-            if (token == null)
-                return defaultValue;
-            if (token.Type != JTokenType.Boolean)
-            {
-                throw new AttachArgumentException(
-                    $"{property} must be a boolean.");
-            }
-            return token.Value<bool>();
-        }
     }
 
     internal sealed class AttachArgumentException : Exception

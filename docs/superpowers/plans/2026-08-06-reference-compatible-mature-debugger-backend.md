@@ -935,7 +935,7 @@ git commit -m "refactor: remove handwritten debugger engines"
 - Consumes: reference evidence `CFG-01`, which proves that `zlorn.vstuc 1.2.1` contributes no implicit-evaluation setting.
 - Produces: no public setting, no `__enableImplicitEvaluation` Attach argument, and no backend mode controlled by extension configuration.
 
-- [ ] **Step 1: Add failing absence assertions**
+- [x] **Step 1: Add failing absence assertions**
 
 Assert the manifest and resolved Attach configuration do not contain the removed contract:
 
@@ -950,7 +950,7 @@ Add adapter parsing and integration assertions that an incoming legacy
 cannot change Getter/`ToString()` behavior. Remove tests that expect disabled
 automatic evaluation.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -962,20 +962,20 @@ dotnet test tests/adapter/UnityDebugger.Adapter.Tests/UnityDebugger.Adapter.Test
 
 Expected: FAIL because the setting, private Attach argument, and disabled-policy tests still exist.
 
-- [ ] **Step 3: Remove the setting propagation chain**
+- [x] **Step 3: Remove the setting propagation chain**
 
 Delete the manifest contribution, extension configuration read, model field,
 provider propagation, Attach parser field, backend model flag, and evaluation
 mode branches. Do not retain an environment variable, launch option, or hidden
 fallback switch.
 
-- [ ] **Step 4: Make package verification reject reintroduction**
+- [x] **Step 4: Make package verification reject reintroduction**
 
 Change `scripts/verify-vsix.mjs` and its negative package test so a packaged
 `unityDebuggerPure.enableImplicitEvaluation` contribution or a generated launch
 configuration containing `__enableImplicitEvaluation` fails verification.
 
-- [ ] **Step 5: Run removal tests GREEN**
+- [x] **Step 5: Run removal tests GREEN**
 
 Run the commands from Step 2 plus:
 
@@ -990,7 +990,11 @@ Expected: PASS, and this search returns no production occurrences:
 rg -n "enableImplicitEvaluation|__enableImplicitEvaluation" package.json extension adapter/src scripts
 ```
 
-- [ ] **Step 6: Commit setting removal**
+The package verifier's setting/Attach-argument negative cases are run here.
+The full positive `test:package` gate is run in Tasks 8–9 after the one allowed
+`0.4.0` candidate exists; Task 7 does not create an obsolete `0.3.0` VSIX.
+
+- [x] **Step 6: Commit setting removal**
 
 ```powershell
 git add -- package.json extension adapter/src tests scripts/verify-vsix.mjs

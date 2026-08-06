@@ -77,7 +77,7 @@ test("rejects a packaged manifest without the initial attach configuration", (t)
   );
 });
 
-test("rejects a packaged manifest with a changed implicit evaluation setting", (t) => {
+test("rejects a packaged implicit evaluation setting", (t) => {
   const fixtureDirectory = fs.mkdtempSync(
     path.join(os.tmpdir(), "unity-debugger-pure-vsix-"),
   );
@@ -91,12 +91,15 @@ test("rejects a packaged manifest with a changed implicit evaluation setting", (
   const manifestEntry = archive.getEntry("extension/package.json");
   assert.ok(manifestEntry);
   const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
-  const setting =
-    manifest.contributes.configuration.properties[
-      "unityDebuggerPure.enableImplicitEvaluation"
-    ];
-  assert.ok(setting);
-  setting.default = false;
+  manifest.contributes.configuration = {
+    title: "Unity Debugger Pure",
+    properties: {
+      "unityDebuggerPure.enableImplicitEvaluation": {
+        type: "boolean",
+        default: true,
+      },
+    },
+  };
   archive.updateFile(
     "extension/package.json",
     Buffer.from(JSON.stringify(manifest), "utf8"),
@@ -109,5 +112,44 @@ test("rejects a packaged manifest with a changed implicit evaluation setting", (
   assert.match(
     `${result.stdout}\n${result.stderr}`,
     /implicit evaluation setting/i,
+  );
+});
+
+test("rejects a packaged private implicit evaluation Attach argument", (t) => {
+  const fixtureDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "unity-debugger-pure-vsix-"),
+  );
+  t.after(() => fs.rmSync(fixtureDirectory, { recursive: true, force: true }));
+
+  const fixturePath = path.join(
+    fixtureDirectory,
+    "private-implicit-evaluation.vsix",
+  );
+  const archive = new AdmZip(artifactPath);
+  const manifestEntry = archive.getEntry("extension/package.json");
+  const extensionEntry = archive.getEntry("extension/dist/extension.cjs");
+  assert.ok(manifestEntry);
+  assert.ok(extensionEntry);
+  const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
+  delete manifest.contributes.configuration;
+  archive.updateFile(
+    "extension/package.json",
+    Buffer.from(JSON.stringify(manifest), "utf8"),
+  );
+  archive.updateFile(
+    "extension/dist/extension.cjs",
+    Buffer.concat([
+      extensionEntry.getData(),
+      Buffer.from("\n// __enableImplicitEvaluation\n", "utf8"),
+    ]),
+  );
+  archive.writeZip(fixturePath);
+
+  const result = verifyVsix(fixturePath);
+
+  assert.notEqual(result.status, 0);
+  assert.match(
+    `${result.stdout}\n${result.stderr}`,
+    /private implicit evaluation.*attach argument/i,
   );
 });
