@@ -161,7 +161,7 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
-        public void MatureEvaluationErrorPreservesItsSpecificMessage()
+        public void HoverEvaluationErrorReturnsTheDiagnosticWithoutFailingTheRequest()
         {
             var backend = new FakeDebuggerBackend
             {
@@ -178,6 +178,36 @@ namespace UnityDebugger.Adapter.Tests.Dap
                         frameId = 1,
                         expression = "DefinitelyMissingName",
                         context = "hover",
+                    }));
+
+            var response = DapTestProtocol.Response(messages, "evaluate");
+            Assert.True(response["success"]!.Value<bool>());
+            Assert.Equal(
+                "The identifier `DefinitelyMissingName` is not in the scope",
+                response["body"]!["result"]!.Value<string>());
+            Assert.Equal(
+                0,
+                response["body"]!["variablesReference"]!.Value<int>());
+        }
+
+        [Fact]
+        public void WatchEvaluationErrorRemainsAnInlineFailedEvaluation()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                EvaluationException = new BackendEvaluationException(
+                    "The identifier `DefinitelyMissingName` is not in the scope"),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "DefinitelyMissingName",
+                        context = "watch",
                     }));
 
             var response = DapTestProtocol.Response(messages, "evaluate");
