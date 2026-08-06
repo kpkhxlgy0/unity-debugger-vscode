@@ -12,7 +12,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | EVAL-02 | Hover/Watch `RuntimeInitializeLoadType.AfterSceneLoad` | Hover and Watch report <code>The identifier `RuntimeInitializeLoadType` is not in the scope</code> with inline presentation only, including automatic Watch refresh at a new stop | Same diagnostics and inline styles with no notification initially or after automatic Watch refresh at the next stop | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | DAP evaluation errors retain failure semantics with `showUser=false` |
 | STEP-01 | Step In, then rapid Step Over input | Step In lands in the property Getter at `GameRuntimeBootstrapMenu.cs:13`; three immediate Step Over clicks remain clickable, emit no warning, stop at caller `GameRuntimeBootstrap.cs:24`, and preserve the yellow marker | Same landing lines, responsive controls, no warning, and continuous yellow marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature request handling matches the recorded rapid-input sequence |
 | VAR-01 | Expand variables across resume/new stop | Variables refresh across the recorded Step In/rapid Step Over sequence without exposing a stale-collection warning | Variables refreshed after continuing from the rapid-step stop to the instance breakpoint; no stale-collection warning appeared | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature variable handles match the recorded resume/new-stop sequence |
-| VAR-02 | Instance Locals topology | Locals has peer synthetic entries `Active scene`, `this`, and `this.gameObject`; `transform` is below `this.gameObject`; Getter values display directly with no `Properties` group | At `GamePrototypeRuntime.cs:214`, Locals contains only `this` at the top level | divergent; reference verified | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Stop for user decision before replacing Pure's Locals presentation |
+| VAR-02 | Instance Locals topology | Locals has peer synthetic entries `Active scene`, `this`, and `this.gameObject`; `transform` is below `this.gameObject`; Getter values display directly with no `Properties` group | Installed build `0.3.0+gd09610c2dffe` contains only `this`; the approved source replacement now mirrors the reference main-thread check, Unity values, ordering, and names but is not yet installed or retested | divergent; replacement pending verification | 2026-08-06 MyGame reference/Pure runs and focused source tests | User approved replacing the current Locals output; install and run the same instance-frame check before changing status |
 | BP-02 | Conditional breakpoint at `GamePrototypeRuntime.cs:214` | `_status == null` never stops; `_status != null` stops normally with the yellow marker and Variables | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
 | BP-03 | Logpoint at `GamePrototypeRuntime.cs:214` | `Reference log status={_status}` outputs `Reference log status=等待登录` without stopping; no warning, expression error, or marker loss | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
 | BP-04 | Function breakpoint | Fully qualified `MyGame.Runtime.DevTools.GamePrototypeRuntime.EnsureStyles` is accepted and stops at the method definition around line 1069 | Advertises function-breakpoint support, but `SetFunctionBreakpoints` returns an empty result without binding | divergent; reference verified | 2026-08-06 MyGame reference run and Pure source audit | User confirmed replacement with mature function-breakpoint binding |
@@ -357,3 +357,17 @@ infer an unavailable UI capability.
   reference Locals contains peer entries `Active scene`, `this`, and `this.gameObject`.
 - Sanitized adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T135012903Z-79980.log`.
+
+### 2026-08-06 - Pure 0.3.0 reference Locals source candidate
+
+- The user approved replacing Pure's top-level instance Locals output after the VAR-02 difference was recorded.
+- The replacement follows the reference-observed main-thread-only topology and exact order: `Active scene`, `this`,
+  `this.gameObject`, visible locals, then parameters.
+- Unity synthetic values use the mature Soft Debugger mirror path with breakpoints disabled, single-threaded invocation,
+  and the reference timeout boundary. Missing Unity types, non-Component frames, failed Getters, and timeouts omit only
+  the unavailable synthetic entry; ordinary frame values remain available.
+- Focused mature-evaluation tests passed 5/5. Full verification passed: TypeScript type checking, third-party
+  provenance, 145 adapter tests, 9 integration tests, 19 build tests, and 93 extension tests. The existing upstream
+  unused-variable warning in `Mono.Debugging.Soft` remains unchanged.
+- This is source evidence only. VAR-02 remains divergent until the resulting `0.3.0` candidate is installed and the
+  reference action sequence is repeated at `GamePrototypeRuntime.cs:214`.

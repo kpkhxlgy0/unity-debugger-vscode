@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
+using Mono.Debugging.Backend;
+using Mono.Debugging.Client;
 using UnityDebugger.Adapter.Backend;
 using Xunit;
 
@@ -46,6 +48,58 @@ namespace UnityDebugger.Adapter.Tests.Backend
         }
 
         [Fact]
+        public void MainThreadComponentLocalsMatchTheReferenceOrderAndNames()
+        {
+            var activeScene = Object("scene");
+            var thisReference = Object("this");
+            var thisGameObject = Object("gameObject");
+            var local = Primitive("local", ObjectValueFlags.Variable);
+            var parameter = Primitive("parameter", ObjectValueFlags.Parameter);
+
+            var values = SoftDebuggerSessionFacade.ComposeFrameLocals(
+                true,
+                activeScene,
+                thisReference,
+                thisGameObject,
+                new[] { local },
+                new[] { parameter });
+
+            Assert.Equal(
+                new[]
+                {
+                    "Active scene",
+                    "this",
+                    "this.gameObject",
+                    "local",
+                    "parameter",
+                },
+                Array.ConvertAll(values, value => value.Name));
+            Assert.Same(activeScene, values[0]);
+            Assert.Same(thisReference, values[1]);
+            Assert.Same(thisGameObject, values[2]);
+        }
+
+        [Fact]
+        public void NonMainThreadLocalsOmitUnitySyntheticEntries()
+        {
+            var thisReference = Object("this");
+            var local = Primitive("local", ObjectValueFlags.Variable);
+            var parameter = Primitive("parameter", ObjectValueFlags.Parameter);
+
+            var values = SoftDebuggerSessionFacade.ComposeFrameLocals(
+                false,
+                Object("scene"),
+                thisReference,
+                Object("gameObject"),
+                new[] { local },
+                new[] { parameter });
+
+            Assert.Equal(
+                new[] { "this", "local", "parameter" },
+                Array.ConvertAll(values, value => value.Name));
+        }
+
+        [Fact]
         public void AllInspectionOperationsDelegateToTheMatureFacade()
         {
             var facade = new FakeSoftDebuggerSessionFacade();
@@ -86,5 +140,23 @@ namespace UnityDebugger.Adapter.Tests.Backend
             56000,
             @"D:\Fixture",
             "2022.3.62t12");
+
+        private static ObjectValue Object(string name) =>
+            ObjectValue.CreateObject(
+                null,
+                new ObjectPath(name),
+                name,
+                "{" + name + "}",
+                ObjectValueFlags.Variable,
+                null);
+
+        private static ObjectValue Primitive(
+            string name,
+            ObjectValueFlags flags) => ObjectValue.CreatePrimitive(
+                null,
+                new ObjectPath(name),
+                "System.Int32",
+                new EvaluationResult("1"),
+                flags);
     }
 }

@@ -108,6 +108,17 @@ namespace Mono.Debugging.Soft
 			get; private set;
 		}
 
+		public SoftEvaluationContext CreateEvaluationContext (
+			Mono.Debugging.Client.StackFrame frame,
+			EvaluationOptions options)
+		{
+			var softFrame = frame as SoftDebuggerStackFrame;
+			if (softFrame == null)
+				throw new ArgumentException ("The stack frame is not a soft debugger frame.", nameof (frame));
+
+			return new SoftEvaluationContext (this, softFrame.StackFrame, options);
+		}
+
 		public SoftDebuggerSession ()
 		{
 			Adaptor = CreateSoftDebuggerAdaptor ();

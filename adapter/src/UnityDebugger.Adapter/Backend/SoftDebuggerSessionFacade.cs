@@ -6,7 +6,9 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Mono.Debugger.Soft;
 using Mono.Debugging.Client;
+using Mono.Debugging.Evaluation;
 using Mono.Debugging.Soft;
 
 namespace UnityDebugger.Adapter.Backend
@@ -34,6 +36,7 @@ namespace UnityDebugger.Adapter.Backend
         private BackendStopReason? expectedStopReason;
         private bool detachCompleted;
         private bool disposed;
+        private const int ReferenceUnityInvokeTimeoutMilliseconds = 2000;
 
         public SoftDebuggerSessionFacade()
         {
@@ -310,12 +313,26 @@ namespace UnityDebugger.Adapter.Backend
             ThrowIfDisposed();
             var frame = objectValues.GetFrame(frameId);
             var options = session.EvaluationOptions;
-            var values = new List<ObjectValue>();
             var thisReference = frame.GetThisReference(options);
-            if (thisReference != null)
-                values.Add(thisReference);
-            values.AddRange(frame.GetParameters(options));
-            values.AddRange(frame.GetLocalVariables(options));
+            var localVariables = frame.GetLocalVariables(options);
+            var parameters = frame.GetParameters(options);
+            var isUnityMainThread = false;
+            ObjectValue? activeScene = null;
+            ObjectValue? thisGameObject = null;
+            TryGetUnityFrameValues(
+                frame,
+                options,
+                cancellationToken,
+                out isUnityMainThread,
+                out activeScene,
+                out thisGameObject);
+            var values = ComposeFrameLocals(
+                isUnityMainThread,
+                activeScene,
+                thisReference,
+                thisGameObject,
+                localVariables,
+                parameters);
             foreach (var value in values)
             {
                 MonoObjectValueStore.WaitForValue(
@@ -338,6 +355,35 @@ namespace UnityDebugger.Adapter.Backend
                     mapped.VariablesReference,
                     false),
             };
+        }
+
+        internal static ObjectValue[] ComposeFrameLocals(
+            bool isUnityMainThread,
+            ObjectValue? activeScene,
+            ObjectValue? thisReference,
+            ObjectValue? thisGameObject,
+            IReadOnlyList<ObjectValue> localVariables,
+            IReadOnlyList<ObjectValue> parameters)
+        {
+            var values = new List<ObjectValue>();
+            if (isUnityMainThread && activeScene != null)
+            {
+                activeScene.Name = "Active scene";
+                values.Add(activeScene);
+            }
+            if (thisReference != null)
+            {
+                thisReference.Name = "this";
+                values.Add(thisReference);
+            }
+            if (isUnityMainThread && thisGameObject != null)
+            {
+                thisGameObject.Name = "this.gameObject";
+                values.Add(thisGameObject);
+            }
+            values.AddRange(localVariables);
+            values.AddRange(parameters);
+            return values.ToArray();
         }
 
         public IReadOnlyList<BackendVariable> GetVariables(
@@ -788,6 +834,222 @@ namespace UnityDebugger.Adapter.Backend
             var message = value.DisplayValue;
             throw new BackendEvaluationException(
                 NormalizeEvaluationError(message));
+        }
+
+        private void TryGetUnityFrameValues(
+            Mono.Debugging.Client.StackFrame frame,
+            EvaluationOptions options,
+            CancellationToken cancellationToken,
+            out bool isUnityMainThread,
+            out ObjectValue? activeScene,
+            out ObjectValue? thisGameObject)
+        {
+            isUnityMainThread = false;
+            activeScene = null;
+            thisGameObject = null;
+            try
+            {
+                var context = session.CreateEvaluationContext(
+                    frame,
+                    options);
+                var unityObjectType = context.Adapter.GetType(
+                    context,
+                    "UnityEngine.Object") as TypeMirror;
+                if (unityObjectType == null)
+                    return;
+                var mainThreadMethod = unityObjectType.GetMethod(
+                    "CurrentThreadIsMainThread");
+                if (mainThreadMethod == null)
+                    return;
+                var mainThreadValue = InvokeUnityMethod(
+                    context,
+                    unityObjectType,
+                    null,
+                    mainThreadMethod,
+                    cancellationToken) as PrimitiveValue;
+                if (
+                    mainThreadValue == null ||
+                    !Convert.ToBoolean(
+                        mainThreadValue.Value,
+                        CultureInfo.InvariantCulture))
+                {
+                    return;
+                }
+
+                isUnityMainThread = true;
+                activeScene = TryGetActiveScene(
+                    context,
+                    options,
+                    cancellationToken);
+                thisGameObject = TryGetThisGameObject(
+                    context,
+                    options,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                isUnityMainThread = false;
+                activeScene = null;
+                thisGameObject = null;
+            }
+        }
+
+        private static ObjectValue? TryGetActiveScene(
+            SoftEvaluationContext context,
+            EvaluationOptions options,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var sceneManagerType = context.Adapter.GetType(
+                    context,
+                    "UnityEngine.SceneManagement.SceneManager") as TypeMirror;
+                var method = sceneManagerType?.GetMethod("GetActiveScene");
+                if (sceneManagerType == null || method == null)
+                    return null;
+                var value = InvokeUnityMethod(
+                    context,
+                    sceneManagerType,
+                    null,
+                    method,
+                    cancellationToken);
+                return CreateLiteralObjectValue(
+                    context,
+                    options,
+                    "Active scene",
+                    value);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static ObjectValue? TryGetThisGameObject(
+            SoftEvaluationContext context,
+            EvaluationOptions options,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var componentType = context.Adapter.GetType(
+                    context,
+                    "UnityEngine.Component") as TypeMirror;
+                var thisReference = context.Adapter.GetThisReference(context);
+                if (
+                    componentType == null ||
+                    thisReference == null ||
+                    !(thisReference.Type is TypeMirror thisType) ||
+                    !componentType.IsAssignableFrom(thisType) ||
+                    !(thisReference.Value is ObjectMirror thisValue))
+                {
+                    return null;
+                }
+                var property = GetPropertyInHierarchy(thisType, "gameObject");
+                var getter = property?.GetGetMethod(true);
+                if (getter == null)
+                    return null;
+                var value = InvokeUnityMethod(
+                    context,
+                    getter.DeclaringType,
+                    thisValue,
+                    getter,
+                    cancellationToken);
+                return CreateLiteralObjectValue(
+                    context,
+                    options,
+                    "this.gameObject",
+                    value);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static PropertyInfoMirror? GetPropertyInHierarchy(
+            TypeMirror? type,
+            string name)
+        {
+            while (type != null)
+            {
+                var property = type.GetProperties().FirstOrDefault(
+                    candidate => candidate.Name == name);
+                if (property != null)
+                    return property;
+                type = type.BaseType;
+            }
+            return null;
+        }
+
+        private static Value? InvokeUnityMethod(
+            SoftEvaluationContext context,
+            TypeMirror type,
+            ObjectMirror? instance,
+            MethodMirror method,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var invokeOptions = InvokeOptions.DisableBreakpoints |
+                    InvokeOptions.SingleThreaded;
+                var task = instance == null
+                    ? type.InvokeMethodAsync(
+                        context.Thread,
+                        method,
+                        Array.Empty<Value>(),
+                        invokeOptions)
+                    : instance.InvokeMethodAsync(
+                        context.Thread,
+                        method,
+                        Array.Empty<Value>(),
+                        invokeOptions);
+                if (
+                    !task.Wait(
+                        ReferenceUnityInvokeTimeoutMilliseconds,
+                        cancellationToken) ||
+                    task.IsCanceled ||
+                    task.IsFaulted)
+                {
+                    return null;
+                }
+                return task.Result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static ObjectValue? CreateLiteralObjectValue(
+            SoftEvaluationContext context,
+            EvaluationOptions options,
+            string name,
+            Value? value)
+        {
+            if (value == null)
+                return null;
+            return LiteralValueReference.CreateTargetObjectLiteral(
+                    context,
+                    name,
+                    value)
+                .CreateObjectValue(true, options);
         }
 
         private string ResolveExpression(

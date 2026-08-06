@@ -25,7 +25,7 @@
         "adapter/vendor/debugger-libs/Mono.Debugging.Soft"
       ],
       "modifications": [
-        "Mono.Debugger.Soft, Mono.Debugging, and Mono.Debugging.Soft are built from the pinned source for the net48 x64 Adapter. The projects use SDK build entry points and locked reference-assembly/package restore. Mono.Debugging.Soft adds source-level step-target support and invalidates frame state after Set Next Statement; no upstream precompiled binary is shipped."
+        "Mono.Debugger.Soft, Mono.Debugging, and Mono.Debugging.Soft are built from the pinned source for the net48 x64 Adapter. The projects use SDK build entry points and locked reference-assembly/package restore. Mono.Debugging.Soft adds source-level step-target support, invalidates frame state after Set Next Statement, and exposes the stopped frame's SoftEvaluationContext to the Adapter for Unity-specific frame values; no upstream precompiled binary is shipped."
       ]
     },
     {
