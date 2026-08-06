@@ -216,3 +216,20 @@ infer an unavailable UI capability.
 - Screenshot:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-3aceaee4-a369-4326-b84f-0ea2b71a6102.png`.
 - Acceptance stopped before stepping or further variable actions, pending the user's required replacement decision.
+
+### 2026-08-06 - Pure 0.3.0 evaluation replacement candidate
+
+- The user approved replacing the divergent mature type-resolution bridge while preserving the aligned lifecycle and
+  breakpoint behavior.
+- Candidate remains version `0.3.0`; build ID is `0.3.0+ga2a32efe9e6f`, from source commit
+  `a2a32efe9e6f112cdbb071ac65184f743a350267`.
+- VSIX SHA-256: `bc34584b0cfab6787e703293a0c94f68d2563aa36a4556d4fc197b0b7d2b72dc`.
+- Adapter SHA-256: `ae8f3a76226303cac65efc22f2b8348de2aa79e74a8cef284ed0cb2eae8fa93e`.
+- The bridge now uses the mature session's `TypeResolverHandler` only for a type in the stopped frame's enclosing
+  namespace. It deliberately does not resolve imported `UnityEngine.RuntimeInitializeLoadType`, preserving the
+  reference-observed scope failure, and maps the mature evaluator's unknown-identifier diagnostic to the reference
+  wording.
+- Verification passed: 142 adapter tests, 9 integration tests, 19 build tests, 93 extension tests, 4 package contract
+  tests, 17-entry runtime inventory, and the 33-file VSIX audit. The existing upstream unused-variable warning in
+  `Mono.Debugging.Soft` remains unchanged.
+- This replacement candidate is not installed yet; the current stopped debug session still runs the prior build.
