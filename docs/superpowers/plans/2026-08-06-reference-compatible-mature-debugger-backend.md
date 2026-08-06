@@ -1168,7 +1168,7 @@ Tell the user:
 
 Do not use Computer Use and do not launch another VS Code profile.
 
-- [ ] **Step 4: Verify installed build before behavior testing**
+- [x] **Step 4: Verify installed build before behavior testing**
 
 After the user reloads, ask them to select `Attach to Unity Debugger Pure` and start debugging once. Read the newest sanitized adapter log and require version `0.3.0` plus the Task 9 build ID before continuing.
 

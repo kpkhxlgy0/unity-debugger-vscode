@@ -194,3 +194,9 @@ infer an unavailable UI capability.
 - The old 0.4.0 extension directory remains inactive on disk; it is absent from the CLI's active extension listing.
   No manual deletion was attempted.
 - The user completed `Developer: Reload Window`; runtime build-ID verification is the next acceptance gate.
+- After the Reload, the user started `Attach to Unity Debugger Pure`. The newest sanitized adapter log
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260806T122453883Z-8456.log` records
+  `adapterVersion=0.3.0` and `buildId=0.3.0+ged2012f404fd`, followed by normal initialize, attach, function-breakpoint,
+  exception-breakpoint, and thread requests with no logged failure.
+- Unity MCP confirmed MyGame remained idle in SampleScene Edit Mode with no compilation in progress and zero current
+  Console errors before behavioral acceptance began.
