@@ -91,6 +91,31 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 selected.Select(item => item.Label));
         }
 
+        [Fact]
+        public void SpecificStepBreakpointMatchesRequestAndThreadAtDispatch()
+        {
+            var matcherType = typeof(Mono.Debugging.Soft.SoftDebuggerSession)
+                .Assembly.GetType(
+                    "Mono.Debugging.Soft.ReferenceSpecificBreakpointMatcher");
+            Assert.NotNull(matcherType);
+            var isMatching = matcherType!.GetMethod(
+                "IsMatching",
+                BindingFlags.Static | BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.NotNull(isMatching);
+            var request = new object();
+
+            Assert.True((bool)isMatching!.Invoke(
+                null,
+                new object[] { request, 17L, request, 17L })!);
+            Assert.False((bool)isMatching.Invoke(
+                null,
+                new object[] { request, 17L, new object(), 17L })!);
+            Assert.False((bool)isMatching.Invoke(
+                null,
+                new object[] { request, 17L, request, 18L })!);
+        }
+
         private static AttachTarget Target() => new AttachTarget(
             123,
             IPAddress.Loopback,

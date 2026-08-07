@@ -100,8 +100,28 @@ namespace Mono.Debugging.Soft
 		}
 	}
 
+	internal static class ReferenceSpecificBreakpointMatcher
+	{
+		internal static bool IsMatching (
+			object expectedRequest,
+			long expectedThreadId,
+			object actualRequest,
+			long actualThreadId)
+		{
+			return ReferenceEquals (expectedRequest, actualRequest) &&
+				expectedThreadId == actualThreadId;
+		}
+	}
+
 	public class SoftDebuggerSession : DebuggerSession
 	{
+		enum TargetedStepEventResult
+		{
+			None,
+			WrongThread,
+			Completed
+		}
+
 		sealed class ReferenceStepTargetCandidate
 		{
 			public int Offset { get; set; }
@@ -122,7 +142,7 @@ namespace Mono.Debugging.Soft
 		readonly LinkedList<List<Event>> queuedEventSets = new LinkedList<List<Event>> ();
 		readonly Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
 		readonly List<BreakInfo> pending_bes = new List<BreakInfo> ();
-		readonly HashSet<BreakpointEventRequest> targetedStepRequests = new HashSet<BreakpointEventRequest> ();
+		readonly Dictionary<BreakpointEventRequest, long> targetedStepRequests = new Dictionary<BreakpointEventRequest, long> ();
 		TypeLoadEventRequest typeLoadReq, typeLoadTypeNameReq;
 		ExceptionEventRequest unhandledExceptionRequest;
 		Dictionary<string, string> assemblyPathMap;
@@ -1222,19 +1242,22 @@ namespace Mono.Debugging.Soft
 			if (thread == null)
 				throw new ArgumentException ("Unknown thread.", nameof (threadId));
 
+			BreakpointEventRequest request = null;
+			lock (targetedStepRequests) {
+				if (targetedStepRequests.Count > 0)
+					throw new NotSupportedException ("A targeted step is already in progress.");
+			}
 			try {
-				Adaptor.CancelAsyncOperations ();
-				DisableTargetedStepRequests ();
-				var request = vm.CreateBreakpointRequest (location);
-				request.Thread = thread;
+				request = vm.CreateBreakpointRequest (location);
 				lock (targetedStepRequests)
-					targetedStepRequests.Add (request);
+					targetedStepRequests.Add (request, thread.ThreadId);
 				request.Enable ();
 				OnResumed ();
 				vm.Resume ();
 				DequeueEventsForFirstThread ();
 			} catch {
-				DisableTargetedStepRequests ();
+				if (request != null)
+					RemoveTargetedStepRequest (request);
 				throw;
 			}
 		}
@@ -2260,12 +2283,15 @@ namespace Mono.Debugging.Soft
 				foreach (Event e in es) {
 					if (e.EventType == EventType.Breakpoint) {
 						var be = (BreakpointEvent) e;
-						if (RemoveTargetedStepRequest (be.Request)) {
+						var targetedStepResult = ProcessTargetedStepEvent (be);
+						if (targetedStepResult == TargetedStepEventResult.Completed) {
 							etype = TargetEventType.TargetStopped;
 							autoStepInto = false;
 							resume = false;
 							continue;
 						}
+						if (targetedStepResult == TargetedStepEventResult.WrongThread)
+							continue;
 						var hasBreakInfo = breakpoints.TryGetValue (be.Request, out binfo);
 
 						if (!HandleBreakpoint (e.Thread, be.Request)) {
@@ -2733,11 +2759,33 @@ namespace Mono.Debugging.Soft
 			return true;
 		}
 
+		TargetedStepEventResult ProcessTargetedStepEvent (BreakpointEvent breakpointEvent)
+		{
+			var request = breakpointEvent.Request as BreakpointEventRequest;
+			if (request == null)
+				return TargetedStepEventResult.None;
+
+			long expectedThreadId;
+			lock (targetedStepRequests) {
+				if (!targetedStepRequests.TryGetValue (request, out expectedThreadId))
+					return TargetedStepEventResult.None;
+			}
+			if (!ReferenceSpecificBreakpointMatcher.IsMatching (
+				request,
+				expectedThreadId,
+				breakpointEvent.Request,
+				breakpointEvent.Thread.ThreadId))
+				return TargetedStepEventResult.WrongThread;
+
+			RemoveTargetedStepRequest (request);
+			return TargetedStepEventResult.Completed;
+		}
+
 		void DisableTargetedStepRequests ()
 		{
 			BreakpointEventRequest[] requests;
 			lock (targetedStepRequests) {
-				requests = targetedStepRequests.ToArray ();
+				requests = targetedStepRequests.Keys.ToArray ();
 				targetedStepRequests.Clear ();
 			}
 			foreach (var request in requests) {
