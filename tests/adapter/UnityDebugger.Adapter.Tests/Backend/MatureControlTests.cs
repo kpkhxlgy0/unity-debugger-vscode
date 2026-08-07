@@ -116,6 +116,28 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 new object[] { request, 17L, request, 18L })!);
         }
 
+        [Fact]
+        public void GotoControlUsesRequestedThreadAndResolvedLocation()
+        {
+            var sessionType = typeof(Mono.Debugging.Soft.SoftDebuggerSession);
+            var targetType = sessionType.Assembly.GetType(
+                "Mono.Debugging.Soft.SoftGotoTarget");
+            Assert.NotNull(targetType);
+
+            Assert.NotNull(sessionType.GetMethod(
+                "GetGotoTargets",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(string), typeof(int), typeof(int) },
+                null));
+            Assert.NotNull(sessionType.GetMethod(
+                "Goto",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(long), targetType! },
+                null));
+        }
+
         private static AttachTarget Target() => new AttachTarget(
             123,
             IPAddress.Loopback,

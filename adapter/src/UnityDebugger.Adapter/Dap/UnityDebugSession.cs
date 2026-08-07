@@ -299,6 +299,10 @@ namespace UnityDebugger.Adapter.Dap
                 value.Goto(threadId, targetId);
                 SendResponse(response);
             }
+            catch (NotSupportedException)
+            {
+                SendResponse(response);
+            }
             catch (Exception exception)
                 when (IsControlFailure(exception))
             {

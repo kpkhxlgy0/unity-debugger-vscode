@@ -64,6 +64,26 @@ namespace Mono.Debugging.Soft
 		internal Location Location { get; }
 	}
 
+	public sealed class SoftGotoTarget
+	{
+		internal SoftGotoTarget (Location location)
+		{
+			Location = location;
+		}
+
+		public int Line { get { return Location.LineNumber; } }
+		public int Column { get { return Location.ColumnNumber; } }
+		public int EndLine {
+			get {
+				return Location.EndLineNumber < Location.LineNumber
+					? Location.LineNumber + 1
+					: Location.EndLineNumber;
+			}
+		}
+		public int EndColumn { get { return Location.EndColumnNumber; } }
+		internal Location Location { get; }
+	}
+
 	internal static class ReferenceStepTargetSelector
 	{
 		internal static IReadOnlyList<TCandidate> Select<TCandidate> (
@@ -143,6 +163,7 @@ namespace Mono.Debugging.Soft
 		readonly Dictionary<long,long> localThreadIds = new Dictionary<long, long> ();
 		readonly List<BreakInfo> pending_bes = new List<BreakInfo> ();
 		readonly Dictionary<BreakpointEventRequest, long> targetedStepRequests = new Dictionary<BreakpointEventRequest, long> ();
+		readonly Dictionary<BreakpointEventRequest, long> gotoRequests = new Dictionary<BreakpointEventRequest, long> ();
 		TypeLoadEventRequest typeLoadReq, typeLoadTypeNameReq;
 		ExceptionEventRequest unhandledExceptionRequest;
 		Dictionary<string, string> assemblyPathMap;
@@ -822,6 +843,7 @@ namespace Mono.Debugging.Soft
 		public override void Dispose ()
 		{
 			DisableTargetedStepRequests ();
+			DisableGotoRequests ();
 			base.Dispose ();
 
 			if (disposed)
@@ -1258,6 +1280,82 @@ namespace Mono.Debugging.Soft
 			} catch {
 				if (request != null)
 					RemoveTargetedStepRequest (request);
+				throw;
+			}
+		}
+
+		public IReadOnlyList<SoftGotoTarget> GetGotoTargets (string fileName, int line, int column)
+		{
+			if (!IsConnected || IsRunning || !CanSetNextStatement || string.IsNullOrEmpty (fileName) || line < 1)
+				return Array.Empty<SoftGotoTarget> ();
+
+			try {
+				bool genericTypeOrMethod;
+				bool insideLoadedRange;
+				return FindLocationsByFile (
+						fileName,
+						line,
+						column,
+						out genericTypeOrMethod,
+						out insideLoadedRange)
+					.Take (1)
+					.Select (location => new SoftGotoTarget (location))
+					.ToArray ();
+			} catch (AbsentInformationException) {
+				return Array.Empty<SoftGotoTarget> ();
+			} catch (InvalidStackFrameException) {
+				return Array.Empty<SoftGotoTarget> ();
+			} catch (VMNotSuspendedException) {
+				return Array.Empty<SoftGotoTarget> ();
+			} catch (NotSupportedException) {
+				return Array.Empty<SoftGotoTarget> ();
+			}
+		}
+
+		public void Goto (long threadId, SoftGotoTarget target)
+		{
+			if (target == null)
+				throw new ArgumentNullException (nameof (target));
+			if (!IsConnected || IsRunning || !CanSetNextStatement)
+				throw new NotSupportedException ();
+
+			var thread = GetThread (threadId);
+			if (thread == null)
+				throw new ArgumentException ("Unknown thread.", nameof (threadId));
+
+			var frames = thread.GetFrames ();
+			if (frames.Length == 0)
+				throw new NotSupportedException ();
+
+			var location = target.Location;
+			if (frames [0].Method.FullName != location.Method.FullName)
+				throw new NotSupportedException ("Unable to set the next statement. The next statement cannot be set to another function.");
+
+			BreakpointEventRequest request = null;
+			lock (gotoRequests) {
+				if (gotoRequests.Count > 0)
+					throw new NotSupportedException ("A goto request is already in progress.");
+			}
+			try {
+				thread.SetIP (location);
+				currentAddress = location.ILOffset;
+				currentStackDepth = frames.Length;
+				StackVersion++;
+
+				request = vm.CreateBreakpointRequest (location);
+				lock (gotoRequests)
+					gotoRequests.Add (request, thread.ThreadId);
+				request.Enable ();
+				OnResumed ();
+				vm.Resume ();
+				DequeueEventsForFirstThread ();
+			} catch (ArgumentException) {
+				if (request != null)
+					RemoveGotoRequest (request);
+				throw new NotSupportedException ();
+			} catch {
+				if (request != null)
+					RemoveGotoRequest (request);
 				throw;
 			}
 		}
@@ -2250,6 +2348,7 @@ namespace Mono.Debugging.Soft
 			bool steppedInto = false;
 			bool steppedOut = false;
 			bool resume = true;
+			bool suppressTargetEvent = false;
 			BreakInfo binfo;
 
 			if (es [0].EventType == EventType.Exception) {
@@ -2283,6 +2382,16 @@ namespace Mono.Debugging.Soft
 				foreach (Event e in es) {
 					if (e.EventType == EventType.Breakpoint) {
 						var be = (BreakpointEvent) e;
+						var gotoResult = ProcessGotoEvent (be);
+						if (gotoResult == TargetedStepEventResult.Completed) {
+							etype = TargetEventType.TargetStopped;
+							autoStepInto = false;
+							resume = false;
+							suppressTargetEvent = true;
+							continue;
+						}
+						if (gotoResult == TargetedStepEventResult.WrongThread)
+							continue;
 						var targetedStepResult = ProcessTargetedStepEvent (be);
 						if (targetedStepResult == TargetedStepEventResult.Completed) {
 							etype = TargetEventType.TargetStopped;
@@ -2410,7 +2519,8 @@ namespace Mono.Debugging.Soft
 					args.Backtrace = backtrace;
 					args.BreakEvent = breakEvent;
 
-					OnTargetEvent (args);
+					if (!suppressTargetEvent)
+						OnTargetEvent (args);
 				}
 			}
 		}
@@ -2781,12 +2891,67 @@ namespace Mono.Debugging.Soft
 			return TargetedStepEventResult.Completed;
 		}
 
+		bool RemoveGotoRequest (EventRequest request)
+		{
+			var breakpoint = request as BreakpointEventRequest;
+			if (breakpoint == null)
+				return false;
+			lock (gotoRequests) {
+				if (!gotoRequests.Remove (breakpoint))
+					return false;
+			}
+			try {
+				if (breakpoint.Enabled)
+					breakpoint.Disable ();
+			} catch (VMDisconnectedException) {
+			}
+			return true;
+		}
+
+		TargetedStepEventResult ProcessGotoEvent (BreakpointEvent breakpointEvent)
+		{
+			var request = breakpointEvent.Request as BreakpointEventRequest;
+			if (request == null)
+				return TargetedStepEventResult.None;
+
+			long expectedThreadId;
+			lock (gotoRequests) {
+				if (!gotoRequests.TryGetValue (request, out expectedThreadId))
+					return TargetedStepEventResult.None;
+			}
+			if (!ReferenceSpecificBreakpointMatcher.IsMatching (
+				request,
+				expectedThreadId,
+				breakpointEvent.Request,
+				breakpointEvent.Thread.ThreadId))
+				return TargetedStepEventResult.WrongThread;
+
+			RemoveGotoRequest (request);
+			return TargetedStepEventResult.Completed;
+		}
+
 		void DisableTargetedStepRequests ()
 		{
 			BreakpointEventRequest[] requests;
 			lock (targetedStepRequests) {
 				requests = targetedStepRequests.Keys.ToArray ();
 				targetedStepRequests.Clear ();
+			}
+			foreach (var request in requests) {
+				try {
+					if (request.Enabled)
+						request.Disable ();
+				} catch (VMDisconnectedException) {
+				}
+			}
+		}
+
+		void DisableGotoRequests ()
+		{
+			BreakpointEventRequest[] requests;
+			lock (gotoRequests) {
+				requests = gotoRequests.Keys.ToArray ();
+				gotoRequests.Clear ();
 			}
 			foreach (var request in requests) {
 				try {

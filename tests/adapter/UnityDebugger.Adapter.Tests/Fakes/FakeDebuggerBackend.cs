@@ -315,6 +315,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             GotoCount++;
             LastControlThreadId = threadId;
             LastGotoTargetId = targetId;
+            if (ControlException != null)
+                throw ControlException;
             RaiseStopped(
                 new BackendStoppedEventArgs(
                     BackendStopReason.Goto,

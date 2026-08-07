@@ -26,8 +26,8 @@ namespace UnityDebugger.Adapter.Backend
         private readonly object controlTargetLock = new object();
         private readonly Dictionary<long, SoftStepInTarget> stepInTargets =
             new Dictionary<long, SoftStepInTarget>();
-        private readonly Dictionary<long, GotoLocation> gotoTargets =
-            new Dictionary<long, GotoLocation>();
+        private readonly Dictionary<long, SoftGotoTarget> gotoTargets =
+            new Dictionary<long, SoftGotoTarget>();
         private readonly MonoObjectValueStore objectValues =
             new MonoObjectValueStore();
         private long nextBreakpointId = 1;
@@ -620,27 +620,25 @@ namespace UnityDebugger.Adapter.Backend
             {
                 return Array.Empty<BackendGotoTarget>();
             }
-            var location = new GotoLocation(
-                sourcePath,
-                line,
-                Math.Max(1, column));
-            var id = RegisterGotoTarget(location);
-            return new[]
-            {
-                new BackendGotoTarget(
-                    id,
-                    $"line {line}",
+            return session.GetGotoTargets(
+                    sourcePath,
                     line,
-                    location.Column,
-                    line,
-                    location.Column),
-            };
+                    Math.Max(1, column))
+                .Select(
+                    target => new BackendGotoTarget(
+                        RegisterGotoTarget(target),
+                        $"line {target.Line}",
+                        target.Line,
+                        Math.Max(1, target.Column),
+                        target.EndLine,
+                        Math.Max(1, target.EndColumn)))
+                .ToArray();
         }
 
         public void Goto(long threadId, long targetId)
         {
             ThrowIfDisposed();
-            GotoLocation target;
+            SoftGotoTarget target;
             lock (controlTargetLock)
             {
                 if (!gotoTargets.TryGetValue(targetId, out target))
@@ -649,10 +647,14 @@ namespace UnityDebugger.Adapter.Backend
                         "The requested goto target is unavailable.");
                 }
             }
-            session.SetNextStatement(
-                target.SourcePath,
-                target.Line,
-                target.Column);
+            session.Goto(threadId, target);
+            ClearFrames();
+            TargetStopped?.Invoke(
+                this,
+                new BackendStoppedEventArgs(
+                    BackendStopReason.Goto,
+                    threadId,
+                    null));
         }
 
         public void Dispose()
@@ -819,7 +821,7 @@ namespace UnityDebugger.Adapter.Backend
             }
         }
 
-        private long RegisterGotoTarget(GotoLocation target)
+        private long RegisterGotoTarget(SoftGotoTarget target)
         {
             lock (controlTargetLock)
             {
@@ -1124,21 +1126,5 @@ namespace UnityDebugger.Adapter.Backend
             }
         }
 
-        private sealed class GotoLocation
-        {
-            public GotoLocation(
-                string sourcePath,
-                int line,
-                int column)
-            {
-                SourcePath = sourcePath;
-                Line = line;
-                Column = column;
-            }
-
-            public string SourcePath { get; }
-            public int Line { get; }
-            public int Column { get; }
-        }
     }
 }

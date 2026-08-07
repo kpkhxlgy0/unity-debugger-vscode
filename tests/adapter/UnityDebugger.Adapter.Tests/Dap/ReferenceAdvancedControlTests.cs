@@ -118,6 +118,28 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Empty(DapTestProtocol.Events(gotoMessages, "output"));
         }
 
+        [Fact]
+        public void UnsupportedGotoCompletesWithoutUserVisibleError()
+        {
+            var backend = CreateBackend();
+            backend.ControlException = new System.NotSupportedException(
+                "SECRET_GOTO_NOT_SUPPORTED");
+            var session = AttachAndStop(backend);
+
+            var messages = DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "goto",
+                    new { threadId = 1, targetId = 71 }));
+
+            var response = DapTestProtocol.Response(messages, "goto");
+            Assert.True(response["success"]!.Value<bool>());
+            Assert.DoesNotContain(
+                "SECRET_GOTO_NOT_SUPPORTED",
+                response.ToString());
+            Assert.Empty(DapTestProtocol.Events(messages, "output"));
+        }
+
         private static FakeDebuggerBackend CreateBackend()
         {
             var backend = new FakeDebuggerBackend();
