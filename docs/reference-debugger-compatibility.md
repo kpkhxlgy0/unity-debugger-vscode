@@ -471,9 +471,15 @@ infer an unavailable UI capability.
   selection rules and specific target-breakpoint resume sequence. Scopes no longer waits for every composed local;
   request timeouts reach the Mono evaluation options; Scopes/Variables inspection failures return empty collections;
   and evaluation failures retain inline failure semantics with `showUser=false`.
-- Automated source-candidate verification passes 151 Adapter tests, including the next-IL target selector,
+- Automated source-candidate verification passes 152 Adapter tests, including the next-IL target selector,
   non-blocking Scopes with propagated request timeouts, and notification-free inspection failures. Runtime status
   remains divergent pending a packaged MyGame A/B; test success is not substituted for the visible reference result.
+- Packaged candidate: version `0.3.0`, build ID `0.3.0+gaaca01c722f7`, source commit
+  `aaca01c722f764e94711dcbf642e7f5e5e4f30c7`, VSIX SHA-256
+  `a79391a454303ca7786a58a42a89c10a2b555fc3cc732bcbd98a9a44ae292ee2`, and Adapter SHA-256
+  `11d0fcad86b2b62bbd5b92a4c0e3d41f161de548844c4552b82cbcd2ca6f7982`. Package verification passed with 33
+  files and 17 audited runtime assemblies. Installation is pending because the previous Adapter process is still
+  running; it is not overwritten while an active debug session may own it.
 - Screenshot:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-9625be40-9ee1-4bc4-a61b-0ef855b6c362.png`.
 - Sanitized adapter log:
