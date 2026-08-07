@@ -19,7 +19,8 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | BP-04 | Function breakpoint | Fully qualified `MyGame.Runtime.DevTools.GamePrototypeRuntime.EnsureStyles` is accepted and stops at the method definition around line 1069 | Advertises function-breakpoint support, but `SetFunctionBreakpoints` returns an empty result without binding | divergent; reference verified | 2026-08-06 MyGame reference run and Pure source audit | User confirmed replacement with mature function-breakpoint binding |
 | EX-01 | Caught/unhandled exception filters | Exposes unchecked `All Exceptions` and `User-Unhandled Exceptions`; default Play does not pause; User-Unhandled alone does not stop for the handled `TaskCanceledException`; enabling All stops at its throw site in `UnityAssetLinkReceiver.cs:94` with the yellow marker and inline exception panel | Exposes `All Exceptions` unchecked and `Uncaught Exceptions` checked by default | divergent; reference verified | 2026-08-06 MyGame reference runs, screenshots, and Pure source audit | User confirmed replacement of filter identity/defaults and mature exception mapping |
 | CTRL-01 | Pause, Continue, Step Out | Continue resumes normally; a manual Pause with no displayable managed source frame shows no source line, yellow marker, warning, or Variables; Step Out from the caller resumes normal execution | Not verified | reference verified | 2026-08-06 MyGame reference runs | Do not synthesize a source frame or variable scope for a source-less manual Pause; await Pure A/B |
-| CTRL-02 | Step-in Targets and Goto capability/presentation | All three commands are visible and enabled; Step Into Target enters `EnsureStyles()` at line 1070, Jump to Cursor stops at line 1076, and Set Next Statement immediately moves the yellow marker to line 1076; no warning or marker loss, and subsequent Step Over works | Not verified | reference verified | 2026-08-06 MyGame reference runs | Await Pure A/B |
+| CTRL-02 | Step-in Targets and Goto capability/presentation | All three commands are visible and enabled; Step Into Target enters `EnsureStyles()` at line 1070, Jump to Cursor stops at line 1076, and Set Next Statement immediately moves the yellow marker to line 1076; no warning or marker loss, and subsequent Step Over works | Installed 0.3.0 did not visibly move for Step Into Target; the source candidate now mirrors the reference next-IL boundary, `call`/`callvirt` filtering, metadata-token de-duplication, iterator target resolution, and specific target-breakpoint resume path | divergent; replacement pending A/B | 2026-08-06 MyGame reference run, 2026-08-07 Pure 0.3.0 run, reference binary inspection, and source-candidate tests | User approved replacing the divergent path; do not mark aligned until the packaged candidate enters `EnsureStyles()` in MyGame |
+| EVAL-05 | Inspection immediately after Step In | Watches, Hover, Locals, and Scopes remain responsive after Step Into Target/F11; no request error or user notification appears | Installed 0.3.0 timed out Watch evaluations serially, leaked the `scopes` failure, and showed notifications; the source candidate propagates the request timeout, returns Scopes without waiting for every local, and keeps inspection/evaluation failures out of user notifications | divergent; replacement pending A/B | 2026-08-06 MyGame reference run, 2026-08-07 Pure 0.3.0 run, screenshot, sanitized adapter log, reference binary inspection, and source-candidate tests | User approved replacing the divergent path; do not mark aligned until post-step Hover, Watch, Locals, and Scopes pass in MyGame |
 | EVAL-03 | Locals, Getter, `ToString()`, collection expansion | Getter values display directly; `this.ToString()` and `gameObject.ToString()` return Unity object display strings; `BoardIndexByCell` displays as `int[5,8]` and expands normally; no loading placeholder or delayed update was observed in this run | Matched instance run confirms direct Getter/member expansion and normal Hover/Watch; `BoardIndexByCell` was not explicitly re-expanded in this candidate run | aligned for Getter/member tree; collection recheck pending | 2026-08-06 MyGame reference and Pure runs | Retain the verified Getter/member result; combine the collection recheck with later remaining inspection coverage |
 | EVAL-04 | Invalid expression and Getter failure presentation | Invalid Watch `DefinitelyMissingName` reports <code>The identifier `DefinitelyMissingName` is not in the scope</code>; failing Getter remains to be recorded | Invalid Watch reports the same scope diagnostic; failing Getter remains to be recorded | aligned for invalid identifier; Getter failure unverified | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Do not mark the whole row aligned until a failing Getter has reference and Pure evidence |
 | SET-01 | Set Variable | Set Value is available for `this._status`; assigning a new string updates the displayed value immediately | Not verified | reference verified | 2026-08-06 MyGame reference run | User confirmed replacement of the Set Value refresh path; await Pure A/B |
@@ -443,3 +444,37 @@ infer an unavailable UI capability.
 - Hover and Watch remained normal. No warning, error notification, or yellow-marker loss occurred.
 - VAR-02 and VAR-03 are aligned. EVAL-03's Getter/member-tree portion is aligned; the collection-expansion portion was
   not explicitly repeated in this run and remains tracked separately rather than inferred.
+
+### 2026-08-07 - Pure targeted Step In and post-step inspection divergence
+
+- At `GamePrototypeRuntime.cs:214`, `Debug: Step Into Target` did not visibly enter `EnsureStyles()`. Ordinary F11 did
+  enter the method, then VS Code displayed a raw `scopes` request error plus `Managed inspection failed. Pause again
+  and retry.` and `Expression evaluation failed.` notifications.
+- The sanitized adapter log records two `stepInTargets` -> targeted `stepIn` sequences followed by stopped-view
+  refreshes. The subsequent ordinary F11 refresh starts one evaluation, waits one second, then queues the remaining
+  Watches; those evaluations complete serially at one-second intervals before `scopes` is processed.
+- Installed reference 1.2.1 binary inspection confirms that its adapter delegates target discovery to
+  `IDebugProgramEnhancedStep90.EnumCodePaths`. The Unity engine scans from the current IL offset to the next IL offset,
+  accepts `call`/`callvirt`, de-duplicates by metadata token, resolves iterator targets through
+  `TryGetDebuggableTarget`, registers `UnityDebugCodePath` objects, and executes the selected code-path stepper through
+  `BreakpointManager.SimulateStepIntoSpecific`.
+- Pure instead derives the range from source `Method.Locations`, rejects targets without direct locations, and owns a
+  separate temporary-breakpoint request path in the vendored Mono.Debugging session. This is not the reference
+  control path and the real run proves it is not behaviorally equivalent.
+- The post-step error chain is also Pure-specific: backend inspection methods ignore their request timeout argument;
+  expression evaluation uses the one-second session timeout; `GetScopes` eagerly waits for every composed local; and
+  `BackendEvaluationException` is not classified as an inspection failure. The raw exception therefore escapes the
+  `scopes` request, while generic inspection errors are sent as user-visible DAP errors.
+- CTRL-02 and EVAL-05 are divergent. Per the compatibility rule, implementation stops for one combined user decision
+  before replacing the target-control and post-step inspection/error paths.
+- The user approved replacing both divergent paths. The source candidate now uses the reference next-IL target
+  selection rules and specific target-breakpoint resume sequence. Scopes no longer waits for every composed local;
+  request timeouts reach the Mono evaluation options; Scopes/Variables inspection failures return empty collections;
+  and evaluation failures retain inline failure semantics with `showUser=false`.
+- Automated source-candidate verification passes 151 Adapter tests, including the next-IL target selector,
+  non-blocking Scopes with propagated request timeouts, and notification-free inspection failures. Runtime status
+  remains divergent pending a packaged MyGame A/B; test success is not substituted for the visible reference result.
+- Screenshot:
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-9625be40-9ee1-4bc4-a61b-0ef855b6c362.png`.
+- Sanitized adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260807T060641279Z-46232.log`.

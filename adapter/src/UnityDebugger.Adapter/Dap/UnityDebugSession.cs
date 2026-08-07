@@ -678,7 +678,7 @@ namespace UnityDebugger.Adapter.Dap
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                SendInspectionFailure(response);
+                SendEmptyScopes(response);
             }
         }
 
@@ -720,7 +720,7 @@ namespace UnityDebugger.Adapter.Dap
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
-                SendInspectionFailure(response);
+                SendEmptyVariables(response);
             }
         }
 
@@ -825,7 +825,8 @@ namespace UnityDebugger.Adapter.Dap
                 SendErrorResponse(
                     response,
                     2026,
-                    "Expression evaluation failed.");
+                    "Expression evaluation failed.",
+                    user: false);
             }
         }
 
@@ -1083,7 +1084,8 @@ namespace UnityDebugger.Adapter.Dap
 
         private static bool IsInspectionFailure(Exception exception) =>
             exception is InvalidOperationException ||
-            exception is DebuggerBackendException;
+            exception is DebuggerBackendException ||
+            exception is BackendEvaluationException;
 
         private void SendUnavailable(Response response, string kind)
         {

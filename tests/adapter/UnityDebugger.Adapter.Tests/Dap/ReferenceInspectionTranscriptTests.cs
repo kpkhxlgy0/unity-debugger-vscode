@@ -219,6 +219,70 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
+        public void ScopeEvaluationFailureReturnsEmptyScopesWithoutNotification()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                ScopesException = new BackendEvaluationException(
+                    "Evaluation timed out."),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request("scopes", new { frameId = 1 }));
+
+            var response = DapTestProtocol.Response(messages, "scopes");
+            Assert.True(response["success"]!.Value<bool>());
+            Assert.Empty(response["body"]!["scopes"]!);
+        }
+
+        [Fact]
+        public void VariableEvaluationFailureReturnsEmptyVariablesWithoutNotification()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                VariablesException = new BackendEvaluationException(
+                    "Evaluation timed out."),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request(
+                    "variables",
+                    new { variablesReference = 1 }));
+
+            var response = DapTestProtocol.Response(messages, "variables");
+            Assert.True(response["success"]!.Value<bool>());
+            Assert.Empty(response["body"]!["variables"]!);
+        }
+
+        [Fact]
+        public void GenericEvaluationFailureDoesNotRequestUserNotification()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                EvaluationException = new DebuggerBackendException(
+                    "The evaluator is busy."),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "value",
+                        context = "watch",
+                    }));
+
+            var response = DapTestProtocol.Response(messages, "evaluate");
+            Assert.False(response["success"]!.Value<bool>());
+            Assert.False(
+                response["body"]!["error"]!["showUser"]!.Value<bool>());
+        }
+
+        [Fact]
         public void SetVariableMapsValueTypeAndExpandableReference()
         {
             var backend = new FakeDebuggerBackend

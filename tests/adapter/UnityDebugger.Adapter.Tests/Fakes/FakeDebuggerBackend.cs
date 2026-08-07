@@ -68,6 +68,7 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public BackendEvaluationResult? EvaluationResult { get; set; } =
             new BackendEvaluationResult("", "", 0);
         public Exception? EvaluationException { get; set; }
+        public Exception? ScopesException { get; set; }
         public BackendSetVariableResult? SetVariableResult { get; set; } =
             new BackendSetVariableResult("", "", 0);
         public Exception? VariablesException { get; set; }
@@ -143,6 +144,8 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         {
             ScopesCount++;
             LastScopesTimeoutMilliseconds = timeoutMilliseconds;
+            if (ScopesException != null)
+                throw ScopesException;
             return Scopes;
         }
 

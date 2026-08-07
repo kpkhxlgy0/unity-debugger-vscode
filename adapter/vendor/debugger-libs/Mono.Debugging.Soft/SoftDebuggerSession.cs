@@ -54,18 +54,63 @@ namespace Mono.Debugging.Soft
 {
 	public sealed class SoftStepInTarget
 	{
-		internal SoftStepInTarget (string label, MethodMirror method)
+		internal SoftStepInTarget (string label, Location location)
 		{
 			Label = label;
-			Method = method;
+			Location = location;
 		}
 
 		public string Label { get; }
-		internal MethodMirror Method { get; }
+		internal Location Location { get; }
+	}
+
+	internal static class ReferenceStepTargetSelector
+	{
+		internal static IReadOnlyList<TCandidate> Select<TCandidate> (
+			int currentOffset,
+			IEnumerable<int> ilOffsets,
+			IEnumerable<TCandidate> candidates,
+			Func<TCandidate, int> getOffset,
+			Func<TCandidate, int> getToken,
+			Func<TCandidate, string> getLabel,
+			Func<TCandidate, bool> isCall,
+			Func<TCandidate, bool> hasTarget)
+		{
+			var endOffset = ilOffsets.FirstOrDefault (offset => offset > currentOffset);
+			if (endOffset <= currentOffset)
+				return Array.Empty<TCandidate> ();
+
+			var tokens = new HashSet<int> ();
+			var selected = new SortedDictionary<string, TCandidate> (StringComparer.Ordinal);
+			foreach (var candidate in candidates) {
+				var offset = getOffset (candidate);
+				if (offset < currentOffset || offset >= endOffset || !isCall (candidate))
+					continue;
+
+				var token = getToken (candidate);
+				if (tokens.Contains (token) || !hasTarget (candidate))
+					continue;
+
+				tokens.Add (token);
+				var label = getLabel (candidate);
+				if (!selected.ContainsKey (label))
+					selected.Add (label, candidate);
+			}
+			return selected.Values.ToArray ();
+		}
 	}
 
 	public class SoftDebuggerSession : DebuggerSession
 	{
+		sealed class ReferenceStepTargetCandidate
+		{
+			public int Offset { get; set; }
+			public int Token { get; set; }
+			public string Label { get; set; }
+			public bool IsCall { get; set; }
+			public Location Target { get; set; }
+		}
+
 		readonly Dictionary<AppDomainMirror, HashSet<AssemblyMirror>> domainAssembliesToUnload = new Dictionary<AppDomainMirror, HashSet<AssemblyMirror>> ();
 		readonly Dictionary<Tuple<TypeMirror, string>, MethodMirror[]> overloadResolveCache = new Dictionary<Tuple<TypeMirror, string>, MethodMirror[]> ();
 		readonly Dictionary<string, List<TypeMirror>> source_to_type = new Dictionary<string, List<TypeMirror>> (PathComparer);
@@ -1115,22 +1160,42 @@ namespace Mono.Debugging.Soft
 			try {
 				var runtimeFrame = softFrame.StackFrame;
 				var current = runtimeFrame.Location;
-				var endOffset = runtimeFrame.Method.Locations
-					.Where (location => location.ILOffset > current.ILOffset)
-					.Select (location => location.ILOffset)
-					.DefaultIfEmpty (int.MaxValue)
-					.Min ();
-				return runtimeFrame.Method.GetMethodBody ().Instructions
+				var ilOffsets = runtimeFrame.Method.ILOffsets;
+				var endOffset = ilOffsets.FirstOrDefault (offset => offset > current.ILOffset);
+				if (endOffset <= current.ILOffset)
+					return Array.Empty<SoftStepInTarget> ();
+
+				var declaringTypePrefix = runtimeFrame.Method.DeclaringType.FullName + ".";
+				var candidates = runtimeFrame.Method.GetMethodBody ().Instructions
 					.Where (instruction =>
 						instruction.Offset >= current.ILOffset &&
 						instruction.Offset < endOffset &&
-						IsCall (instruction.OpCode) &&
 						instruction.Operand is MethodMirror)
-					.Select (instruction => (MethodMirror) instruction.Operand)
-					.Where (method => method.Locations.Count > 0)
-					.GroupBy (method => method.FullName)
-					.Select (group => group.First ())
-					.Select (method => new SoftStepInTarget (GetMethodLabel (method), method))
+					.Select (instruction => {
+						var method = (MethodMirror) instruction.Operand;
+						var label = GetReferenceMethodSignature (method);
+						if (label.StartsWith (declaringTypePrefix, StringComparison.Ordinal))
+							label = label.Substring (declaringTypePrefix.Length);
+						var isCall = IsStepTargetCall (instruction.OpCode);
+						return new ReferenceStepTargetCandidate {
+							Offset = instruction.Offset,
+							Token = method.MetadataToken,
+							Label = label,
+							IsCall = isCall,
+							Target = isCall ? TryGetDebuggableStepTarget (method) : null
+						};
+					})
+					.ToArray ();
+				return ReferenceStepTargetSelector.Select (
+						current.ILOffset,
+						ilOffsets,
+						candidates,
+						candidate => candidate.Offset,
+						candidate => candidate.Token,
+						candidate => candidate.Label,
+						candidate => candidate.IsCall,
+						candidate => candidate.Target != null)
+					.Select (candidate => new SoftStepInTarget (candidate.Label, candidate.Target))
 					.ToArray ();
 			} catch (AbsentInformationException) {
 				return Array.Empty<SoftStepInTarget> ();
@@ -1150,22 +1215,26 @@ namespace Mono.Debugging.Soft
 			if (!IsConnected || IsRunning)
 				throw new NotSupportedException ();
 
-			var location = target.Method.Locations.FirstOrDefault ();
+			var location = target.Location;
 			if (location == null)
 				throw new NotSupportedException ("Step target has no code.");
 			var thread = GetThread (threadId);
 			if (thread == null)
 				throw new ArgumentException ("Unknown thread.", nameof (threadId));
 
-			var request = vm.CreateBreakpointRequest (location);
-			request.Thread = thread;
-			lock (targetedStepRequests)
-				targetedStepRequests.Add (request);
 			try {
+				Adaptor.CancelAsyncOperations ();
+				DisableTargetedStepRequests ();
+				var request = vm.CreateBreakpointRequest (location);
+				request.Thread = thread;
+				lock (targetedStepRequests)
+					targetedStepRequests.Add (request);
 				request.Enable ();
-				Continue ();
+				OnResumed ();
+				vm.Resume ();
+				DequeueEventsForFirstThread ();
 			} catch {
-				RemoveTargetedStepRequest (request);
+				DisableTargetedStepRequests ();
 				throw;
 			}
 		}
@@ -2680,10 +2749,36 @@ namespace Mono.Debugging.Soft
 			}
 		}
 
-		static string GetMethodLabel (MethodMirror method)
+		static Location TryGetDebuggableStepTarget (MethodMirror method)
 		{
-			return method.DeclaringType.Name + "." + method.Name + "(" +
-				string.Join (", ", method.GetParameters ().Select (parameter => parameter.ParameterType.Name)) + ")";
+			var location = method.Locations.FirstOrDefault ();
+			if (location != null)
+				return location;
+
+			var isIterator = method.ReturnType.FullName == "System.Collections.IEnumerator" ||
+				method.GetCustomAttributes (false).Any (attribute =>
+					attribute.Constructor.DeclaringType.FullName ==
+					"System.Runtime.CompilerServices.IteratorStateMachineAttribute");
+			if (!isIterator)
+				return null;
+
+			var constructor = method.GetMethodBody ().Instructions
+				.Where (instruction => instruction.OpCode == OpCodes.Newobj)
+				.Select (instruction => instruction.Operand as MethodMirror)
+				.FirstOrDefault (candidate => candidate != null);
+			var moveNext = constructor?.DeclaringType.GetMethod ("MoveNext");
+			return moveNext?.Locations.FirstOrDefault ();
+		}
+
+		static string GetReferenceMethodSignature (MethodMirror method)
+		{
+			return method.DeclaringType.FullName + "." + method.Name + "(" +
+				string.Join (",", method.GetParameters ().Select (parameter => parameter.ParameterType.FullName)) + ")";
+		}
+
+		static bool IsStepTargetCall (OpCode code)
+		{
+			return code == OpCodes.Call || code == OpCodes.Callvirt;
 		}
 
 		static bool IsCall (OpCode code)

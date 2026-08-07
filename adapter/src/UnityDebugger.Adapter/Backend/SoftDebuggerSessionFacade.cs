@@ -313,7 +313,8 @@ namespace UnityDebugger.Adapter.Backend
             ThrowIfDisposed();
             var frame = objectValues.GetFrame(frameId);
             var options = CreateReferenceVariableOptions(
-                session.EvaluationOptions);
+                session.EvaluationOptions,
+                timeoutMilliseconds);
             var thisReference = frame.GetThisReference(options);
             var localVariables = frame.GetLocalVariables(options);
             var parameters = frame.GetParameters(options);
@@ -338,13 +339,6 @@ namespace UnityDebugger.Adapter.Backend
                 thisGameObject,
                 localVariables,
                 parameters);
-            foreach (var value in values)
-            {
-                MonoObjectValueStore.WaitForValue(
-                    value,
-                    options,
-                    cancellationToken);
-            }
             var locals = ObjectValue.CreateObject(
                 null,
                 new ObjectPath("Locals"),
@@ -393,12 +387,21 @@ namespace UnityDebugger.Adapter.Backend
 
         internal static EvaluationOptions CreateReferenceVariableOptions(
             EvaluationOptions sessionOptions)
+            => CreateReferenceVariableOptions(
+                sessionOptions,
+                sessionOptions.EvaluationTimeout);
+
+        internal static EvaluationOptions CreateReferenceVariableOptions(
+            EvaluationOptions sessionOptions,
+            int timeoutMilliseconds)
         {
             if (sessionOptions == null)
                 throw new ArgumentNullException(nameof(sessionOptions));
             var options = sessionOptions.Clone();
             options.FlattenHierarchy = false;
             options.GroupPrivateMembers = false;
+            options.EvaluationTimeout = timeoutMilliseconds;
+            options.MemberEvaluationTimeout = timeoutMilliseconds;
             return options;
         }
 
@@ -411,7 +414,8 @@ namespace UnityDebugger.Adapter.Backend
             return objectValues.GetVariables(
                 variablesReference,
                 CreateReferenceVariableOptions(
-                    session.EvaluationOptions),
+                    session.EvaluationOptions,
+                    timeoutMilliseconds),
                 cancellationToken);
         }
 
@@ -423,7 +427,9 @@ namespace UnityDebugger.Adapter.Backend
         {
             ThrowIfDisposed();
             var frame = objectValues.GetFrame(frameId);
-            var options = session.EvaluationOptions.Clone();
+            var options = CreateRequestEvaluationOptions(
+                session.EvaluationOptions,
+                timeoutMilliseconds);
             try
             {
                 var resolvedExpression = ResolveExpression(
@@ -510,8 +516,21 @@ namespace UnityDebugger.Adapter.Backend
                 name,
                 expression,
                 CreateReferenceVariableOptions(
-                    session.EvaluationOptions),
+                    session.EvaluationOptions,
+                    timeoutMilliseconds),
                 cancellationToken);
+        }
+
+        private static EvaluationOptions CreateRequestEvaluationOptions(
+            EvaluationOptions sessionOptions,
+            int timeoutMilliseconds)
+        {
+            if (sessionOptions == null)
+                throw new ArgumentNullException(nameof(sessionOptions));
+            var options = sessionOptions.Clone();
+            options.EvaluationTimeout = timeoutMilliseconds;
+            options.MemberEvaluationTimeout = timeoutMilliseconds;
+            return options;
         }
 
         public BackendBoundBreakpoint BindBreakpoint(
