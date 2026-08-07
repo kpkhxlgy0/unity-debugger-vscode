@@ -541,5 +541,12 @@ infer an unavailable UI capability.
   breakpoint at the same location, resumes, and matches completion by request identity plus runtime thread ID. The DAP
   side emits one `stopped` event with reason `goto` and does not expose an unsupported-operation notification.
 - Replacement source now follows that sequence and keeps the version at `0.3.0`. Focused red/green tests cover the
-  requested-thread/resolved-location API and notification-free `NotSupportedException` behavior. All 155 Adapter tests
-  pass; packaging and MyGame A/B remain pending.
+  requested-thread/resolved-location API and notification-free `NotSupportedException` behavior.
+- Packaged candidate: build ID `0.3.0+g4869d3b8cd91`, behavior source commit
+  `9f132eb3df7eeba2d75fd8785ed982eb09749484`, inventory/build commit
+  `4869d3b8cd91134beca123c5e9b1fc23bb3600da`, VSIX SHA-256
+  `8a9cde5eb690c707cf66a140677a7ebaffe053f58861028446ed8310f7cc5954`, and changed
+  `Mono.Debugging.Soft.dll` SHA-256 `b0cdd5d90618391146588504a559f411a4320811a1c45b7d454acce47def7dfd`.
+  All 19 build tests, 93 extension tests, 155 Adapter tests, 9 integration tests, and 4 package tests pass.
+- The VSIX is installed in VS Code. Installed build identity and the hashes of `Mono.Debugging.Soft.dll` and
+  `UnityDebuggerPure.exe` match the package. Reload and MyGame A/B remain pending.
