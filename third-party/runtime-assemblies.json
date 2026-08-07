@@ -46,7 +46,7 @@
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugging.Soft.dll",
-      "sha256": "daa85652e6028cb6e46f478e283a40cc9d40a7789e9bb09be52cf0c00ba68ca1",
+      "sha256": "83418b3dc1568a07095bf88a6fd9b407bcaff5fb4c61fe9dd2d144ef036bfe81",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
