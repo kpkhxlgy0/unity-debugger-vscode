@@ -560,5 +560,11 @@ infer an unavailable UI capability.
   the cursor column into the legacy location resolver, which requires an exact PDB column unless the requested column is
   one. This rejected normal cursor positions before returning a target.
 - The replacement source normalizes every Goto lookup to column one while preserving the requested-thread and resolved
-  `Location` execution path. A red/green theory records cursor columns 0, 1, and 37. Packaging and MyGame A/B remain
-  pending.
+  `Location` execution path. A red/green theory records cursor columns 0, 1, and 37.
+- Packaged and installed replacement: version `0.3.0`, build ID `0.3.0+gc88182a24783`, behavior source commit
+  `434d1831dc7681a7708388c5639d21c922af5f83`, inventory/build commit
+  `c88182a24783c1732f7008f374ee29a045ca6011`, VSIX SHA-256
+  `07550c4aa0334c2b119bdecf25ac9d3b69570303c6c939c63be19bb3b420f12d`, and changed
+  `Mono.Debugging.Soft.dll` SHA-256 `8b9f2bb74feb492e0760c2d51a3f1b59806d459012131d832cbe9b3578a75971`.
+  All 19 build tests, 93 extension tests, 158 Adapter tests, 9 integration tests, and 4 package tests pass. Installed
+  build identity and core binary hashes match the package; Reload and MyGame A/B remain pending.
