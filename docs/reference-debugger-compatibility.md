@@ -478,8 +478,9 @@ infer an unavailable UI capability.
   `aaca01c722f764e94711dcbf642e7f5e5e4f30c7`, VSIX SHA-256
   `a79391a454303ca7786a58a42a89c10a2b555fc3cc732bcbd98a9a44ae292ee2`, and Adapter SHA-256
   `11d0fcad86b2b62bbd5b92a4c0e3d41f161de548844c4552b82cbcd2ca6f7982`. Package verification passed with 33
-  files and 17 audited runtime assemblies. Installation is pending because the previous Adapter process is still
-  running; it is not overwritten while an active debug session may own it.
+  files and 17 audited runtime assemblies. After the previous debug session stopped, the VSIX was installed to VS
+  Code and the installed build ID and Adapter SHA-256 matched the package. Reload and MyGame runtime A/B remain
+  pending.
 - Screenshot:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-9625be40-9ee1-4bc4-a61b-0ef855b6c362.png`.
 - Sanitized adapter log:
