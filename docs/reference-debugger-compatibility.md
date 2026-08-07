@@ -505,3 +505,9 @@ infer an unavailable UI capability.
   request, and performs reference-equivalent request/thread matching when the breakpoint event is dispatched. A
   focused red/green regression test records both required matches. Runtime status remains divergent until this new
   candidate is packaged and verified in MyGame.
+- Replacement package: version `0.3.0`, build ID `0.3.0+g19772c378d36`, source commit
+  `19772c378d363e2f77836fb101abd576dd8f1a24`, VSIX SHA-256
+  `e73893565d92a252171289b44fd0218912e72770a0901ae4f86482c11d268756`, and changed
+  `Mono.Debugging.Soft.dll` SHA-256 `83418b3dc1568a07095bf88a6fd9b407bcaff5fb4c61fe9dd2d144ef036bfe81`.
+  All 19 build tests, 93 extension tests, 153 Adapter tests, 9 integration tests, and 4 package tests pass. Installation
+  waits for the active failed-candidate debug session to stop.
