@@ -133,6 +133,14 @@ namespace Mono.Debugging.Soft
 		}
 	}
 
+	internal static class ReferenceGotoTargetSelector
+	{
+		internal static int NormalizeColumn (int requestedColumn)
+		{
+			return 1;
+		}
+	}
+
 	public class SoftDebuggerSession : DebuggerSession
 	{
 		enum TargetedStepEventResult
@@ -1295,7 +1303,7 @@ namespace Mono.Debugging.Soft
 				return FindLocationsByFile (
 						fileName,
 						line,
-						column,
+						ReferenceGotoTargetSelector.NormalizeColumn (column),
 						out genericTypeOrMethod,
 						out insideLoadedRange)
 					.Take (1)

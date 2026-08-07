@@ -138,6 +138,30 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 null));
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(37)]
+        public void ReferenceGotoTargetLookupIgnoresCursorColumn(
+            int cursorColumn)
+        {
+            var selectorType = typeof(Mono.Debugging.Soft.SoftDebuggerSession)
+                .Assembly.GetType(
+                    "Mono.Debugging.Soft.ReferenceGotoTargetSelector");
+            Assert.NotNull(selectorType);
+            var normalizeColumn = selectorType!.GetMethod(
+                "NormalizeColumn",
+                BindingFlags.Static | BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.NotNull(normalizeColumn);
+
+            Assert.Equal(
+                1,
+                (int)normalizeColumn!.Invoke(
+                    null,
+                    new object[] { cursorColumn })!);
+        }
+
         private static AttachTarget Target() => new AttachTarget(
             123,
             IPAddress.Loopback,
