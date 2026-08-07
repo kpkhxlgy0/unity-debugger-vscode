@@ -510,4 +510,5 @@ infer an unavailable UI capability.
   `e73893565d92a252171289b44fd0218912e72770a0901ae4f86482c11d268756`, and changed
   `Mono.Debugging.Soft.dll` SHA-256 `83418b3dc1568a07095bf88a6fd9b407bcaff5fb4c61fe9dd2d144ef036bfe81`.
   All 19 build tests, 93 extension tests, 153 Adapter tests, 9 integration tests, and 4 package tests pass. Installation
-  waits for the active failed-candidate debug session to stop.
+  completed after the active failed-candidate session stopped; the installed build ID and changed DLL hash match the
+  package. Reload and MyGame verification remain pending.
