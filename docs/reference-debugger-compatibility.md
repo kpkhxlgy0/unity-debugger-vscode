@@ -589,8 +589,9 @@ infer an unavailable UI capability.
   `8c6f030f725671d98e7c36fbb0ee62f20dff0c7c`, VSIX SHA-256
   `359111230658f997136d0b2d7cd8107a8b9281a20afb185e782581ee21b4a99a`, and changed
   `UnityDebuggerPure.exe` SHA-256 `4ac05c306db31c5d3e52d7958d2f81da55d6a694b5f97b0150340a60e600d647`.
-  All 19 build tests, 93 extension tests, 159 Adapter tests, 9 integration tests, and 4 package tests pass. Installation,
-  Reload, and MyGame A/B remain pending.
+  All 19 build tests, 93 extension tests, 159 Adapter tests, 9 integration tests, and 4 package tests pass. The VSIX is
+  installed in VS Code, and the installed build identity and executable hash match the package; Reload and MyGame A/B
+  remain pending.
 - Screenshot:
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-87bcc62e-fabd-4eaa-b9c2-52875a4dbeca.png`.
 - Sanitized Adapter log:
