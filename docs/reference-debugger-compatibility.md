@@ -25,6 +25,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | EVAL-05b | Inspection immediately after ordinary F11 Step In | Watches, Hover, Locals, and Scopes remain responsive; no request error or user notification appears | The failed pre-replacement build serialized Watch timeouts and showed notifications after F11; the replacement inspection path has not yet been repeated with ordinary F11 | divergent history; replacement pending A/B | 2026-08-06 MyGame reference run; 2026-08-07 pre-replacement Pure run | Do not infer ordinary Step In from the aligned targeted-step path |
 | EVAL-03 | Locals, Getter, `ToString()`, collection expansion | Getter values display directly; `this.ToString()` and `gameObject.ToString()` return Unity object display strings; `BoardIndexByCell` displays as `int[5,8]` and expands normally; no loading placeholder or delayed update was observed in this run | Matched instance run confirms direct Getter/member expansion and normal Hover/Watch; `BoardIndexByCell` was not explicitly re-expanded in this candidate run | aligned for Getter/member tree; collection recheck pending | 2026-08-06 MyGame reference and Pure runs | Retain the verified Getter/member result; combine the collection recheck with later remaining inspection coverage |
 | EVAL-04 | Invalid expression and Getter failure presentation | Invalid Watch `DefinitelyMissingName` reports <code>The identifier `DefinitelyMissingName` is not in the scope</code>; failing Getter remains to be recorded | Invalid Watch reports the same scope diagnostic; failing Getter remains to be recorded | aligned for invalid identifier; Getter failure unverified | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Do not mark the whole row aligned until a failing Getter has reference and Pure evidence |
+| EVAL-06 | Empty automatic Hover expression after Continue and a new stop | Ordinary evaluation failure is returned without requesting a user notification | Build `0.3.0+gc88182a24783` displayed `An evaluation expression is required.` as a bottom-right notification; replacement build passes the empty expression through ordinary evaluation failure handling with `showUser=false` | divergent runtime; replacement pending A/B | 2026-08-08 MyGame Pure run, screenshot, Adapter log, and full reference protocol inspection | User confirmed replacing the custom empty-expression rejection with the reference path |
 | SET-01 | Set Variable | Set Value is available for `this._status`; assigning a new string updates the displayed value immediately | Not verified | reference verified | 2026-08-06 MyGame reference run | User confirmed replacement of the Set Value refresh path; await Pure A/B |
 | CFG-01 | Public implicit-evaluation setting | No public implicit-evaluation setting is contributed; Getter/`ToString()` evaluation is built-in | Current Pure contributes `unityDebuggerPure.enableImplicitEvaluation` and sends a private Attach flag | divergent; reference verified | 2026-08-06 installed reference `package.json` manifest inspection | User confirmed deleting the setting and propagation chain to match reference |
 | END-01 | Detach and reattach while Unity remains in Play | Detach leaves Unity in Play; reattach immediately hits the recurring breakpoint at `GamePrototypeRuntime.cs:214` with a normal yellow marker and Variables, without an intermediate pause, error, or warning | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
@@ -568,3 +569,29 @@ infer an unavailable UI capability.
   `Mono.Debugging.Soft.dll` SHA-256 `8b9f2bb74feb492e0760c2d51a3f1b59806d459012131d832cbe9b3578a75971`.
   All 19 build tests, 93 extension tests, 158 Adapter tests, 9 integration tests, and 4 package tests pass. Installed
   build identity and core binary hashes match the package; Reload and MyGame A/B remain pending.
+
+### 2026-08-08 - Empty Hover notification replacement pending MyGame verification
+
+- With build `0.3.0+gc88182a24783`, Jump to Cursor reached the `goto` request, refreshed the stopped view, and allowed
+  the following Step Over. After Continue re-hit the breakpoint, VS Code displayed the bottom-right notification
+  `An evaluation expression is required.` The Adapter log records the new stop followed by automatic evaluation,
+  Scopes, and Variables requests.
+- Reference `HandleEvaluateRequest` does not create a special empty-expression user error. It passes the expression to
+  `EvaluateExpression`; an evaluation failure becomes a plain `ProtocolException`. The installed reference protocol
+  library serializes that exception without a `showUser` message flag.
+- Pure instead rejected whitespace before reaching the backend and used `SendErrorResponse` with its default
+  `user=true`. The replacement removes that custom rejection, passes an absent expression as an empty string to the
+  ordinary evaluator, and retains the existing evaluation-failure response with `showUser=false`.
+- A red/green Adapter test proves the former branch returned `An evaluation expression is required.`, then proves the
+  replacement calls the backend and returns the reference parse failure without requesting a notification.
+- Packaged candidate: version `0.3.0`, build ID `0.3.0+g8c6f030f7256`, behavior source commit
+  `e6cf5311f6a467dbabd209e433ea9475c8fed332`, inventory/build commit
+  `8c6f030f725671d98e7c36fbb0ee62f20dff0c7c`, VSIX SHA-256
+  `359111230658f997136d0b2d7cd8107a8b9281a20afb185e782581ee21b4a99a`, and changed
+  `UnityDebuggerPure.exe` SHA-256 `4ac05c306db31c5d3e52d7958d2f81da55d6a694b5f97b0150340a60e600d647`.
+  All 19 build tests, 93 extension tests, 159 Adapter tests, 9 integration tests, and 4 package tests pass. Installation,
+  Reload, and MyGame A/B remain pending.
+- Screenshot:
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-87bcc62e-fabd-4eaa-b9c2-52875a4dbeca.png`.
+- Sanitized Adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260808T084341917Z-85392.log`.
