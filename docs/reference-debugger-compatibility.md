@@ -27,7 +27,7 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 | EVAL-04 | Invalid expression and Getter failure presentation | Invalid Watch `DefinitelyMissingName` reports <code>The identifier `DefinitelyMissingName` is not in the scope</code>; failing Getter remains to be recorded | Invalid Watch reports the same scope diagnostic; failing Getter remains to be recorded | aligned for invalid identifier; Getter failure unverified | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Do not mark the whole row aligned until a failing Getter has reference and Pure evidence |
 | EVAL-06 | Empty automatic Hover expression after Continue and a new stop | Ordinary evaluation failure is returned without requesting a user notification | Build `0.3.0+g8c6f030f7256` re-hit the breakpoint after Continue, refreshed Watches, Scopes, and Variables, and raised no `An evaluation expression is required.` notification | aligned | 2026-08-08 MyGame Pure runs, screenshot, Adapter logs, and full reference protocol inspection | The custom rejection is removed; empty expressions use the ordinary evaluation-failure path with `showUser=false` |
 | SET-01 | Set Variable | Set Value is available for `this._status`; assigning a new string updates the displayed value immediately | Build `0.3.0+g8c6f030f7256` accepts `"Pure set value test"` for `_status` and refreshes the displayed value immediately | aligned | 2026-08-06 MyGame reference run; 2026-08-08 Pure run and Adapter log | Mature SetVariable handling and stopped-view refresh match the recorded reference behavior |
-| CFG-01 | Public implicit-evaluation setting | No public implicit-evaluation setting is contributed; Getter/`ToString()` evaluation is built-in | Current Pure contributes `unityDebuggerPure.enableImplicitEvaluation` and sends a private Attach flag | divergent; reference verified | 2026-08-06 installed reference `package.json` manifest inspection | User confirmed deleting the setting and propagation chain to match reference |
+| CFG-01 | Public implicit-evaluation setting | No public implicit-evaluation setting is contributed; Getter/`ToString()` evaluation is built-in | Installed build `0.3.0+g8c6f030f7256` has no contributed configuration, exposes only `name/type/request` Attach properties, and contains no implicit-evaluation setting or private Attach flag | aligned | 2026-08-06 reference manifest; 2026-08-08 Pure installed manifest and bundle inspection | Getter and `ToString()` evaluation remain built-in with no public or private configuration path |
 | END-01 | Detach and reattach while Unity remains in Play | Detach leaves Unity in Play; reattach immediately hits the recurring breakpoint at `GamePrototypeRuntime.cs:214` with a normal yellow marker and Variables, without an intermediate pause, error, or warning | Not verified | reference verified | 2026-08-06 MyGame reference run | Await Pure A/B |
 
 ## Evidence Rules
@@ -628,6 +628,14 @@ infer an unavailable UI capability.
   still unverified because this class exposes no stable failing property.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260808T085714794Z-67828.log`.
+
+### 2026-08-08 - Implicit evaluation configuration removal aligns
+
+- The installed `0.3.0+g8c6f030f7256` manifest has no contributed configuration and exposes only `name`, `type`, and
+  `request` under Attach properties.
+- Neither the installed manifest nor the bundled extension contains `enableImplicitEvaluation`,
+  `__enableImplicitEvaluation`, or another implicit-evaluation setting path.
+- CFG-01 is aligned; Getter and `ToString()` evaluation remain built-in like the reference.
 
 ### 2026-08-08 - Ordinary F11 inspection aligns in MyGame
 
