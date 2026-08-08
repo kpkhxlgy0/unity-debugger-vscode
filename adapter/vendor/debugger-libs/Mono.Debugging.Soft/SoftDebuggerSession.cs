@@ -84,6 +84,17 @@ namespace Mono.Debugging.Soft
 		internal Location Location { get; }
 	}
 
+	internal static class ReferencePauseDispatcher
+	{
+		internal static void Dispatch<TThread> (
+			IEnumerable<TThread> threads,
+			Action<TThread> sendBreak)
+		{
+			foreach (var thread in threads)
+				sendBreak (thread);
+		}
+	}
+
 	internal static class ReferenceStepTargetSelector
 	{
 		internal static IReadOnlyList<TCandidate> Select<TCandidate> (
@@ -3576,34 +3587,19 @@ namespace Mono.Debugging.Soft
 		protected override void OnStop ()
 		{
 			vm.Suspend ();
-
-			//emit a stop event at the current position of the most recent thread
-			//we use "getprocesses" instead of "ongetprocesses" because it attaches the process to the session
-			//using private Mono.Debugging API, so our thread/backtrace calls will cache stuff that will get used later
 			var process = GetProcesses () [0];
-			EnsureRecentThreadIsValid (process);
-			current_thread = recent_thread;
-			OnTargetEvent (new TargetEventArgs (TargetEventType.TargetStopped) {
-				Process = process,
-				Thread = GetThread (process, recent_thread),
-				Backtrace = GetThreadBacktrace (recent_thread)});
-		}
-
-		void EnsureRecentThreadIsValid (ProcessInfo process)
-		{
-			var infos = process.GetThreads ();
-
-			if (ThreadIsAlive (recent_thread) && HasUserFrame (GetId (recent_thread), infos))
-				return;
-
-			var threads = vm.GetThreads ();
-			foreach (var thread in threads) {
-				if (ThreadIsAlive (thread) && HasUserFrame (GetId (thread), infos)) {
-					recent_thread = thread;
-					return;
-				}
-			}
-			recent_thread = threads[0];
+			ReferencePauseDispatcher.Dispatch (
+				process.GetThreads (),
+				thread => {
+					var mirror = GetThread (thread.Id);
+					if (mirror != null) {
+						recent_thread = mirror;
+						current_thread = mirror;
+					}
+					OnTargetEvent (new TargetEventArgs (TargetEventType.TargetStopped) {
+						Process = process,
+						Thread = thread});
+				});
 		}
 
 		long GetId (ThreadMirror thread)
@@ -3614,39 +3610,6 @@ namespace Mono.Debugging.Soft
 				localThreadIds [thread.ThreadId] = id;
 			}
 			return id;
-		}
-
-		static bool ThreadIsAlive (ThreadMirror thread)
-		{
-			if (thread == null)
-				return false;
-			ThreadState state;
-			try {
-				state = thread.ThreadState;
-			} catch (ObjectCollectedException) {
-				return false;//Thread was already collected by garbage collector, hence it's not alive
-			}
-			return state != ThreadState.Stopped && state != ThreadState.Aborted;
-		}
-
-		//we use the Mono.Debugging classes because they are cached
-		static bool HasUserFrame (long tid, ThreadInfo[] threads)
-		{
-			foreach (var thread in threads) {
-				if (thread.Id != tid)
-					continue;
-
-				var bt = thread.Backtrace;
-				for (int i = 0; i < bt.FrameCount; i++) {
-					var frame = bt.GetFrame (i);
-					if (frame != null && !frame.IsExternalCode)
-						return true;
-				}
-
-				return false;
-			}
-
-			return false;
 		}
 
 		public bool IsExternalCode (StackFrame frame)

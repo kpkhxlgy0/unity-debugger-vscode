@@ -51,6 +51,40 @@ namespace UnityDebugger.Adapter.Tests.Backend
         }
 
         [Fact]
+        public void ReferencePauseDispatchesEveryThreadInRuntimeOrder()
+        {
+            var dispatcherType =
+                typeof(Mono.Debugging.Soft.SoftDebuggerSession)
+                    .Assembly.GetType(
+                        "Mono.Debugging.Soft.ReferencePauseDispatcher");
+            Assert.NotNull(dispatcherType);
+            var dispatch = dispatcherType!.GetMethod(
+                "Dispatch",
+                BindingFlags.Static | BindingFlags.Public |
+                BindingFlags.NonPublic);
+            Assert.NotNull(dispatch);
+            var generic = dispatch!.MakeGenericMethod(typeof(BackendThread));
+            var observed = new List<long>();
+            var threads = new[]
+            {
+                new BackendThread(7, "Worker"),
+                new BackendThread(42, "Main Thread"),
+                new BackendThread(99, "Finalizer"),
+            };
+
+            generic.Invoke(
+                null,
+                new object[]
+                {
+                    threads,
+                    new Action<BackendThread>(
+                        thread => observed.Add(thread.Id)),
+                });
+
+            Assert.Equal(new long[] { 7, 42, 99 }, observed);
+        }
+
+        [Fact]
         public void ReferenceStepTargetsUseNextIlOffsetAndStableOrdering()
         {
             var selectorType = typeof(Mono.Debugging.Soft.SoftDebuggerSession)
