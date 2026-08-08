@@ -190,6 +190,36 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
+        public void EmptyHoverExpressionUsesReferenceSilentEvaluationFailure()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                EvaluationException = new BackendEvaluationException(
+                    "Unable to parse: ``"),
+            };
+
+            var messages = RunAttached(
+                backend,
+                DapTestProtocol.Request(
+                    "evaluate",
+                    new
+                    {
+                        frameId = 1,
+                        expression = "",
+                        context = "hover",
+                    }));
+
+            var response = DapTestProtocol.Response(messages, "evaluate");
+            Assert.False(response["success"]!.Value<bool>());
+            Assert.Equal(
+                "Unable to parse: ``",
+                response["message"]!.Value<string>());
+            Assert.False(
+                response["body"]!["error"]!["showUser"]!.Value<bool>());
+            Assert.Equal(1, backend.EvaluateCount);
+        }
+
+        [Fact]
         public void WatchEvaluationErrorRemainsAnInlineFailedEvaluation()
         {
             var backend = new FakeDebuggerBackend

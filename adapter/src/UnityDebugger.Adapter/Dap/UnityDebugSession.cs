@@ -784,20 +784,12 @@ namespace UnityDebugger.Adapter.Dap
 
             var frameHandle = request?["frameId"]?.Value<int>() ?? 0;
             var expression = request?["expression"]?.Value<string>();
-            if (string.IsNullOrWhiteSpace(expression))
-            {
-                SendErrorResponse(
-                    response,
-                    2025,
-                    "An evaluation expression is required.");
-                return;
-            }
 
             try
             {
                 var result = value.Evaluate(
                     frameHandle,
-                    expression!,
+                    expression ?? string.Empty,
                     GetTimeoutMilliseconds(request),
                     CancellationToken.None);
                 if (result == null)
