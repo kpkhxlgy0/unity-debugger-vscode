@@ -684,7 +684,14 @@ infer an unavailable UI capability.
   existing order, emitting no eager backtrace and retaining the last reported thread as the control thread. The old
   preferred-user-frame scan has been removed.
 - A focused regression first failed with only thread `42` observed where `7, 42, 99` were expected, then passed after
-  the replacement. All 160 Adapter tests pass. Packaging, installation, and repeated MyGame Pause/Continue plus
+  the replacement. All 19 build tests, 93 extension tests, 160 Adapter tests, 9 integration tests, and 4 package tests
+  pass.
+- Packaged and installed candidate: version `0.3.0`, build ID `0.3.0+g10b1d65475b8`, behavior source commit
+  `725d130f49046df217073d56dfa34a3209ec4ff2`, inventory/build commit
+  `10b1d65475b8b3adca39e5b7e0ea961fa4ec0e57`, VSIX SHA-256
+  `2af46a12d9c7524e1cba830761f7f0cef4d1f65ca263e73c4f439ad8ed1a1dec`, and changed
+  `Mono.Debugging.Soft.dll` SHA-256 `138ab26d375d434beb179fb28df11461085eaec35c81cdafddb8d1d6a8a173c3`.
+  Installed build identity and core binary hashes match the package. Reload and repeated MyGame Pause/Continue plus
   detach/reattach verification remain pending.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260808T091142741Z-98028.log`.
