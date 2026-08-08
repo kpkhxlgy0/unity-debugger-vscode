@@ -245,13 +245,7 @@ namespace UnityDebugger.Adapter.Backend
         public void ConfigureExceptions(ExceptionBreakMode mode)
         {
             ThrowIfDisposed();
-            session.Breakpoints.RemoveCatchpoint("System.Exception");
-            if (mode == ExceptionBreakMode.All)
-            {
-                session.Breakpoints.AddCatchpoint(
-                    "System.Exception",
-                    true);
-            }
+            SoftExceptionRequestConfiguration.Apply(session, mode);
             exceptionMode = mode;
         }
 
@@ -767,11 +761,7 @@ namespace UnityDebugger.Adapter.Backend
                 }
             }
             var exception = reason == BackendStopReason.Exception
-                ? new BackendExceptionInfo(
-                    "System.Exception",
-                    "Exception has occurred.",
-                    "always",
-                    null)
+                ? CreateExceptionInfo(arguments)
                 : null;
             TargetStopped?.Invoke(
                 this,
@@ -781,6 +771,42 @@ namespace UnityDebugger.Adapter.Backend
                     null,
                     breakpointId,
                     exception));
+        }
+
+        private BackendExceptionInfo CreateExceptionInfo(
+            TargetEventArgs arguments)
+        {
+            var breakMode =
+                arguments.Type == TargetEventType.UnhandledException
+                    ? "unhandled"
+                    : "always";
+            try
+            {
+                var frame = arguments.Backtrace?.FrameCount > 0
+                    ? arguments.Backtrace.GetFrame(0)
+                    : null;
+                var value = frame?.GetException(session.EvaluationOptions);
+                if (value != null)
+                {
+                    return new BackendExceptionInfo(
+                        string.IsNullOrWhiteSpace(value.Type)
+                            ? "System.Exception"
+                            : value.Type,
+                        string.IsNullOrWhiteSpace(value.Message)
+                            ? "Exception has occurred."
+                            : value.Message,
+                        breakMode,
+                        null);
+                }
+            }
+            catch (Exception)
+            {
+            }
+            return new BackendExceptionInfo(
+                "System.Exception",
+                "Exception has occurred.",
+                breakMode,
+                null);
         }
 
         private void RaiseThread(TargetEventArgs arguments, bool started)

@@ -53,7 +53,10 @@ namespace UnityDebugger.Adapter.Source
             string normalized;
             try
             {
-                normalized = Path.GetFullPath(runtimePath);
+                normalized = Path.GetFullPath(
+                    Path.IsPathRooted(runtimePath)
+                        ? runtimePath
+                        : Path.Combine(workspaceRoot, runtimePath));
             }
             catch (
                 Exception exception

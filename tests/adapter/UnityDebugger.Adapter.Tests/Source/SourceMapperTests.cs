@@ -47,6 +47,29 @@ namespace UnityDebugger.Adapter.Tests.Source
         }
 
         [Fact]
+        public void Resolves_relative_runtime_source_from_workspace_root()
+        {
+            var expected = Path.GetFullPath(
+                @"H:\fixture\FilePackages\package\Editor\Receiver.cs");
+            var mapper = new SourceMapper(
+                @"H:\fixture",
+                path => string.Equals(
+                    path,
+                    expected,
+                    StringComparison.OrdinalIgnoreCase));
+
+            var source = mapper.ToClientPath(
+                @".\FilePackages\package\Editor\Receiver.cs");
+
+            Assert.True(source.Available);
+            Assert.Equal(
+                expected,
+                source.Path!,
+                ignoreCase: true);
+            Assert.Equal("Receiver.cs", source.Name);
+        }
+
+        [Fact]
         public void Rejects_runtime_path_outside_workspace_without_name()
         {
             const string Secret = "SecretUserFile.cs";
