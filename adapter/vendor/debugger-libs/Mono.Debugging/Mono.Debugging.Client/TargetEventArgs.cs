@@ -54,6 +54,14 @@ namespace Mono.Debugging.Client
 			get; set;
 		}
 
+		public string ExceptionTypeName {
+			get; set;
+		}
+
+		public string ExceptionMessage {
+			get; set;
+		}
+
 		public int? ExitCode {
 			get; set;
 		}

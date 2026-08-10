@@ -2537,6 +2537,10 @@ namespace Mono.Debugging.Soft
 					args.Thread = GetThread (args.Process, current_thread);
 					args.Backtrace = backtrace;
 					args.BreakEvent = breakEvent;
+					if (exception != null) {
+						args.ExceptionTypeName = GetExceptionTypeName (exception);
+						args.ExceptionMessage = GetExceptionMessage (exception);
+					}
 
 					if (!suppressTargetEvent)
 						OnTargetEvent (args);
@@ -2730,6 +2734,32 @@ namespace Mono.Debugging.Soft
 			ObjectMirror obj;
 
 			return activeExceptionsByThread.TryGetValue (thread.ThreadId, out obj) ? obj : null;
+		}
+
+		static string GetExceptionTypeName (ObjectMirror exception)
+		{
+			try {
+				return exception.Type.FullName;
+			} catch {
+				return null;
+			}
+		}
+
+		static string GetExceptionMessage (ObjectMirror exception)
+		{
+			try {
+				var type = exception.Type;
+				while (type != null) {
+					var field = type.GetField ("_message") ?? type.GetField ("message");
+					if (field != null) {
+						var message = exception.GetValue (field) as StringMirror;
+						return message != null ? message.Value : null;
+					}
+					type = type.BaseType;
+				}
+			} catch {
+			}
+			return null;
 		}
 
 		void QueueBreakEventSet (Event[] eventSet)

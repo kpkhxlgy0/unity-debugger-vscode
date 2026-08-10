@@ -763,12 +763,15 @@ namespace UnityDebugger.Adapter.Backend
             var exception = reason == BackendStopReason.Exception
                 ? CreateExceptionInfo(arguments)
                 : null;
+            var description = exception == null
+                ? null
+                : exception.ExceptionId + ": " + exception.Description;
             TargetStopped?.Invoke(
                 this,
                 new BackendStoppedEventArgs(
                     reason,
                     arguments.Thread?.Id ?? 0,
-                    null,
+                    description,
                     breakpointId,
                     exception));
         }
@@ -780,31 +783,13 @@ namespace UnityDebugger.Adapter.Backend
                 arguments.Type == TargetEventType.UnhandledException
                     ? "unhandled"
                     : "always";
-            try
-            {
-                var frame = arguments.Backtrace?.FrameCount > 0
-                    ? arguments.Backtrace.GetFrame(0)
-                    : null;
-                var value = frame?.GetException(session.EvaluationOptions);
-                if (value != null)
-                {
-                    return new BackendExceptionInfo(
-                        string.IsNullOrWhiteSpace(value.Type)
-                            ? "System.Exception"
-                            : value.Type,
-                        string.IsNullOrWhiteSpace(value.Message)
-                            ? "Exception has occurred."
-                            : value.Message,
-                        breakMode,
-                        null);
-                }
-            }
-            catch (Exception)
-            {
-            }
             return new BackendExceptionInfo(
-                "System.Exception",
-                "Exception has occurred.",
+                string.IsNullOrWhiteSpace(arguments.ExceptionTypeName)
+                    ? "System.Exception"
+                    : arguments.ExceptionTypeName,
+                string.IsNullOrWhiteSpace(arguments.ExceptionMessage)
+                    ? "Exception has occurred."
+                    : arguments.ExceptionMessage,
                 breakMode,
                 null);
         }

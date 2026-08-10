@@ -98,6 +98,9 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 var arguments = new TargetEventArgs(
                     TargetEventType.ExceptionThrown)
                 {
+                    ExceptionTypeName =
+                        "System.Threading.Tasks.TaskCanceledException",
+                    ExceptionMessage = "A task was canceled.",
                     Thread = new ThreadInfo(
                         1,
                         42,
@@ -108,14 +111,6 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 };
                 BackendStoppedEventArgs? stopped = null;
                 facade.TargetStopped += (_, value) => stopped = value;
-
-                var runtimeException = arguments.Backtrace
-                    .GetFrame(0)
-                    .GetException(EvaluationOptions.DefaultOptions);
-                Assert.Equal(
-                    "System.Threading.Tasks.TaskCanceledException",
-                    runtimeException.Type);
-                Assert.Equal("A task was canceled.", runtimeException.Message);
 
                 typeof(SoftDebuggerSessionFacade).GetMethod(
                         "HandleStopped",
@@ -137,6 +132,11 @@ namespace UnityDebugger.Adapter.Tests.Backend
                     "A task was canceled.",
                     stopped.ExceptionInfo.Description);
                 Assert.Equal("always", stopped.ExceptionInfo.BreakMode);
+                Assert.Equal(
+                    "System.Threading.Tasks.TaskCanceledException: " +
+                    "A task was canceled.",
+                    stopped.Description);
+                Assert.Equal(0, backtrace.GetExceptionCallCount);
             }
         }
 
@@ -261,6 +261,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
             }
 
             public int FrameCount => 1;
+            public int GetExceptionCallCount { get; private set; }
 
             public DebugStackFrame[] GetStackFrames(
                 int firstIndex,
@@ -280,7 +281,11 @@ namespace UnityDebugger.Adapter.Tests.Backend
 
             public ExceptionInfo GetException(
                 int frameIndex,
-                EvaluationOptions options) => exception;
+                EvaluationOptions options)
+            {
+                GetExceptionCallCount++;
+                return exception;
+            }
 
             public ObjectValue[] GetAllLocals(
                 int frameIndex,
