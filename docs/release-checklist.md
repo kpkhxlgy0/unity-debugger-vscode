@@ -1,6 +1,6 @@
 # Unity Debugger Pure Release Checklist
 
-Use these gates in order for every public release. Version `0.2.0` is the
+Use these gates in order for every public release. Version `0.3.0` is the
 current release candidate.
 
 ## 1. Local release candidate
@@ -9,8 +9,8 @@ current release candidate.
 - Run the complete dependency, build, test, third-party, package, runtime
   inventory, and VSIX verification suites.
 - Confirm the release files are exactly
-  `unity-debugger-pure-0.2.0.vsix` and
-  `unity-debugger-pure-0.2.0.vsix.sha256`.
+  `unity-debugger-pure-0.3.0.vsix` and
+  `unity-debugger-pure-0.3.0.vsix.sha256`.
 - Confirm the checksum matches the exact VSIX accepted in MyGame.
 
 ## 2. Public repository
@@ -61,7 +61,7 @@ source, logs, shell history, release notes, issues, or chat.
 ## 7. Cursor
 
 - Search Cursor Extensions for `@id:kpk.unity-debugger-pure`.
-- Confirm Cursor resolves version `0.2.0` through Open VSX.
+- Confirm Cursor resolves version `0.3.0` through Open VSX.
 - If Open VSX is active but Cursor cannot discover the extension, request a
   Cursor marketplace sync/security review. Do not build another VSIX.
 
@@ -75,7 +75,7 @@ source, logs, shell history, release notes, issues, or chat.
 
 ## 9. Rollback and versioning
 
-Never reuse or overwrite accepted `0.1.0`, `0.1.1`, or `0.2.0` registry
-releases. If a defect is found, fix it on `master`, increment to at least
-`0.2.1`, build one
+Never reuse or overwrite accepted `0.1.0`, `0.1.1`, `0.2.0`, or `0.3.0`
+registry releases. If a defect is found after publishing `0.3.0`, fix it on
+`master`, increment to at least `0.3.1`, build one
 new audited VSIX, and repeat every gate.
