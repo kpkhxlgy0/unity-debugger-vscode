@@ -744,3 +744,16 @@ infer an unavailable UI capability.
   all match the installed reference.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T084156499Z-59316.log`.
+
+- Packaged and installed candidate: version `0.3.0`, build ID `0.3.0+gc675cc2db296`, behavior source commit
+  `3ffb080bfcea8196f29fe658e5bc59146f29991e`, inventory/build commit
+  `c675cc2db296b916c805f14cacfc7361858a83df`, and VSIX SHA-256
+  `723a7d756437212f3dfcee0cd213a7e7e6c8663e4f0506dad2cf5a9136f8c395`.
+- Installed `UnityDebuggerPure.exe` SHA-256 is
+  `0e5999bad1cfe081a324f347d714ee779e1ab9b06c536968b3ac2615c5e20bb6`; installed
+  `Mono.Debugging.Soft.dll` SHA-256 is
+  `24ccb96f844b466717dbe4d1b665595deaa7f249ce1d93615bedc6ffd895e2a3`. Both match the audited package.
+- Verification passed: type checking, third-party provenance, 19 build tests, 93 extension tests, 165 Adapter tests,
+  9 integration tests, 17-entry runtime inventory, 33-file VSIX audit, and 4 package tests. The existing upstream
+  unused-variable warning in `Mono.Debugging.Soft` remains unchanged. Reload and the combined EX-01 MyGame runtime
+  check remain pending.
