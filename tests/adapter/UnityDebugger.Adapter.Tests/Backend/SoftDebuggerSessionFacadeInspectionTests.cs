@@ -13,6 +13,16 @@ namespace UnityDebugger.Adapter.Tests.Backend
     public sealed class SoftDebuggerSessionFacadeInspectionTests
     {
         [Fact]
+        public void ReferenceSessionOptionsFilterSourceLessExceptionStops()
+        {
+            var options =
+                SoftDebuggerSessionFacade.CreateReferenceSessionOptions();
+
+            Assert.True(options.ProjectAssembliesOnly);
+            Assert.NotNull(options.EvaluationOptions);
+        }
+
+        [Fact]
         public void ScopesReturnWithoutWaitingForEvaluatingLocals()
         {
             using (var facade = new SoftDebuggerSessionFacade())

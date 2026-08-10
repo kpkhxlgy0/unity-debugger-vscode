@@ -141,10 +141,7 @@ namespace UnityDebugger.Adapter.Backend
                         TimeBetweenConnectionAttempts =
                             connectionAttemptIntervalMilliseconds,
                     };
-                    var options = new DebuggerSessionOptions
-                    {
-                        EvaluationOptions = EvaluationOptions.DefaultOptions,
-                    };
+                    var options = CreateReferenceSessionOptions();
                     session.SetOutputOptions(new OutputOptions());
                     session.Run(
                         new SoftDebuggerStartInfo(connectArgs),
@@ -365,6 +362,15 @@ namespace UnityDebugger.Adapter.Backend
             values.AddRange(localVariables);
             values.AddRange(parameters);
             return values.ToArray();
+        }
+
+        internal static DebuggerSessionOptions CreateReferenceSessionOptions()
+        {
+            return new DebuggerSessionOptions
+            {
+                EvaluationOptions = EvaluationOptions.DefaultOptions,
+                ProjectAssembliesOnly = true,
+            };
         }
 
         internal static EvaluationOptions CreateReferenceVariableOptions(

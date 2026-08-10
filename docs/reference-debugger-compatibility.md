@@ -832,3 +832,22 @@ infer an unavailable UI capability.
   third-party provenance, 19 build tests, 93 extension tests, 172 Adapter tests, 9 integration tests, 17-entry runtime
   inventory, 33-file VSIX audit, and 4 package tests. The existing upstream unused-variable warning remains unchanged.
 - VS Code Reload and the combined EX-01 MyGame runtime check remain pending.
+
+### 2026-08-10 - Source-less exception stop identified
+
+- After Reload and Attach with build `0.3.0+gf2481db7c0b1`, the first caught exception stopped normally. Continue at
+  `10:06:09.755Z` resumed the target, then a distinct caught-only exception object arrived about 10 milliseconds
+  later on the same runtime request.
+- The second stop had no current-statement marker, no Variables, and no stack-bound Watch context; all seven Watches
+  displayed `not available`. This proves the remaining divergence is a source-less/no-frame exception stop rather
+  than another user-code exception at line 94.
+- The mature session already has the reference-compatible filter boundary: with `ProjectAssembliesOnly` enabled,
+  caught exceptions are reported only when at least one non-external frame exists. Pure had left that session option
+  at its default `false`, which short-circuited the frame check and exposed the source-less stop.
+- The user approved replacing that setting. The connection now enables `ProjectAssembliesOnly`; a focused regression
+  first failed against the old options and passes with the reference option. MyGame verification remains pending, so
+  EX-01 remains divergent until the first exception still stops normally and one Continue completes Play exit.
+- Screenshot:
+  `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-7d82f399-5154-4f65-926e-4a3620517514.png`.
+- Sanitized Adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T100559225Z-33340.log`.
