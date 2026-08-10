@@ -788,3 +788,25 @@ infer an unavailable UI capability.
 - Reload and one MyGame capture remain pending; EX-01 remains divergent.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T091222409Z-42020.log`.
+
+### 2026-08-10 - Reference exception wire contract identified
+
+- After Reload and Attach with diagnostics build `0.3.0+g82691588494f`, the first line-94 exception stop was runtime
+  object ID `1337` on request `156`. Continue at `09:31:40.075Z` was followed about 13 milliseconds later by another
+  stop on the same thread and request, but runtime object ID `1344`. Both event sets contained exactly one event.
+  Continue is therefore delivered and resumes the VM; the second stop is a distinct exception event rather than the
+  same event being redelivered or an unbalanced suspension.
+- A black-box connection from the installed reference Adapter to an isolated minimal SDB endpoint captured its actual
+  exception-request wire contract without reading or decompiling any reference binary. The reference always installs
+  two complementary standard requests at startup, even before any DAP exception filter is sent:
+  - uncaught request: `caught=false`, `uncaught=true`;
+  - caught request: `caught=true`, `uncaught=false`.
+- Both reference requests use `SuspendPolicy.All`, include subclasses, and set `notFilteredFeature=false` and
+  `everythingElse=false`. A second run with no `setExceptionBreakpoints` request produced the same two startup
+  requests, proving they are fixed engine requests rather than dynamically created DAP-filter requests.
+- Pure currently diverges at this control boundary: All mode disables the ordinary uncaught request and enables one
+  dynamic `caught=true`, `uncaught=true`, `notFilteredFeature=true`, `everythingElse=true` request. The previous
+  mutually-exclusive request replacement is therefore refuted by direct reference-wire evidence and must be
+  replaced rather than extended with deduplication or timing heuristics.
+- Sanitized Adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T093127451Z-85568.log`.
