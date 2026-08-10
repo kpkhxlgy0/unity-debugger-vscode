@@ -62,20 +62,9 @@ namespace UnityDebugger.Adapter.Backend
             session.TargetHitBreakpoint += (_, arguments) =>
                 HandleStopped(arguments, BackendStopReason.Breakpoint);
             session.TargetExceptionThrown += (_, arguments) =>
-            {
-                if (exceptionMode == ExceptionBreakMode.All)
-                    HandleStopped(arguments, BackendStopReason.Exception);
-            };
+                HandleExceptionEvent(arguments);
             session.TargetUnhandledException += (_, arguments) =>
-            {
-                if (exceptionMode != ExceptionBreakMode.None)
-                {
-                    HandleStopped(arguments, BackendStopReason.Exception);
-                    return;
-                }
-                if (!session.HasExited)
-                    session.Continue();
-            };
+                HandleExceptionEvent(arguments);
             session.TargetThreadStarted += (_, arguments) =>
                 RaiseThread(arguments, true);
             session.TargetThreadStopped += (_, arguments) =>
@@ -245,7 +234,6 @@ namespace UnityDebugger.Adapter.Backend
         public void ConfigureExceptions(ExceptionBreakMode mode)
         {
             ThrowIfDisposed();
-            SoftExceptionRequestConfiguration.Apply(session, mode);
             exceptionMode = mode;
         }
 
@@ -777,6 +765,19 @@ namespace UnityDebugger.Adapter.Backend
                     arguments.ExceptionObjectId,
                     arguments.ExceptionRequestId,
                     arguments.ExceptionEventCount));
+        }
+
+        private void HandleExceptionEvent(TargetEventArgs arguments)
+        {
+            if (ReferenceExceptionStopPolicy.ShouldStop(
+                exceptionMode,
+                arguments.Type))
+            {
+                HandleStopped(arguments, BackendStopReason.Exception);
+                return;
+            }
+            if (!session.HasExited)
+                session.Continue();
         }
 
         private BackendExceptionInfo CreateExceptionInfo(

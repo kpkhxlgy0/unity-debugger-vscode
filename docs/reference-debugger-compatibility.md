@@ -810,3 +810,17 @@ infer an unavailable UI capability.
   replaced rather than extended with deduplication or timing heuristics.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T093127451Z-85568.log`.
+
+### 2026-08-10 - Reference exception request replacement ready for packaging
+
+- The user approved replacing the refuted dynamic/mutually-exclusive request design with the installed reference
+  debugger's captured startup contract.
+- The runtime session now installs the same two ordinary complementary requests in the same order: uncaught-only
+  first and caught-only second. Both are enabled once during connection and remain active independently of DAP
+  filter changes; the previous explicit unhandled-request enable/disable extension was removed.
+- DAP `None`, `Uncaught`, and `All` now control only event disposition. Ignored caught or unhandled events immediately
+  continue the suspended target; selected events are reported to VS Code. The complete mapping is: None continues
+  both, Uncaught stops only unhandled, and All stops both.
+- Focused regressions first failed against the old request lifecycle and missing disposition policy, then passed for
+  the exact complementary request flags/order/enabling and all six filter/event combinations. Packaging and MyGame
+  verification are pending, so EX-01 remains divergent until one Continue completes Play exit like the reference.

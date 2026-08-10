@@ -51,6 +51,7 @@
     <Compile Include="FieldValueReference.cs" />
     <Compile Include="InstructionBreakpoint.cs" />
     <Compile Include="PropertyValueReference.cs" />
+    <Compile Include="ReferenceExceptionRequestInstaller.cs" />
     <Compile Include="SoftDebuggerSession.cs" />
     <Compile Include="VariableValueReference.cs" />
     <Compile Include="SoftEvaluationContext.cs" />

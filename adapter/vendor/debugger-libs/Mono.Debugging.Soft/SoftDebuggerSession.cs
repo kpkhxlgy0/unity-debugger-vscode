@@ -720,8 +720,10 @@ namespace Mono.Debugging.Soft
 			machine.EnableEvents (EventType.AssemblyLoad, EventType.ThreadStart, EventType.ThreadDeath,
 				EventType.AppDomainUnload, EventType.UserBreak, EventType.UserLog);
 			try {
-				unhandledExceptionRequest = machine.CreateExceptionRequest (null, false, true);
-				unhandledExceptionRequest.Enable ();
+				var exceptionRequests = ReferenceExceptionRequestInstaller.Install (
+					(caught, uncaught) => machine.CreateExceptionRequest (null, caught, uncaught),
+					request => request.Enable ());
+				unhandledExceptionRequest = exceptionRequests [0];
 			} catch (NotSupportedException) {
 				//Mono < 2.6.3 doesn't support catching unhandled exceptions
 			}
@@ -1698,18 +1700,6 @@ namespace Mono.Debugging.Soft
 
 		readonly Dictionary<string, ExceptionEventRequest> exceptionRequests = new Dictionary<string, ExceptionEventRequest>();
 		ExceptionEventRequest otherExceptions;
-
-		public void EnableUnhandledExceptions()
-		{
-			if (unhandledExceptionRequest != null)
-				unhandledExceptionRequest.Enable();
-		}
-
-		public void DisableUnhandledExceptions()
-		{
-			if (unhandledExceptionRequest != null)
-				unhandledExceptionRequest.Disable();
-		}
 
 		public void EnableException(string exceptionType, bool caught = true)
 		{
