@@ -902,3 +902,10 @@ infer an unavailable UI capability.
   downloaded VSIX, the user repeated Reload, Attach, breakpoint hit, Step Over, and Continue and confirmed that the
   marker, Variables, Hover, and notification behavior remained normal. The exact registry-bound release asset is
   accepted.
+- Visual Studio Marketplace and Open VSX both published version `0.3.0`. Open VSX workflow run `31383468421`
+  downloaded and re-verified the GitHub Release asset before confirming namespace ownership and credentials; the
+  publish command reported `Published kpk.unity-debugger-pure v0.3.0`, and the public API subsequently returned the
+  verified `0.3.0` record.
+- The VSIX downloaded independently from each registry is byte-identical to the GitHub Release asset: all three have
+  SHA-256 `0002ecd8fd7ace1b839c151d1c332bfc674d7650c495a164c70c8f5d72f8a29e`, contain 33 files, and have no entry-level
+  content difference.
