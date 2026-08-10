@@ -881,8 +881,8 @@ infer an unavailable UI capability.
 
 ### 2026-08-10 - Final 0.3.0 release candidate accepted
 
-- Final candidate: version `0.3.0`, build ID `0.3.0+g6e1720c70c75`, source/build commit
-  `6e1720c70c75bd28c7fd582f04735354744adf86`, VSIX SHA-256
+- Local candidate: version `0.3.0`, build ID `0.3.0+g6e1720c70c75`, source/build commit
+  `6e1720c70c75bd28c7fd582f04735354744adf86`, local VSIX SHA-256
   `274e560a5647bcd13509ef2bab26268ed021f856b32245bf7dde8780fbcbfd9e`, and Adapter SHA-256
   `21913c99c45dfeffff97095d483ce45a76c588ac4032b9bacbc5571913cfb6bc`.
 - Fresh verification passed: locked restore, type checking, third-party provenance, dependency audit with zero known
@@ -893,4 +893,12 @@ infer an unavailable UI capability.
   assemblies match the audited package inventory.
 - After Reload, the user completed the final MyGame Attach/breakpoint smoke check and confirmed the yellow current
   statement marker, Variables, Hover, Step Over, and Continue remained normal with no error notification or marker
-  loss. The exact release VSIX is accepted and the compatibility matrix has no remaining required divergence.
+  loss. The compatibility matrix has no remaining required divergence.
+- The successful `v0.3.0` GitHub workflow rebuilt the same commit and published VSIX SHA-256
+  `0002ecd8fd7ace1b839c151d1c332bfc674d7650c495a164c70c8f5d72f8a29e`. All packaged executable/code entries and
+  the build identity matched the local candidate; the differing archive bytes were confined to checkout-dependent
+  line endings in ten packaged text/license/metadata files.
+- The GitHub Release VSIX and checksum passed independent release-artifact verification. After installing that exact
+  downloaded VSIX, the user repeated Reload, Attach, breakpoint hit, Step Over, and Continue and confirmed that the
+  marker, Variables, Hover, and notification behavior remained normal. The exact registry-bound release asset is
+  accepted.
