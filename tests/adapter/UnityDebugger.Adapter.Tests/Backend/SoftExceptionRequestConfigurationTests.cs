@@ -6,51 +6,82 @@ namespace UnityDebugger.Adapter.Tests.Backend
     public sealed class SoftExceptionRequestConfigurationTests
     {
         [Fact]
-        public void AllExceptionsUsesTheDedicatedOtherExceptionsRequest()
+        public void AllExceptionsKeepsOnlyTheAllExceptionsRequestActive()
         {
-            var session = new RecordingExceptionRequestSession();
+            var session = new RecordingExceptionRequestSession(
+                unhandledExceptionsEnabled: true,
+                otherExceptionsEnabled: true);
 
             SoftExceptionRequestConfiguration.Apply(
                 session,
                 ExceptionBreakMode.All);
 
-            Assert.Equal(1, session.DisableOtherExceptionsCount);
-            Assert.Equal(1, session.EnableOtherExceptionsCount);
+            Assert.False(session.UnhandledExceptionsEnabled);
+            Assert.True(session.OtherExceptionsEnabled);
         }
 
         [Fact]
-        public void ModesWithoutThrownExceptionsDisableTheOtherRequest()
+        public void UncaughtExceptionsKeepsOnlyTheUnhandledRequestActive()
         {
-            var noneSession = new RecordingExceptionRequestSession();
-            var uncaughtSession = new RecordingExceptionRequestSession();
+            var session = new RecordingExceptionRequestSession(
+                unhandledExceptionsEnabled: false,
+                otherExceptionsEnabled: true);
 
             SoftExceptionRequestConfiguration.Apply(
-                noneSession,
-                ExceptionBreakMode.None);
-            SoftExceptionRequestConfiguration.Apply(
-                uncaughtSession,
+                session,
                 ExceptionBreakMode.Uncaught);
 
-            Assert.Equal(1, noneSession.DisableOtherExceptionsCount);
-            Assert.Equal(0, noneSession.EnableOtherExceptionsCount);
-            Assert.Equal(1, uncaughtSession.DisableOtherExceptionsCount);
-            Assert.Equal(0, uncaughtSession.EnableOtherExceptionsCount);
+            Assert.True(session.UnhandledExceptionsEnabled);
+            Assert.False(session.OtherExceptionsEnabled);
+        }
+
+        [Fact]
+        public void NoExceptionsDisablesBothExceptionRequests()
+        {
+            var session = new RecordingExceptionRequestSession(
+                unhandledExceptionsEnabled: true,
+                otherExceptionsEnabled: true);
+
+            SoftExceptionRequestConfiguration.Apply(
+                session,
+                ExceptionBreakMode.None);
+
+            Assert.False(session.UnhandledExceptionsEnabled);
+            Assert.False(session.OtherExceptionsEnabled);
         }
 
         private sealed class RecordingExceptionRequestSession :
             ISoftExceptionRequestSession
         {
-            public int EnableOtherExceptionsCount { get; private set; }
-            public int DisableOtherExceptionsCount { get; private set; }
+            public RecordingExceptionRequestSession(
+                bool unhandledExceptionsEnabled,
+                bool otherExceptionsEnabled)
+            {
+                UnhandledExceptionsEnabled = unhandledExceptionsEnabled;
+                OtherExceptionsEnabled = otherExceptionsEnabled;
+            }
+
+            public bool UnhandledExceptionsEnabled { get; private set; }
+            public bool OtherExceptionsEnabled { get; private set; }
+
+            public void EnableUnhandledExceptions()
+            {
+                UnhandledExceptionsEnabled = true;
+            }
+
+            public void DisableUnhandledExceptions()
+            {
+                UnhandledExceptionsEnabled = false;
+            }
 
             public void EnableOtherExceptions()
             {
-                EnableOtherExceptionsCount++;
+                OtherExceptionsEnabled = true;
             }
 
             public void DisableOtherExceptions()
             {
-                DisableOtherExceptionsCount++;
+                OtherExceptionsEnabled = false;
             }
         }
     }

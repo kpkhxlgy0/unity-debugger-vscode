@@ -727,3 +727,20 @@ infer an unavailable UI capability.
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-6020d1b8-d917-4e28-99cd-ac28b8ac5b5f.png`.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T082718117Z-51716.log`.
+
+### 2026-08-10 - Exception request overlap replacement pending MyGame verification
+
+- After Reload and Attach with build `0.3.0+g265581f30ed5`, one Continue from the exception stop was followed by a
+  new Threads/StackTrace refresh about 12 milliseconds later. The user confirmed that one Continue still did not
+  complete Play exit without another pause.
+- Removing managed exception inspection from the stop path therefore fixed neither the repeated stop nor its extra
+  suspension. The remaining control difference was two simultaneously active runtime requests: the session's
+  always-on unhandled-exception request and the All-mode request matching both caught and uncaught exceptions.
+- The replacement configures those requests as mutually exclusive: None disables both, Uncaught enables only the
+  unhandled request, and All enables only the all-exceptions request. Reapplying the same mode does not disable and
+  recreate its active request.
+- Three focused regressions first failed against the overlapping lifecycle and pass after the replacement. Runtime
+  verification remains pending; EX-01 remains divergent until the MyGame stop text, marker, and single-Continue exit
+  all match the installed reference.
+- Sanitized Adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T084156499Z-59316.log`.

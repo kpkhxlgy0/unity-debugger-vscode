@@ -2,6 +2,8 @@ namespace UnityDebugger.Adapter.Backend
 {
     internal interface ISoftExceptionRequestSession
     {
+        void EnableUnhandledExceptions();
+        void DisableUnhandledExceptions();
         void EnableOtherExceptions();
         void DisableOtherExceptions();
     }
@@ -12,9 +14,21 @@ namespace UnityDebugger.Adapter.Backend
             ISoftExceptionRequestSession session,
             ExceptionBreakMode mode)
         {
-            session.DisableOtherExceptions();
             if (mode == ExceptionBreakMode.All)
+            {
+                session.DisableUnhandledExceptions();
                 session.EnableOtherExceptions();
+                return;
+            }
+
+            session.DisableOtherExceptions();
+            if (mode == ExceptionBreakMode.Uncaught)
+            {
+                session.EnableUnhandledExceptions();
+                return;
+            }
+
+            session.DisableUnhandledExceptions();
         }
     }
 }

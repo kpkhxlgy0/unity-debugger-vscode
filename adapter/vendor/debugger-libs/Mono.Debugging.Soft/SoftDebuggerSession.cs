@@ -1699,6 +1699,18 @@ namespace Mono.Debugging.Soft
 		readonly Dictionary<string, ExceptionEventRequest> exceptionRequests = new Dictionary<string, ExceptionEventRequest>();
 		ExceptionEventRequest otherExceptions;
 
+		public void EnableUnhandledExceptions()
+		{
+			if (unhandledExceptionRequest != null)
+				unhandledExceptionRequest.Enable();
+		}
+
+		public void DisableUnhandledExceptions()
+		{
+			if (unhandledExceptionRequest != null)
+				unhandledExceptionRequest.Disable();
+		}
+
 		public void EnableException(string exceptionType, bool caught = true)
 		{
 			lock (exceptionRequests) {
