@@ -34,19 +34,19 @@
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugger.Soft.dll",
-      "sha256": "da6193a2b8973ac51c71a38b6fde341f314749887cd655fc58825bcf53375fcd",
+      "sha256": "fe4fb7a055912891278e299436c1e12d1d8f177e11f37a2fa67ced3c36e83dda",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugging.dll",
-      "sha256": "0576ff91906eff1ebb49e6a1b05b0f605bbf090af658074b12ee763a6a59aeb4",
+      "sha256": "116e1ee6771d531d1b28a419612846e67bd7da09e0848f1cceeafd955860d3a2",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
     {
       "path": "extension/adapter/win32-x64/Mono.Debugging.Soft.dll",
-      "sha256": "24ccb96f844b466717dbe4d1b665595deaa7f249ce1d93615bedc6ffd895e2a3",
+      "sha256": "ea7dfada784a9d53be0eba38e0d6dc10b3fe8eb47623466a408a8190ae274899",
       "origin": "source-built:debugger-libs",
       "license": "MIT"
     },
@@ -94,7 +94,7 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
-      "sha256": "0e5999bad1cfe081a324f347d714ee779e1ab9b06c536968b3ac2615c5e20bb6",
+      "sha256": "ddeea062d5fd650c3ce2e7da99047fa1842da1469d42626d251edcc559b573a6",
       "origin": "project",
       "license": "MIT"
     },
