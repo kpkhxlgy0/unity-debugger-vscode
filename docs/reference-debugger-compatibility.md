@@ -824,3 +824,11 @@ infer an unavailable UI capability.
 - Focused regressions first failed against the old request lifecycle and missing disposition policy, then passed for
   the exact complementary request flags/order/enabling and all six filter/event combinations. Packaging and MyGame
   verification are pending, so EX-01 remains divergent until one Continue completes Play exit like the reference.
+- Packaged and installed candidate: version `0.3.0`, build ID `0.3.0+gf2481db7c0b1`, behavior commit
+  `a8b7b233bb3cb83a6e55bec3a7ce6a0837e01f50`, inventory/build commit
+  `f2481db7c0b196da19eaa202d9cf4b2c96ea68b2`, and VSIX SHA-256
+  `df7e54b3139fcd9b62806a9eab30ae04f73eafbd9ce836f251441a85dd0cbc21`.
+- All 17 installed runtime assemblies match the audited package inventory. Full verification passed: type checking,
+  third-party provenance, 19 build tests, 93 extension tests, 172 Adapter tests, 9 integration tests, 17-entry runtime
+  inventory, 33-file VSIX audit, and 4 package tests. The existing upstream unused-variable warning remains unchanged.
+- VS Code Reload and the combined EX-01 MyGame runtime check remain pending.
