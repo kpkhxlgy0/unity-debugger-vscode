@@ -757,3 +757,22 @@ infer an unavailable UI capability.
   9 integration tests, 17-entry runtime inventory, 33-file VSIX audit, and 4 package tests. The existing upstream
   unused-variable warning in `Mono.Debugging.Soft` remains unchanged. Reload and the combined EX-01 MyGame runtime
   check remain pending.
+
+### 2026-08-10 - Exception event identity diagnostic pending MyGame capture
+
+- After Reload and Attach with build `0.3.0+gc675cc2db296`, the earlier Unity MCP `EditorPrefs.GetBool` exception no
+  longer blocked the run, but returning to `UnityAssetLinkReceiver.cs:94` still reproduced the EX-01 divergence: one
+  Continue did not complete Play exit.
+- The Adapter log records Continue at `09:12:47.339Z` and a new Threads/StackTrace refresh about 12 milliseconds
+  later. This rules out a lost DAP Continue response and also disproves the overlapping-request hypothesis because
+  this build keeps the All and unhandled runtime requests mutually exclusive.
+- Public Unity/Mono agent source shows that one exception event set with `SuspendPolicy.All` adds one VM suspension,
+  so one matching Resume should balance it. The remaining distinction is whether the post-Continue stop carries the
+  same exception object again or a newly thrown exception object.
+- A diagnostics-only candidate now carries the runtime's opaque numeric exception object ID, request ID, event-set
+  count, thread ID, and stop kind into the sanitized Adapter log. It does not record exception text, source paths,
+  expressions, or values and does not alter exception filters, stopping, or Continue behavior.
+- Three focused regressions prove the new fields are allowlisted, preserved through the backend boundary, and logged
+  without exception text. Packaging, installation, and one MyGame capture remain pending; EX-01 remains divergent.
+- Sanitized Adapter log:
+  `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T091222409Z-42020.log`.

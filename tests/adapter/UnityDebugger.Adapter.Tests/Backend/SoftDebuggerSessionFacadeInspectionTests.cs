@@ -140,6 +140,39 @@ namespace UnityDebugger.Adapter.Tests.Backend
             }
         }
 
+        [Fact]
+        public void ExceptionStopPreservesOpaqueRuntimeEventMetadata()
+        {
+            using (var facade = new SoftDebuggerSessionFacade())
+            {
+                var arguments = new TargetEventArgs(
+                    TargetEventType.ExceptionThrown)
+                {
+                    ExceptionObjectId = 1001L,
+                    ExceptionRequestId = 7,
+                    ExceptionEventCount = 1,
+                };
+                BackendStoppedEventArgs? stopped = null;
+                facade.TargetStopped += (_, value) => stopped = value;
+
+                typeof(SoftDebuggerSessionFacade).GetMethod(
+                        "HandleStopped",
+                        BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(
+                        facade,
+                        new object[]
+                        {
+                            arguments,
+                            BackendStopReason.Exception,
+                        });
+
+                Assert.NotNull(stopped);
+                Assert.Equal(1001L, stopped!.ExceptionObjectId);
+                Assert.Equal(7, stopped.ExceptionRequestId);
+                Assert.Equal(1, stopped.ExceptionEventCount);
+            }
+        }
+
         private static DebuggerSession SetSessionOptions(
             SoftDebuggerSessionFacade facade)
         {

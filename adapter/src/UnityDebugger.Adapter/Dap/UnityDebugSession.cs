@@ -22,6 +22,7 @@ namespace UnityDebugger.Adapter.Dap
             "kpk.unity-debugger-pure" +
             "#support-policy";
         private readonly Func<IDebuggerBackend> backendFactory;
+        private readonly IDiagnosticLog? diagnosticLog;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
         private readonly Dictionary<long, BackendExceptionInfo> exceptions =
             new Dictionary<long, BackendExceptionInfo>();
@@ -32,9 +33,17 @@ namespace UnityDebugger.Adapter.Dap
         private bool terminatedSent;
 
         public UnityDebugSession(Func<IDebuggerBackend> backendFactory)
+            : this(backendFactory, null)
+        {
+        }
+
+        public UnityDebugSession(
+            Func<IDebuggerBackend> backendFactory,
+            IDiagnosticLog? diagnosticLog)
         {
             this.backendFactory = backendFactory ??
                 throw new ArgumentNullException(nameof(backendFactory));
+            this.diagnosticLog = diagnosticLog;
         }
 
         public override void Initialize(Response response, dynamic args)
@@ -898,6 +907,7 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendStoppedEventArgs arguments)
         {
+            WriteExceptionStopDiagnostic(arguments);
             exceptions.Clear();
             if (arguments.ExceptionInfo != null)
             {
@@ -943,6 +953,48 @@ namespace UnityDebugger.Adapter.Dap
                         ToDapStopReason(arguments.Reason),
                         arguments.Description,
                         hitBreakpointIds)));
+        }
+
+        private void WriteExceptionStopDiagnostic(
+            BackendStoppedEventArgs arguments)
+        {
+            if (
+                diagnosticLog == null ||
+                arguments.Reason != BackendStopReason.Exception)
+            {
+                return;
+            }
+            var fields = new Dictionary<string, object>
+            {
+                ["threadId"] = arguments.ThreadId,
+                ["stopKind"] =
+                    arguments.ExceptionInfo?.BreakMode ?? "unknown",
+            };
+            if (arguments.ExceptionObjectId.HasValue)
+            {
+                fields["exceptionObjectId"] =
+                    arguments.ExceptionObjectId.Value;
+            }
+            if (arguments.ExceptionRequestId.HasValue)
+            {
+                fields["exceptionRequestId"] =
+                    arguments.ExceptionRequestId.Value;
+            }
+            if (arguments.ExceptionEventCount.HasValue)
+            {
+                fields["eventCount"] =
+                    arguments.ExceptionEventCount.Value;
+            }
+            try
+            {
+                diagnosticLog.Write(
+                    "debugger.exception.stop",
+                    fields);
+            }
+            catch
+            {
+                // Diagnostics must never corrupt the DAP channel.
+            }
         }
 
         private void OnThreadChanged(

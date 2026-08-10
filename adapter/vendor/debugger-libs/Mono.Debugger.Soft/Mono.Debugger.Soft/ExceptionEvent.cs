@@ -16,5 +16,11 @@ namespace Mono.Debugger.Soft
 				return exc;
 			}
 		}
+
+		public long ExceptionObjectId {
+			get {
+				return exc_id;
+			}
+		}
 	}
 }

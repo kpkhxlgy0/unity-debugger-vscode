@@ -62,6 +62,18 @@ namespace Mono.Debugging.Client
 			get; set;
 		}
 
+		public long? ExceptionObjectId {
+			get; set;
+		}
+
+		public int? ExceptionRequestId {
+			get; set;
+		}
+
+		public int? ExceptionEventCount {
+			get; set;
+		}
+
 		public int? ExitCode {
 			get; set;
 		}

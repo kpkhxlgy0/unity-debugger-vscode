@@ -773,7 +773,10 @@ namespace UnityDebugger.Adapter.Backend
                     arguments.Thread?.Id ?? 0,
                     description,
                     breakpointId,
-                    exception));
+                    exception,
+                    arguments.ExceptionObjectId,
+                    arguments.ExceptionRequestId,
+                    arguments.ExceptionEventCount));
         }
 
         private BackendExceptionInfo CreateExceptionInfo(

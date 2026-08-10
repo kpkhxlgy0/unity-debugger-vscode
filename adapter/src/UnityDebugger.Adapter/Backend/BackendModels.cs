@@ -287,7 +287,10 @@ namespace UnityDebugger.Adapter.Backend
             long threadId,
             string? description,
             long? breakpointId = null,
-            BackendExceptionInfo? exceptionInfo = null)
+            BackendExceptionInfo? exceptionInfo = null,
+            long? exceptionObjectId = null,
+            int? exceptionRequestId = null,
+            int? exceptionEventCount = null)
             : this(
                 reason,
                 threadId,
@@ -295,7 +298,10 @@ namespace UnityDebugger.Adapter.Backend
                 breakpointId.HasValue
                     ? new[] { breakpointId.Value }
                     : Array.Empty<long>(),
-                exceptionInfo)
+                exceptionInfo,
+                exceptionObjectId,
+                exceptionRequestId,
+                exceptionEventCount)
         {
         }
 
@@ -304,7 +310,10 @@ namespace UnityDebugger.Adapter.Backend
             long threadId,
             string? description,
             IReadOnlyList<long> breakpointIds,
-            BackendExceptionInfo? exceptionInfo = null)
+            BackendExceptionInfo? exceptionInfo = null,
+            long? exceptionObjectId = null,
+            int? exceptionRequestId = null,
+            int? exceptionEventCount = null)
         {
             Reason = reason;
             ThreadId = threadId;
@@ -312,6 +321,9 @@ namespace UnityDebugger.Adapter.Backend
             BreakpointIds = breakpointIds ??
                 throw new ArgumentNullException(nameof(breakpointIds));
             ExceptionInfo = exceptionInfo;
+            ExceptionObjectId = exceptionObjectId;
+            ExceptionRequestId = exceptionRequestId;
+            ExceptionEventCount = exceptionEventCount;
         }
 
         public BackendStopReason Reason { get; }
@@ -319,6 +331,9 @@ namespace UnityDebugger.Adapter.Backend
         public string? Description { get; }
         public IReadOnlyList<long> BreakpointIds { get; }
         public BackendExceptionInfo? ExceptionInfo { get; }
+        public long? ExceptionObjectId { get; }
+        public int? ExceptionRequestId { get; }
+        public int? ExceptionEventCount { get; }
     }
 
     internal sealed class BackendThreadEventArgs : EventArgs

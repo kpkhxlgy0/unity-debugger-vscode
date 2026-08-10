@@ -2380,6 +2380,9 @@ namespace Mono.Debugging.Soft
 			bool steppedOut = false;
 			bool resume = true;
 			bool suppressTargetEvent = false;
+			long? exceptionObjectId = null;
+			int? exceptionRequestId = null;
+			int? exceptionEventCount = null;
 			BreakInfo binfo;
 
 			if (es [0].EventType == EventType.Exception) {
@@ -2388,6 +2391,9 @@ namespace Mono.Debugging.Soft
 					throw new Exception ("Catchpoint eventset had unexpected event type " + bad.GetType ());
 				var ev = (ExceptionEvent)es [0];
 				exception = ev.Exception;
+				exceptionObjectId = ev.ExceptionObjectId;
+				exceptionRequestId = ev.RequestId;
+				exceptionEventCount = es.Length;
 				if (ev.Request == unhandledExceptionRequest) {
 					etype = TargetEventType.UnhandledException;
 					if (exception.Type.FullName != "System.Threading.ThreadAbortException")
@@ -2552,6 +2558,9 @@ namespace Mono.Debugging.Soft
 					if (exception != null) {
 						args.ExceptionTypeName = GetExceptionTypeName (exception);
 						args.ExceptionMessage = GetExceptionMessage (exception);
+						args.ExceptionObjectId = exceptionObjectId;
+						args.ExceptionRequestId = exceptionRequestId;
+						args.ExceptionEventCount = exceptionEventCount;
 					}
 
 					if (!suppressTargetEvent)

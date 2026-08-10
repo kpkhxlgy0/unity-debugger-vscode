@@ -75,5 +75,38 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
                         }));
             }
         }
+
+        [Fact]
+        public void Write_allows_opaque_exception_event_identity_fields()
+        {
+            using (var writer = new StringWriter())
+            using (var log = new DiagnosticLog(
+                writer,
+                new PathRedactor(
+                    @"C:\Users\alice",
+                    @"H:\secret-project")))
+            {
+                log.Write(
+                    "debugger.exception.stop",
+                    new Dictionary<string, object>
+                    {
+                        ["threadId"] = 42,
+                        ["exceptionObjectId"] = 1001,
+                        ["exceptionRequestId"] = 7,
+                        ["eventCount"] = 1,
+                        ["stopKind"] = "always",
+                    });
+
+                var text = writer.ToString();
+                Assert.Contains(
+                    "event=debugger.exception.stop",
+                    text);
+                Assert.Contains("threadId=42", text);
+                Assert.Contains("exceptionObjectId=1001", text);
+                Assert.Contains("exceptionRequestId=7", text);
+                Assert.Contains("eventCount=1", text);
+                Assert.Contains("stopKind=always", text);
+            }
+        }
     }
 }

@@ -46,5 +46,11 @@ namespace Mono.Debugger.Soft
 				return vm.GetRequest (req_id);
 			}
 		}
+
+		public int RequestId {
+			get {
+				return req_id;
+			}
+		}
 	}
 }

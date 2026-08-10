@@ -47,7 +47,8 @@ namespace UnityDebugger.Adapter
                     new MonoDebuggerLogger(log);
                 var session = new UnityDebugSession(
                     () => new MonoDebuggingBackend(
-                        () => new SoftDebuggerSessionFacade()));
+                        () => new SoftDebuggerSessionFacade()),
+                    log);
                 session.Start(
                     Console.OpenStandardInput(),
                     Console.OpenStandardOutput())
