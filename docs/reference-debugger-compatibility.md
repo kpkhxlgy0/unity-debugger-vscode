@@ -851,3 +851,11 @@ infer an unavailable UI capability.
   `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-7d82f399-5154-4f65-926e-4a3620517514.png`.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T100559225Z-33340.log`.
+- Packaged and installed candidate: version `0.3.0`, build ID `0.3.0+g0ecce4d08bfb`, behavior commit
+  `83cf922786490df147fd806c641ec1387d49063f`, inventory/build commit
+  `0ecce4d08bfb17cf36b6eb7aece7fca563d4d68c`, and VSIX SHA-256
+  `45b96b268bc3bc5ad1e091cadbede8b0f1734c9140ea414e167f36f7625bb24a`.
+- All 17 installed runtime assemblies match the audited package inventory. Verification passed: type checking,
+  third-party provenance, 19 build tests, 93 extension tests, 173 Adapter tests, 9 integration tests, 17-entry runtime
+  inventory, 33-file VSIX audit, and 4 package tests. The existing upstream unused-variable warning remains unchanged.
+- VS Code Reload and the combined EX-01 MyGame runtime check remain pending.
