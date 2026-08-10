@@ -878,3 +878,19 @@ infer an unavailable UI capability.
   with no request failure. EVAL-04 is aligned.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T105244336Z-27940.log`.
+
+### 2026-08-10 - Final 0.3.0 release candidate accepted
+
+- Final candidate: version `0.3.0`, build ID `0.3.0+g6e1720c70c75`, source/build commit
+  `6e1720c70c75bd28c7fd582f04735354744adf86`, VSIX SHA-256
+  `274e560a5647bcd13509ef2bab26268ed021f856b32245bf7dde8780fbcbfd9e`, and Adapter SHA-256
+  `21913c99c45dfeffff97095d483ce45a76c588ac4032b9bacbc5571913cfb6bc`.
+- Fresh verification passed: locked restore, type checking, third-party provenance, dependency audit with zero known
+  vulnerabilities, 20 build tests, 93 extension tests, 173 Adapter tests, 9 integration tests, 17-entry runtime
+  inventory, 33-file VSIX audit, 4 package tests, checksum verification, and release-tag/manifest verification. The
+  existing upstream unused-variable warning remains unchanged.
+- The installed VS Code extension reports the same build ID and Adapter hash, and all 17 installed runtime
+  assemblies match the audited package inventory.
+- After Reload, the user completed the final MyGame Attach/breakpoint smoke check and confirmed the yellow current
+  statement marker, Variables, Hover, Step Over, and Continue remained normal with no error notification or marker
+  loss. The exact release VSIX is accepted and the compatibility matrix has no remaining required divergence.
