@@ -773,6 +773,18 @@ infer an unavailable UI capability.
   count, thread ID, and stop kind into the sanitized Adapter log. It does not record exception text, source paths,
   expressions, or values and does not alter exception filters, stopping, or Continue behavior.
 - Three focused regressions prove the new fields are allowlisted, preserved through the backend boundary, and logged
-  without exception text. Packaging, installation, and one MyGame capture remain pending; EX-01 remains divergent.
+  without exception text. All 19 build tests, 93 extension tests, 168 Adapter tests, 9 integration tests, and 4
+  package tests pass; third-party provenance, the 17-entry runtime inventory, and the 33-file VSIX audit also pass.
+- Packaged and installed diagnostics-only candidate: version `0.3.0`, build ID `0.3.0+g82691588494f`, diagnostics
+  source commit `75294b64085d4ac112e0cce8c6a1025aac909715`, inventory/build commit
+  `82691588494f7165c30ef67171d4d70faa8df494`, and VSIX SHA-256
+  `379fd6d416c62cb1ef3a2a22bfcd41cd9a5c69cfd160ea0c732d13242877a98c`.
+- Installed `UnityDebuggerPure.exe` SHA-256 is
+  `ddeea062d5fd650c3ce2e7da99047fa1842da1469d42626d251edcc559b573a6`; installed
+  `Mono.Debugger.Soft.dll`, `Mono.Debugging.dll`, and `Mono.Debugging.Soft.dll` SHA-256 values are respectively
+  `fe4fb7a055912891278e299436c1e12d1d8f177e11f37a2fa67ced3c36e83dda`,
+  `116e1ee6771d531d1b28a419612846e67bd7da09e0848f1cceeafd955860d3a2`, and
+  `ea7dfada784a9d53be0eba38e0d6dc10b3fe8eb47623466a408a8190ae274899`; all match the audited package.
+- Reload and one MyGame capture remain pending; EX-01 remains divergent.
 - Sanitized Adapter log:
   `C:\Users\Admin\AppData\Local\unity-debugger-pure\logs\adapter-20260810T091222409Z-42020.log`.
