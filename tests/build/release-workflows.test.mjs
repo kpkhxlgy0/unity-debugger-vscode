@@ -55,7 +55,7 @@ test("registry CLIs are direct pinned development dependencies", () => {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
   assert.equal(manifest.devDependencies["@vscode/vsce"], "3.9.2");
   assert.equal(manifest.devDependencies.ovsx, "1.0.2");
-  assert.equal(manifest.devDependencies["js-yaml"], "4.3.0");
+  assert.equal(manifest.devDependencies["js-yaml"], "4.3.1");
 });
 
 function loadPublishJob(filePath) {
