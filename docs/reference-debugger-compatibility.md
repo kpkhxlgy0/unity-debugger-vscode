@@ -87,6 +87,9 @@ infer an unavailable UI capability.
   is rebuilt from a committed tree; candidate acceptance does not claim another MyGame run of the final archive.
 - EVAL-09 has user acceptance. EVAL-07, EVAL-08, and BP-06 still lack a new controlled reference A/B comparison.
   Source-import syntax limits and the pre-existing int-to-long invocation limitation remain as recorded below.
+- The first cloud CI run failed before a rebind worker entered its test barrier. Two existing race tests used
+  thread-pool tasks with synchronous waits; they now use dedicated long-running workers and always release/join
+  them before disposing the barriers. Their two-second assertions and production breakpoint code are unchanged.
 - Pin .NET SDK 10.0.401 and have CI/release install it from global.json. Recursive VSIX/checksum exclusions prevent
   existing candidate archives from entering the production package.
 - Update build/test-only adm-zip, js-yaml, and Vitest to fixed patch versions and refresh affected transitive locks.

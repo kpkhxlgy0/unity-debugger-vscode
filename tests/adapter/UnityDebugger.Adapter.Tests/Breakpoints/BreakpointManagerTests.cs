@@ -167,22 +167,30 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                 backend.BindEnteredSignal = bindEntered;
                 backend.ContinueBindSignal = continueBind;
 
-                var rebind = Task.Run(
+                var rebind = Task.Factory.StartNew(
                     () => manager.ReplaceForSource(
                         @"H:\fixture\Assets\Player.cs",
                         new[]
                         {
                             new RequestedBreakpoint(12, "!ready"),
-                        }));
-                Assert.True(bindEntered.Wait(TimeSpan.FromSeconds(2)));
+                        }),
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
+                try
+                {
+                    Assert.True(bindEntered.Wait(TimeSpan.FromSeconds(2)));
 
-                var removed = manager.ReplaceForSource(
-                    @"H:\fixture\Assets\Player.cs",
-                    Array.Empty<RequestedBreakpoint>());
-                Assert.Empty(removed);
-
-                continueBind.Set();
-                await rebind;
+                    var removed = manager.ReplaceForSource(
+                        @"H:\fixture\Assets\Player.cs",
+                        Array.Empty<RequestedBreakpoint>());
+                    Assert.Empty(removed);
+                }
+                finally
+                {
+                    continueBind.Set();
+                    await rebind;
+                }
 
                 Assert.Empty(backend.ActiveBreakpointIds);
             }
@@ -208,22 +216,36 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                 backend.BindsEnteredCountdown = bindsEntered;
                 backend.ContinueBindSignal = continueBind;
 
-                var conditionChange = Task.Run(
+                var conditionChange = Task.Factory.StartNew(
                     () => manager.ReplaceForSource(
                         @"H:\fixture\Assets\Player.cs",
                         new[]
                         {
                             new RequestedBreakpoint(12, "!ready"),
-                        }));
-                Assert.True(removeEntered.Wait(TimeSpan.FromSeconds(2)));
+                        }),
+                    CancellationToken.None,
+                    TaskCreationOptions.LongRunning,
+                    TaskScheduler.Default);
+                var reloadRebind = Task.CompletedTask;
+                try
+                {
+                    Assert.True(removeEntered.Wait(TimeSpan.FromSeconds(2)));
 
-                var reloadRebind = Task.Run(manager.RebindAll);
-                Assert.True(firstBindEntered.Wait(TimeSpan.FromSeconds(2)));
-                continueRemove.Set();
-                Assert.True(bindsEntered.Wait(TimeSpan.FromSeconds(2)));
-                continueBind.Set();
-
-                await Task.WhenAll(conditionChange, reloadRebind);
+                    reloadRebind = Task.Factory.StartNew(
+                        manager.RebindAll,
+                        CancellationToken.None,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default);
+                    Assert.True(firstBindEntered.Wait(TimeSpan.FromSeconds(2)));
+                    continueRemove.Set();
+                    Assert.True(bindsEntered.Wait(TimeSpan.FromSeconds(2)));
+                }
+                finally
+                {
+                    continueRemove.Set();
+                    continueBind.Set();
+                    await Task.WhenAll(conditionChange, reloadRebind);
+                }
 
                 Assert.Single(backend.ActiveBreakpointIds);
             }
