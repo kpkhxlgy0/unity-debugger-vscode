@@ -80,6 +80,16 @@ infer an unavailable UI capability.
 
 ## Evidence Log
 
+### 2026-09-25 - Visual Studio Marketplace publication verified
+
+- The user completed the manual Visual Studio Marketplace upload. The public gallery API reports version 0.3.2
+  with the validated flag under publisher kpk, extension unity-debugger-pure.
+- An independent download of the Marketplace VSIX contains 5,853,054 bytes and has SHA-256
+  4449c1f22385302fe4149fb1454749e9c1dfa0a800aa9914227bee299a1e2c5e.
+  This is byte-identical to the audited GitHub Release and Open VSX assets; all three publication channels are verified.
+- The verification read the public API and downloaded the asset in memory; no browser interaction, additional
+  upload, or new temporary file was needed. Existing candidate acceptance and reference-comparison limits remain.
+
 ### 2026-09-24 - 0.3.2 published to GitHub and Open VSX
 
 - Release tag v0.3.2 points to e7d74f1dcda7e1eab4960e9c32b2c0d23e3a55a0; build ID is 0.3.2+ge7d74f1dcda7.
