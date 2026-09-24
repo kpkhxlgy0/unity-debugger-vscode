@@ -80,6 +80,23 @@ infer an unavailable UI capability.
 
 ## Evidence Log
 
+### 2026-09-24 - 0.3.2 published to GitHub and Open VSX
+
+- Release tag v0.3.2 points to e7d74f1dcda7e1eab4960e9c32b2c0d23e3a55a0; build ID is 0.3.2+ge7d74f1dcda7.
+  CI run 35988272535 and Release run 35988653344 passed. The release is public at
+  https://github.com/kpkhxlgy0/unity-debugger-vscode/releases/tag/v0.3.2.
+- The downloaded GitHub VSIX passed the release identity/checksum verifier and the complete 33-file/17-assembly
+  package audit. Its code entries and build identity match the local package; only ten text files differ by
+  checkout line endings. Published VSIX SHA-256:
+  4449c1f22385302fe4149fb1454749e9c1dfa0a800aa9914227bee299a1e2c5e.
+- Open VSX run 35989055478 downloaded and verified that exact GitHub asset, then reported successful publication.
+  After the registry visibility delay, both the 0.3.2 endpoint and latest endpoint returned 0.3.2. An independent
+  download from Open VSX has the same SHA-256, proving both channels serve the same VSIX.
+- Cursor uses Open VSX; its local UI/index was not operated or checked. The installed 0.3.2 candidate was left
+  undisturbed. Visual Studio Marketplace still reports 0.3.0 and requires the documented manual upload.
+- The exact published VSIX and checksum are retained at dist/unity-debugger-pure-0.3.2.vsix and its .sha256 sibling.
+  Candidate user acceptance and remaining reference-comparison limits are unchanged; no extra MyGame run is claimed.
+
 ### 2026-09-24 - 0.3.2 publication preparation
 
 - After accepting the installed 0.3.2 candidate, the user explicitly requested publication. Release metadata,
