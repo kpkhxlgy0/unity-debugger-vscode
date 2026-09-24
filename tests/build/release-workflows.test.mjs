@@ -37,7 +37,7 @@ test("only Open VSX has an automated registry publishing workflow", () => {
   });
 });
 
-test("release workflows use the 0.3.0 audited artifact", () => {
+test("release workflows use the 0.3.2 audited artifact", () => {
   const release = loadWorkflow(".github/workflows/release.yml");
   const publish = loadWorkflow(
     ".github/workflows/publish-open-vsx.yml",
@@ -45,8 +45,8 @@ test("release workflows use the 0.3.0 audited artifact", () => {
 
   for (const job of [release.jobs.release, publish.jobs.publish]) {
     const commands = runBodies(job);
-    assert.match(commands, /unity-debugger-pure-0\.3\.0\.vsix/);
-    assert.match(commands, /unity-debugger-pure-0\.3\.0\.vsix\.sha256/);
+    assert.match(commands, /unity-debugger-pure-0\.3\.2\.vsix/);
+    assert.match(commands, /unity-debugger-pure-0\.3\.2\.vsix\.sha256/);
     assert.doesNotMatch(commands, /unity-debugger-pure-0\.2\.0/);
   }
 });
@@ -55,7 +55,7 @@ test("registry CLIs are direct pinned development dependencies", () => {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
   assert.equal(manifest.devDependencies["@vscode/vsce"], "3.9.2");
   assert.equal(manifest.devDependencies.ovsx, "1.0.2");
-  assert.equal(manifest.devDependencies["js-yaml"], "4.3.1");
+  assert.equal(manifest.devDependencies["js-yaml"], "4.3.2");
 });
 
 function loadPublishJob(filePath) {

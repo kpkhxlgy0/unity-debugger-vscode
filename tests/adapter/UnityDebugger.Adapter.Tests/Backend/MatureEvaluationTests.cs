@@ -12,7 +12,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
     public sealed class MatureEvaluationTests
     {
         [Fact]
-        public void ResolverUsesOnlyTheStoppedFramesEnclosingNamespace()
+        public void FallbackResolverUsesTheStoppedFramesEnclosingNamespace()
         {
             var loadedTypes = new HashSet<string>(StringComparer.Ordinal)
             {

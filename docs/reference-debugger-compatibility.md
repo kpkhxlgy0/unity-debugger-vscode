@@ -5,6 +5,10 @@ Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 
 | ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |
 | --- | --- | --- | --- | --- | --- | --- |
+| EVAL-08 | Pass integer IDs `1033/1034` to the enum parameter of `GetAttrCurrValue` | User reports the original Unity plugin accepts the numeric Watch expressions | Type resolution succeeds; the previous candidate rejected `int` to `SGBattleCommon.EFightUnitAttr`; installed 0.3.1 candidate adds integer-to-enum fallback after ordinary method matching | not yet verified | 2026-09-22 user screenshot, full running-adapter error, red/green standalone Mono invocation tests | User explicitly requested the conversion fix; real Editor/reference comparison remains pending |
+| EVAL-09 | Keep unrelated threads suspended during Watch methods, getters and ToString, then step | Installed reference invocations use DisableBreakpoints plus SingleThreaded | MethodCall uses the same invocation flags; background-counter and Step Over tests pass; user confirms the reported step symptom is resolved on the 0.3.2 candidate | aligned | 2026-09-24 installed reference binary inspection, real Mono red/green test, and user acceptance | Editor acceptance is user-reported; no new agent-operated reference A/B session was performed |
+| EVAL-07 | Watch `FightUnitAttrUtils.GetAttrCurrValue(e, 1033)` from a global-namespace frame with `using SGBattleLogic;` | User reports the Unity reference extension evaluates the expression correctly | Installed Pure reports identifier out of scope; candidate resolves visible source imports and type aliases before invoking the mature evaluator | not yet verified | 2026-09-22 user screenshot, installed binary/source inspection, source-resolution regression tests and actual source probe | User requested alignment; candidate requires real-Editor comparison; EVAL-02 is evidence for that specific expression, not a universal ban on imported type resolution |
+| BP-06 | Bound breakpoint filename after status changes, including a saved source outside the attached workspace | User reports the Unity reference extension retains the normal breakpoint presentation | Installed Pure replaces the requested source with an unavailable source; candidate preserves filename, path format, line and ID through status changes | not yet verified | 2026-09-22 user screenshot showing `.` and line 786, read-only saved-breakpoint inspection, four protocol regression cases | User requested alignment; candidate requires real-Editor comparison; runtime stack source mapping remains unchanged |
 | ATT-01 | Attach in Edit Mode, then enter Play | Breakpoint is gray while attached in Edit Mode; entering Play immediately stops at the breakpoint with a yellow current-statement marker and no source-less user stop | Entering Play stopped directly at line 11 with a yellow marker and no source-less stop | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature lifecycle replacement matches this reference sequence |
 | RLD-01 | Ordinary Play/Domain Reload with default exception filters | No background exception stop; both `All Exceptions` and `User-Unhandled Exceptions` are unchecked by default | No background exception pause occurred before the managed breakpoint | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Expression-context errors occurred only after the managed stop and are tracked separately |
 | BP-01 | First hit at `GameRuntimeBootstrap.Install()` line 11 | Entering Play immediately stops with a yellow current-statement marker | First reachable hit stopped directly at line 11 with a yellow current-statement marker | aligned | 2026-08-06 MyGame reference and Pure 0.3.0 runs | Mature breakpoint lifecycle matches this reference sequence |
@@ -75,6 +79,146 @@ verified` when MyGame cannot expose it without modifying the project. Do not
 infer an unavailable UI capability.
 
 ## Evidence Log
+
+### 2026-09-24 - 0.3.2 publication preparation
+
+- After accepting the installed 0.3.2 candidate, the user explicitly requested publication. Release metadata,
+  adapter build identity, verification scripts, and both release workflows now use 0.3.2. The published artifact
+  is rebuilt from a committed tree; candidate acceptance does not claim another MyGame run of the final archive.
+- EVAL-09 has user acceptance. EVAL-07, EVAL-08, and BP-06 still lack a new controlled reference A/B comparison.
+  Source-import syntax limits and the pre-existing int-to-long invocation limitation remain as recorded below.
+- Pin .NET SDK 10.0.401 and have CI/release install it from global.json. Recursive VSIX/checksum exclusions prevent
+  existing candidate archives from entering the production package.
+- Update build/test-only adm-zip, js-yaml, and Vitest to fixed patch versions and refresh affected transitive locks.
+  npm ci and npm audit passed with zero reported vulnerabilities; shipped runtime dependencies are unchanged.
+- Local verification passed type checking, 20 build tests, 93 extension tests, 207 adapter tests (all 21 real Mono
+  cases executed, zero skipped), 9 simulated integration tests, 4 package tests, the 33-entry/17-assembly VSIX audit,
+  and release artifact/checksum verification. GitHub does not provision the optional Mono fixture, so its skipped
+  cases must not be counted as real-runtime coverage. The existing upstream unused-variable warning remains.
+
+### 2026-09-24 - Step disappears after a Watch/Scopes refresh
+
+- Current user session runs the installed 0.3.1 candidate. Its log
+  `adapter-20260924T084412271Z-47596.log` shows a normal breakpoint stack/scopes/variables
+  sequence, evaluation at 08:46:08Z, another scopes refresh, then `next` at 08:46:17Z
+  with no following stack refresh. The active Editor and adapter were inspected passively;
+  no user process was suspended, resumed, terminated, or sent a diagnostic target invocation.
+- Adapter memory shows `IsRunning=true`, `current_thread=null`, an enabled step request,
+  no queued break/event sets, and idle operation/evaluation workers. All retained invoke
+  handles are completed; the callback dictionary's live count is zero. The receiver waits
+  for a packet and the event dispatcher waits for an event set.
+- The Editor main thread is inside the Mono debugger suspension condition-variable loop.
+  Read-only disassembly shows the wait condition's runtime word remains 1 while its TLS
+  word is 0. Packet buffers retained in adapter memory contain successful step-request and
+  resume replies. This establishes a runtime/adapter state mismatch, not a missing source
+  filename. It does not establish which suspend increment was left outstanding.
+- The Editor's `EmbedRuntime/mono-2.0-bdwgc.dll` contains a custom-build source path under
+  `D:/svn/UnityMono2022_3_23/Mono_release`; both locally available PDBs mismatch that DLL.
+  The standalone probe instead loads `bin/mono-2.0-sgen.dll`. Its successful step result
+  therefore must not be presented as reproduction or repair of this exact Editor hang.
+- A concrete reference difference was found: Pure `MethodCall` used DisableBreakpoints
+  (plus Virtual when supported), which resumes unrelated threads during a target invoke.
+  Installed `zlorn.vstuc-1.2.1` `SyntaxTree.VisualStudio.Unity.Common.dll` was decompiled:
+  `Evaluation.Invoker.GetInvokeOptions`, `Properties.UnityAccessorProperty.GetValueAsync`,
+  `ValueExtensions.InvokeToString`, and `Properties.UnityMethodInvocationProperty.EnumerateChildren`
+  all use DisableBreakpoints plus SingleThreaded. The one-line production correction adds
+  SingleThreaded and retains the existing Virtual/ReturnOutArgs/ReturnOutThis handling.
+- A real-facade background-counter test failed twice before the correction: the worker
+  advanced 14 ticks during a Watch invocation (expected zero). It passes after the correction.
+  The test also obtains a fresh Step stop, checks the next source line, and evaluates the
+  new frame. Two further cases cover enum-method/field evaluation followed by scopes and step.
+- Fresh verification: 207 adapter tests (21 standalone Mono cases, zero skips), 20 build
+  tests, 93 extension tests and 9 simulated protocol integration tests pass. The existing
+  upstream unused `exc` compiler warning remains. No full Unity session was exercised.
+- Review found no issue in the one-line invocation change. The optional Mono tests are not
+  provisioned by existing CI/release workflows; they skip without `UNITY_DEBUGGER_TEST_MONO`.
+  This local candidate ran them explicitly with zero skips. CI provisioning is unchanged;
+  the local evidence must not be represented as automatic release coverage.
+- Packaged and installed local candidate 0.3.2 to
+  `C:/Users/Admin/.cursor/extensions/kpk.unity-debugger-pure-0.3.2` through the Cursor CLI.
+  Four base-version package tests passed, then all 33 versioned package files were compared
+  against that tested package: only package/build/VSIX version metadata differs. The versioned
+  package contract, registry selection, candidate identity, and installed hashes were verified.
+  Source release metadata remains 0.3.0; no release, tag, commit or registry publication was made.
+  Candidate: `dist/unity-debugger-pure-0.3.2-single-threaded-evaluation-candidate.vsix`;
+  SHA-256 `1a3e41e4db748c13b18d42d7d00a8725aed7642a7acc3e64d73572cd00f57928`.
+  Engine SHA-256 `1af1cf2da9732602a9f00cd7a6d4bed35e1e03dd49087da1dc339df0adf4feaf`.
+  Existing debug processes were not interrupted. Stop debugging, reload Cursor and reattach
+  to activate the candidate. All task-owned native-temp diagnostics and fixture processes
+  were cleaned up; no game-project code was changed.
+- This correction removes verified unintended execution of unrelated threads while paused.
+- User acceptance on 2026-09-24: after installation of the 0.3.2 candidate and the requested
+  step retest, the user replied `没问题了`. Record the reported disappearance of the paused
+  location / stuck-after-step symptom as resolved by user verification. This does not extend
+  acceptance to other expressions or unrelated hang scenarios, or claim a new agent-operated
+  Editor/reference A/B run.
+
+### 2026-09-22 - Enum method arguments after source type resolution
+
+- The user's next screenshot changed from identifier lookup failure to argument conversion failure.
+  Read-only inspection of the running adapter recovered the complete message:
+  `Invalid arguments for method 'GetAttrCurrValue': Argument 1: Cannot implicitly convert 'int' to 'SGBattleCommon.EFightUnitAttr'`.
+  The zero-based argument index identifies the second parameter, not `e`.
+- A standalone console fixture runs on the existing Editor-shipped `mono.exe`, hits a source breakpoint,
+  and evaluates through the production `SoftDebuggerSessionFacade`. Before the fix, the two original
+  expressions and equivalent integer-variable/method-result arguments reproduced the reported failure.
+  Named enums and explicit casts already passed.
+- Candidate behavior: select ordinary overloads first; only if no ordinary candidate applies, consider
+  the eight signed/unsigned integer types (excluding Char) for enum parameters. Reject ambiguous
+  fallback candidates and retain rejection of floating-point, string, Boolean, and other incompatible arguments. Actual
+  argument conversion reuses `TryCast` and `EnumMirror`; the expression is not retried or evaluated twice.
+  Indexer binding is excluded from this compatibility fallback.
+- Verification passed 204 adapter tests with zero skips, including 18 standalone Mono cases covering
+  actual return values, signed/unsigned integers, byte/long enum storage, explicit enum expressions,
+  overload priority, ambiguity, invalid arguments, and a side-effecting argument evaluated once.
+  The 93 extension, 20 build, 9 simulated protocol integration, and 4 candidate-package tests also passed.
+- The probe also exposed a pre-existing plain `int` to `long` invocation-marshalling failure. This change
+  does not alter that path; numeric overload selection is separately verified to retain the `long`
+  overload instead of diverting the call to an enum overload. This unrelated limitation remains open.
+- Cursor rejected same-version reinstalls because the running adapter held the 0.3.0 extension directory.
+  Packaged the same tested payload as a local 0.3.1 candidate using `vsce --no-update-package-json`;
+  repository release metadata remains 0.3.0. The package verifier was run with its expected version
+  adjusted in memory to 0.3.1, and all 33 packaged files were compared against the tested 0.3.0 candidate:
+  only package/build/VSIX version metadata changed. No release or Git tag was published.
+- Cursor CLI successfully installed the upgrade to
+  `C:\Users\Admin\.cursor\extensions\kpk.unity-debugger-pure-0.3.1`.
+  Registry selection, candidate metadata, and installed executable/engine hashes were verified.
+  The existing debug process was left running; stop debugging, reload Cursor, and attach again to activate.
+  VSIX: `dist/unity-debugger-pure-0.3.1-enum-arguments-candidate.vsix`, SHA-256
+  `717654b408b1c9a01b546355874653b7439bcdae399182dfb8a42a62b1099b04`.
+- No real Editor or active debug session was used for execution testing. This does not establish a fix
+  for the separately reported Unity hang; EVAL-08 remains `not yet verified` for Editor acceptance.
+
+### 2026-09-22 - Imported Watch type and breakpoint source correction
+
+- User supplied Watch scope errors for `FightUnitAttrUtils.GetAttrCurrValue(e, 1033)` and `1034`,
+  plus a breakpoint row displaying `.` and line 786, and requested both corrections.
+- Read-only inspection found the stopped source is a global-namespace partial class with
+  `using SGBattleLogic;`. The installed resolver only tried the identifier itself and the frame namespace.
+  The previous EVAL-02 observation had been generalized beyond the captured reference evidence.
+- The candidate parses the source at the stopped location, resolves ordinary namespace imports and type
+  aliases in lexical scope, and still delegates method evaluation to the mature Mono debugger.
+  This is not a claim of complete C# language-service equivalence: compilation-specific preprocessor
+  symbols, namespace aliases, `using static`, `extern alias`, and file-scoped namespaces are not covered.
+  The reported source uses an unconditional ordinary import and a global-namespace class.
+- The saved breakpoint points outside the attached workspace. Its initial response retained the requested
+  path, but later status events passed that client path through runtime source filtering and removed it.
+  The candidate uses the client breakpoint path consistently and converts it to the negotiated DAP format.
+- Regression tests cover imported types, lexical scope, alias precedence, ambiguity, unavailable imports,
+  parser stdout safety, mature expression qualification, and breakpoint updates with native paths and URIs
+  both inside and outside the workspace.
+- Automated checks passed: 186 adapter tests and 9 simulated protocol integration tests. Builds used the
+  installed .NET SDK 10.0.401 explicitly because the repository-pinned 10.0.302 is not installed; the
+  repository SDK pin was not changed. Roslyn stays at the existing debugger runtime version 2.10.0.
+- Build checks passed (20 tests), and the actual reported source resolved `SGBattleLogic.FightUnitAttrUtils`
+  without writing to the DAP output stream. The local candidate
+  `dist/unity-debugger-pure-0.3.0-watch-breakpoints-candidate.vsix` passed the package verifier with
+  33 files and the existing 17 runtime assemblies. Only the adapter executable's runtime hash changed.
+  Its build metadata explicitly marks an uncommitted working-tree candidate based on the recorded Git
+  commit, with the candidate executable's SHA-256. Existing nested release checksums were excluded through
+  a temporary packaging ignore file; that file was removed afterward.
+- No real Editor session was changed or exercised. EVAL-07 and BP-06 remain `not yet verified` until the
+  candidate is compared with the reference in the permitted existing MyGame session.
 
 ### 2026-08-06 - Reference attach, first stop, and initial evaluation
 

@@ -13,6 +13,8 @@
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="all" />
+    <!-- Match the Roslyn runtime already shipped by the pinned Mono debugger. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="2.10.0" />
     <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
   <ItemGroup>

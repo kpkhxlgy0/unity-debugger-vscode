@@ -20,7 +20,7 @@ Install **Unity Debugger Pure** from one of these sources:
   Open VSX-compatible editors;
 - Cursor's Extensions view, which obtains this extension from Open VSX.
 
-For sideloading, download `unity-debugger-pure-0.3.0.vsix` from the
+For sideloading, download `unity-debugger-pure-0.3.2.vsix` from the
 [GitHub Releases page](https://github.com/kpkhxlgy0/unity-debugger-vscode/releases),
 run **Extensions: Install from VSIX...**, and select that exact file.
 
@@ -52,7 +52,7 @@ VS Code asks which instance to attach to.
 - breakpoint recovery across Domain Reload;
 - sanitized local diagnostics with no telemetry.
 
-Version 0.3.0 exposes a versioned local extension API for trusted local
+Version 0.3.2 exposes a versioned local extension API for trusted local
 clients. API targets are opaque, restricted to the current workspace, and do
 not change normal interactive debugging.
 
@@ -84,7 +84,7 @@ non-Windows platforms.
 
 ## Security and privacy
 
-Version `0.3.0` automatically connects only to a discovered loopback address.
+Version `0.3.2` automatically connects only to a discovered loopback address.
 It does not accept arbitrary executables or remote debug hosts from
 `launch.json`. Unity's managed debug transport has no strong authentication,
 so future remote support will require explicit opt-in.
@@ -105,7 +105,7 @@ or raw variable data.
 
 ## Build from source
 
-Requirements: Windows x64, Node.js `26.5.0`, .NET SDK `10.0.x`, and npm.
+Requirements: Windows x64, Node.js `26.5.0`, .NET SDK `10.0.401` (pinned in `global.json`), and npm.
 
 ```powershell
 npm ci
@@ -113,6 +113,13 @@ dotnet restore UnityDebugger.sln --locked-mode
 npm test
 npm run package
 ```
+
+The real Mono argument-evaluation regression tests use a standalone console
+fixture and do not open an Editor. Set `UNITY_DEBUGGER_TEST_MONO` to an existing
+`mono.exe` (for example, the Editor's `Data/MonoBleedingEdge/bin/mono.exe`) before
+`npm run test:adapter` to include them. Without this executable, those tests
+are reported as skipped. Their temporary fixture files and processes are
+removed after each test.
 
 The package pipeline builds the Adapter from audited source, stages production
 assemblies only, verifies the committed runtime inventory, audits VSIX paths

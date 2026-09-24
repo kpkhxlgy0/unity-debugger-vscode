@@ -1121,15 +1121,15 @@ namespace UnityDebugger.Adapter.Backend
                 return expression;
             lock (evaluationResolverLock)
             {
+                var sourceResolver = SourceTypeResolver.FromLocation(frame.SourceLocation);
+                var frameType = session.GetType(frame.FullTypeName);
                 var previousResolver = session.TypeResolverHandler;
                 session.TypeResolverHandler = (identifier, _) =>
                 {
-                    var frameType = session.GetType(frame.FullTypeName);
-                    return ResolveIdentifierInFrameNamespace(
+                    return sourceResolver.Resolve(
                         frameType?.Namespace,
                         identifier,
-                        candidate => session.GetType(candidate) != null,
-                        candidate => frameType?.Assembly.GetType(
+                        candidate => session.GetType(candidate) != null || frameType?.Assembly.GetType(
                             candidate,
                             false,
                             false) != null);

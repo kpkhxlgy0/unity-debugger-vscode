@@ -267,6 +267,9 @@ namespace Mono.Debugging.Soft
 
 		static bool CanForceCast (EvaluationContext ctx, ArgumentType fromType, TypeMirror toType)
 		{
+			if (IsIntegralEnumArgument (fromType, toType))
+				return true;
+
 			var cx = (SoftEvaluationContext) ctx;
 			MethodMirror method;
 
@@ -2511,7 +2514,27 @@ namespace Mono.Debugging.Soft
 			return OverloadResolveMulti (ctx, type, methodName, genericTypeArgs, returnType, argTypes, candidates, throwIfNotFound, tryCasting);
 		}
 
-		static bool IsApplicable (SoftEvaluationContext ctx, MethodMirror method, ArgumentType[] genericTypeArgs, TypeMirror returnType, ArgumentType [] types, out string error, out int matchCount, bool tryCasting = true)
+		static bool IsIntegralEnumArgument (ArgumentType argument, TypeMirror parameter)
+		{
+			if (argument.RepresentsNull || argument.IsDelayed || !parameter.IsEnum)
+				return false;
+
+			switch (argument.Type.FullName) {
+			case "System.SByte":
+			case "System.Byte":
+			case "System.Int16":
+			case "System.UInt16":
+			case "System.Int32":
+			case "System.UInt32":
+			case "System.Int64":
+			case "System.UInt64":
+				return true;
+			default:
+				return false;
+			}
+		}
+
+		static bool IsApplicable (SoftEvaluationContext ctx, MethodMirror method, ArgumentType[] genericTypeArgs, TypeMirror returnType, ArgumentType [] types, out string error, out int matchCount, bool tryCasting = true, bool allowIntegralEnumArguments = false)
 		{
 			var mparams = method.GetParameters ();
 			matchCount = 0;
@@ -2553,6 +2576,9 @@ namespace Mono.Debugging.Soft
 					continue;
 
 				if (CanDoPrimaryCast(types[i].Type, param_type))
+					continue;
+
+				if (allowIntegralEnumArguments && IsIntegralEnumArgument (types[i], param_type))
 					continue;
 
 				var fromType = !IsGeneratedType (types[i].Type) ? ctx.Adapter.GetDisplayTypeName (ctx, types[i]) : types[i].Type.FullName;
@@ -2603,6 +2629,27 @@ namespace Mono.Debugging.Soft
 
 		static MethodMirror[] OverloadResolveMulti (SoftEvaluationContext ctx, TypeMirror type, string methodName, ArgumentType[] genericTypeArgs, TypeMirror returnType, ArgumentType[] argTypes, List<MethodMirror> candidates, bool throwIfNotFound, bool tryCasting = true)
 		{
+			// Preserve ordinary overloads before trying the debugger's integer-to-enum compatibility conversion.
+			var ordinary = SelectApplicableMethods (ctx, type, methodName, genericTypeArgs, returnType, argTypes, candidates, false, tryCasting);
+			if (ordinary != null)
+				return ordinary;
+
+			if (tryCasting && methodName != null) {
+				var enumCandidates = SelectApplicableMethods (ctx, type, methodName, genericTypeArgs, returnType, argTypes, candidates, false, tryCasting, true);
+				if (enumCandidates != null) {
+					if (enumCandidates.Length == 1)
+						return enumCandidates;
+					if (throwIfNotFound)
+						throw new EvaluatorException ("Ambiguous method `{0}'; use an explicit enum cast", methodName);
+					return null;
+				}
+			}
+
+			return SelectApplicableMethods (ctx, type, methodName, genericTypeArgs, returnType, argTypes, candidates, throwIfNotFound, tryCasting);
+		}
+
+		static MethodMirror[] SelectApplicableMethods (SoftEvaluationContext ctx, TypeMirror type, string methodName, ArgumentType[] genericTypeArgs, TypeMirror returnType, ArgumentType[] argTypes, List<MethodMirror> candidates, bool throwIfNotFound, bool tryCasting, bool allowIntegralEnumArguments = false)
+		{
 			if (candidates.Count == 0) {
 				if (throwIfNotFound) {
 					var typeName = ctx.Adapter.GetDisplayTypeName (ctx, type);
@@ -2628,7 +2675,7 @@ namespace Mono.Debugging.Soft
 			}
 
 			if (candidates.Count == 1) {
-				if (IsApplicable (ctx, candidates [0], genericTypeArgs, returnType, argTypes, out var error, out var matchCount, tryCasting))
+				if (IsApplicable (ctx, candidates [0], genericTypeArgs, returnType, argTypes, out var error, out var matchCount, tryCasting, allowIntegralEnumArguments))
 					return new MethodMirror [] { candidates [0] };
 
 				if (throwIfNotFound)
@@ -2645,7 +2692,7 @@ namespace Mono.Debugging.Soft
 				string error;
 				int matchCount;
 				
-				if (!IsApplicable (ctx, method, genericTypeArgs, returnType, argTypes, out error, out matchCount, tryCasting))
+				if (!IsApplicable (ctx, method, genericTypeArgs, returnType, argTypes, out error, out matchCount, tryCasting, allowIntegralEnumArguments))
 					continue;
 
 				if (matchCount == bestCount) {
@@ -2749,7 +2796,7 @@ namespace Mono.Debugging.Soft
 
 	class MethodCall: AsyncOperation
 	{
-		readonly InvokeOptions options = InvokeOptions.DisableBreakpoints;
+		readonly InvokeOptions options = InvokeOptions.DisableBreakpoints | InvokeOptions.SingleThreaded;
 
 		readonly ManualResetEvent shutdownEvent = new ManualResetEvent (false);
 		readonly MethodMirror function;

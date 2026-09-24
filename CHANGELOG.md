@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.2 - 2026-09-24
+
+- Keep unrelated threads suspended while Watch methods, getters, and ToString
+  execute, matching the reference debugger's single-threaded invocation mode.
+
+- Accept integral arguments for an unambiguous enum-parameter method when
+  ordinary overload matching fails, preserving normal overload priority and
+  evaluating each argument only once.
+- Resolve Watch and Hover type names through ordinary `using` directives and
+  type aliases visible at the stopped source location, using the existing
+  Roslyn runtime and mature expression evaluator.
+- Preserve the client-requested source path and path format in breakpoint
+  status updates, including files outside the attached workspace, so binding
+  and reload updates do not erase the breakpoint filename.
+
 ## 0.3.0
 
 - Replace the handwritten execution-control and expression-evaluation engines

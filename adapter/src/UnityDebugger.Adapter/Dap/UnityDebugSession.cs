@@ -523,10 +523,7 @@ namespace UnityDebugger.Adapter.Dap
             var managed = breakpointManager.ReplaceForSource(
                 sourcePath,
                 requested);
-            var dapSource = new DapSource(
-                Path.GetFileName(sourcePath),
-                ConvertDebuggerPathToClient(sourcePath) ?? sourcePath,
-                0);
+            var dapSource = ToBreakpointSource(sourcePath);
             SendResponse(
                 response,
                 new DapSetBreakpointsResponseBody(
@@ -1057,13 +1054,7 @@ namespace UnityDebugger.Adapter.Dap
                 item.Verified
                     ? "unity-debugger.breakpoint.dap.status.bound"
                     : "unity-debugger.breakpoint.dap.status.pending");
-            var mapped = sourceMapper?.ToClientPath(item.SourcePath);
-            var source = mapped != null
-                ? new DapSource(
-                    mapped.Name,
-                    mapped.Path,
-                    mapped.SourceReference)
-                : new DapSource("Unavailable source", null, 0);
+            var source = ToBreakpointSource(item.SourcePath);
             SendEvent(new Event(
                 "breakpoint",
                 new
@@ -1097,6 +1088,12 @@ namespace UnityDebugger.Adapter.Dap
                 source,
                 item.Line,
                 1);
+
+        private DapSource ToBreakpointSource(string sourcePath) =>
+            new DapSource(
+                Path.GetFileName(sourcePath),
+                ConvertDebuggerPathToClient(sourcePath) ?? sourcePath,
+                0);
 
         private static DapFunctionBreakpoint ToDapFunctionBreakpoint(
             ManagedFunctionBreakpoint item) =>
