@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -21,6 +22,8 @@ namespace UnityDebugger.Adapter.Dap
             "https://marketplace.visualstudio.com/items?itemName=" +
             "kpk.unity-debugger-pure" +
             "#support-policy";
+        private const string ExceptionConditionDescription =
+            "List of exceptions ...";
         private readonly Func<IDebuggerBackend> backendFactory;
         private readonly IDiagnosticLog? diagnosticLog;
         private readonly ThreadIdMap threadIds = new ThreadIdMap();
@@ -48,30 +51,27 @@ namespace UnityDebugger.Adapter.Dap
 
         public override void Initialize(Response response, dynamic args)
         {
-            SendResponse(response, new Capabilities
-            {
-                supportsConfigurationDoneRequest = false,
-                supportsFunctionBreakpoints = true,
-                supportsConditionalBreakpoints = true,
-                supportsEvaluateForHovers = true,
-                supportsExceptionOptions = true,
-                supportsLogPoints = true,
-                supportsSetVariable = true,
-                supportsStepInTargetsRequest = true,
-                supportsGotoTargetsRequest = true,
-                supportsTerminateRequest = true,
-                exceptionBreakpointFilters = new[]
-                {
-                    new ExceptionBreakpointsFilter(
-                        "all",
-                        "All Exceptions",
-                        false),
-                    new ExceptionBreakpointsFilter(
-                        "uncaught",
-                        "User-Unhandled Exceptions",
-                        false),
-                },
-            });
+            SendResponse(
+                response,
+                new DapCapabilities(
+                    Process.GetCurrentProcess().Id,
+                    new[]
+                    {
+                        new DapExceptionBreakpointsFilter(
+                            "all",
+                            "All Exceptions",
+                            "Break on all exceptions",
+                            false,
+                            true,
+                            ExceptionConditionDescription),
+                        new DapExceptionBreakpointsFilter(
+                            "unhandled",
+                            "User-Unhandled Exceptions",
+                            "Break only on unhandled exceptions",
+                            false,
+                            true,
+                            ExceptionConditionDescription),
+                    }));
             SendEvent(new InitializedEvent());
         }
 
@@ -423,20 +423,9 @@ namespace UnityDebugger.Adapter.Dap
             if (!TryGetInspectionBackend(response, out var value))
                 return;
             var request = arguments as JObject;
-            var filters = (request?["filters"] as JArray)?
-                .Values<string>()
-                .Where(item => item != null)
-                .ToArray() ?? Array.Empty<string>();
+            var filters = ExceptionFilterIds(request);
             var unknown = filters.FirstOrDefault(
-                filter =>
-                    !string.Equals(
-                        filter,
-                        "all",
-                        StringComparison.Ordinal) &&
-                    !string.Equals(
-                        filter,
-                        "uncaught",
-                        StringComparison.Ordinal));
+                filter => !IsKnownExceptionFilter(filter));
             if (unknown != null)
             {
                 SendErrorResponse(
@@ -446,11 +435,17 @@ namespace UnityDebugger.Adapter.Dap
                 return;
             }
 
-            var mode = filters.Contains("all")
-                ? ExceptionBreakMode.All
-                : filters.Contains("uncaught")
-                    ? ExceptionBreakMode.Uncaught
-                    : ExceptionBreakMode.None;
+            var mode = ExceptionBreakMode.None;
+            if (filters.Contains("all"))
+            {
+                mode = ExceptionBreakMode.All;
+            }
+            else if (
+                filters.Contains("unhandled") ||
+                filters.Contains("uncaught"))
+            {
+                mode = ExceptionBreakMode.Uncaught;
+            }
             try
             {
                 value.ConfigureExceptions(mode);
@@ -1131,6 +1126,33 @@ namespace UnityDebugger.Adapter.Dap
             exception is InvalidOperationException ||
             exception is DebuggerBackendException ||
             exception is BackendEvaluationException;
+
+        // The client moves the selected filters into filterOptions, with an
+        // empty filters array, once supportsExceptionFilterOptions is
+        // advertised; both shapes carry the same filter identifiers.
+        private static string[] ExceptionFilterIds(JObject? request)
+        {
+            var ids = new List<string>();
+            if (request?["filters"] is JArray declared)
+            {
+                ids.AddRange(declared.Values<string>().OfType<string>());
+            }
+            if (request?["filterOptions"] is JArray options)
+            {
+                ids.AddRange(
+                    options
+                        .Select(
+                            item =>
+                                (item as JObject)?["filterId"]?.Value<string>())
+                        .OfType<string>());
+            }
+            return ids.ToArray();
+        }
+
+        private static bool IsKnownExceptionFilter(string? filter) =>
+            string.Equals(filter, "all", StringComparison.Ordinal) ||
+            string.Equals(filter, "unhandled", StringComparison.Ordinal) ||
+            string.Equals(filter, "uncaught", StringComparison.Ordinal);
 
         private void SendUnavailable(Response response, string kind)
         {

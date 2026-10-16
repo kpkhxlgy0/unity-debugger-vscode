@@ -27,10 +27,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var response = DapTestProtocol.Response(
                 messages,
                 "initialize");
-            Assert.True(DapTestProtocol.Required<bool>(
-                response.SelectToken("body.supportsExceptionOptions")));
+            Assert.Null(response.SelectToken("body.supportsExceptionOptions"));
             Assert.Equal(
-                new[] { "all", "uncaught" },
+                new[] { "all", "unhandled" },
                 response
                     .SelectTokens(
                         "body.exceptionBreakpointFilters[*].filter")
@@ -62,6 +61,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
                     new { filters = new[] { "all" } }),
                 DapTestProtocol.Request(
                     "setExceptionBreakpoints",
+                    new { filters = new[] { "unhandled" } }),
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
                     new { filters = new[] { "uncaught" } }),
                 DapTestProtocol.Request(
                     "setExceptionBreakpoints",
@@ -79,8 +81,51 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 {
                     ExceptionBreakMode.All,
                     ExceptionBreakMode.Uncaught,
+                    ExceptionBreakMode.Uncaught,
                     ExceptionBreakMode.None,
                 },
+                backend.ExceptionModes);
+        }
+
+        [Fact]
+        public void Filter_options_map_to_exact_backend_modes()
+        {
+            var backend = new FakeDebuggerBackend();
+            var session = AttachedSession(backend);
+
+            var messages = DapTestProtocol.Run(
+                session,
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    FilterOptions(new { filterId = "all" })),
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    FilterOptions(new
+                    {
+                        // A condition is carried but not interpreted: the
+                        // filter still selects its own break mode.
+                        filterId = "unhandled",
+                        condition = "System.NullReferenceException",
+                    })),
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    FilterOptions(
+                        new { filterId = "SECRET_UNKNOWN_FILTER" })));
+
+            var responses = DapTestProtocol.Responses(
+                messages,
+                "setExceptionBreakpoints");
+            Assert.True(DapTestProtocol.Required<bool>(
+                responses[0]["success"]));
+            Assert.True(DapTestProtocol.Required<bool>(
+                responses[1]["success"]));
+            Assert.False(DapTestProtocol.Required<bool>(
+                responses[2]["success"]));
+            Assert.Contains(
+                "Unknown exception breakpoint filter",
+                DapTestProtocol.Required<string>(responses[2]["message"]));
+            Assert.Equal(
+                new[] { ExceptionBreakMode.All, ExceptionBreakMode.Uncaught },
                 backend.ExceptionModes);
         }
 
@@ -165,6 +210,15 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Assert.DoesNotContain("SECRET", text);
             }
         }
+
+        // VS Code moves the selected filters into filterOptions (with an empty
+        // filters array) once supportsExceptionFilterOptions is advertised.
+        private static object FilterOptions(object option) =>
+            new
+            {
+                filters = new string[0],
+                filterOptions = new[] { option },
+            };
 
         private static UnityDebugSession AttachedSession(
             FakeDebuggerBackend backend)
