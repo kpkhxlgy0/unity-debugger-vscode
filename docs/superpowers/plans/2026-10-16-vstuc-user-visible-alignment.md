@@ -508,8 +508,8 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 ### Task 7: Attach configuration surface
 
 **Files:**
-- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`, `extension/src/versionPolicy.ts`, `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs`
-- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/versionPolicy.test.ts`, `tests/build/scaffold.test.mjs`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`
+- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`, `extension/src/versionPolicy.ts`, `extension/src/editorDiscovery.ts`, `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs`
+- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/versionPolicy.test.ts`, `tests/extension/editorDiscovery.test.ts`, `tests/build/scaffold.test.mjs`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`
 
 **This task spans TypeScript and C#, and you must run both suites** (`npx vitest run tests/extension` and `dotnet test UnityDebugger.sln -c Release --no-restore`). That is deliberate and explained below; it is the only task in this plan that does so.
 
@@ -535,6 +535,13 @@ The rule to implement: **an absent version is not a malformed one.** `classifyVe
 Why this is Task 7's and not a rider on Task 6: it is a semantic change to the compatibility policy affecting **every** candidate, not just Editors with a missing file. Task 5's Player candidates carry `projectVersion: ""` **by design** — a Player's Editor version is genuinely unknown — so before this change every Player from the picker would be rejected at the gate too. Task 6's implementer declined to apply a `=== ""` bypass precisely because it would silently change Player behaviour, which was the right instinct and is why the change needs its own tests. `endPoint` is **not** affected either way: that path skips discovery entirely and never reaches `applyCandidatePolicy`.
 
 Tests to add, in `tests/extension/versionPolicy.test.ts`: `""` yields a non-blocking level; a whitespace-only string is **not** silently treated as absent (decide and state which, rather than letting `trim()` fall out by accident); and the existing malformed and out-of-policy cases still return `unsupported` unchanged — that last one matters most, because the cheap version of this fix loosens the gate for everything.
+
+**One more thing in this task, found by Task 6's reviewer: the `EditorInstance.json` fallback can currently make things *worse*, and after your change it still can.** Task 6's fallback (`editorDiscovery.ts:138-140`) supplies `version` from `EditorInstance.json` as `projectVersion`. The real file reads `2022.3.23f1`, which is fine — but the helper (`:274-286`) accepts **any** string, so a suffix-bearing value of the shape Unity uses elsewhere (`m_EditorVersionWithRevision: 2022.3.62t11 (b1a0a2c)`, the format in Task 6's own fixture) would reach `classifyVersion`, fail `VERSION_PATTERN`, and return `unsupported` — **blocking** an attach that, after your change, an *empty* version would have allowed.
+
+So the fallback can reduce permissiveness in exactly the class of project this work item exists to fix. Make it strictly non-harmful: **supply the extracted version only when it is one the gate can actually use, and otherwise supply `""`.** A version the policy will reject must degrade to *unknown*, which your change now treats as attachable, rather than to *malformed*, which blocks. `editorDiscovery.ts` is added to this task's file list for that reason; keep the guard next to the extraction and export nothing new if you can avoid it.
+
+- Why the guard belongs here rather than in Task 6: the shape the gate accepts is defined by `versionPolicy.ts`, which is this task's file, and the fix is only correct *relative to* your relaxation of it. Task 6 is approved and closed; reopening it to depend on a file it was forbidden to touch would be worse.
+- Worth testing, since the failure is silent: a suffix-bearing `version` yields `""` and therefore attaches, while the same suffix-bearing value supplied directly as `__projectVersion` still blocks. Those two facts together are what make the guard's purpose legible.
 
 **`__processId` blocks both new attach paths, and this is the most consequential thing in your task. Read this section before writing any code.**
 
