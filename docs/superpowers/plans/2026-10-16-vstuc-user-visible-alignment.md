@@ -804,9 +804,11 @@ An earlier revision staged the whole `tests` directory — the broadest path in 
 ### Task 9: Function-breakpoint performance warning
 
 **Files:**
-- Create: `extension/src/functionBreakpointWarning.ts`
+- Create: `extension/src/functionBreakpointWarning.ts`, `extension/src/outputChannel.ts`
 - Modify: `extension/src/extension.ts:45-67`
-- Test: `tests/extension/functionBreakpointWarning.test.ts`
+- Test: `tests/extension/functionBreakpointWarning.test.ts`, `tests/extension/outputChannel.test.ts`
+
+**Task 9 creates the log channel; Task 11 consumes it.** The reordering is forced by a fact I verified against the shipped bundle this round: the reference emits this warning through `logWarning` into a `LogOutputChannel`, not through `showWarningMessage`, so this task cannot land correct behaviour without a channel to write to. `outputChannel.test.ts` is therefore in scope here as well — build the module to the signature Task 11's brief states under "Produces", so that task needs no change to it.
 
 **Interfaces:**
 - Produces: `shouldWarnAboutFunctionBreakpoints(breakpoints: readonly { functionName?: string }[]): boolean` and `FUNCTION_BREAKPOINT_WARNING` holding the reference text verbatim: `You are using function breakpoints. Even if they are fully supported, they have a major negative impact on debugging performance. Use them only when necessary.`
@@ -848,16 +850,29 @@ Expected: FAIL — the module does not exist.
 
 - [ ] **Step 3: Implement**
 
-Add the module, then call it from `createDebugAdapterDescriptor` in `extension.ts` — that is line 49, inside the `:45-67` block the Files list names — **after the launcher succeeds**, showing the warning when it returns true:
+Add the module, then create the log channel and call it from `createDebugAdapterDescriptor` in `extension.ts` — that is line 49, inside the `:45-67` block the Files list names — **after the launcher succeeds**, warning when the predicate returns true:
 
 ```ts
 const descriptor = launcher.createDescriptor(context.extensionPath);
 if (shouldWarnAboutFunctionBreakpoints(vscode.debug.breakpoints)) {
-  void vscode.window.showWarningMessage(FUNCTION_BREAKPOINT_WARNING);
+  outputChannel.warn(FUNCTION_BREAKPOINT_WARNING);
 }
 ```
 
-Two things to get right and to state in your report. First, warn **after** the launcher succeeds, not before: a descriptor that throws already shows an error message, and adding a performance warning on top of a failure would be noise at the worst moment. Second, this fires on **each** session start, so a user with a function breakpoint sees it every launch — that matches the reference's behaviour, and it is acceptable because the message is dismissible and the condition is rare. Do not add "don't show again" state: that is surface the reference does not have and it is not in this task's scope.
+**This task also creates `extension/src/outputChannel.ts`, because the warning needs it.** The reference does **not** show a popup here — I verified it in the shipped bundle this round — so an earlier revision of this brief that said `vscode.window.showWarningMessage(...)` was wrong, and wrong in the direction of being *more* intrusive than the reference:
+
+```js
+// reference, out/extension.js, in createDebugAdapterDescriptor
+s.debug.breakpoints.find(e => e instanceof s.FunctionBreakpoint)
+  && p.logWarning(h.debuggerStrings.functionBreakpoints);
+// and p.logWarning is:  logWarning = e => l(u.warn, e)
+// where u = window.createOutputChannel(displayName, { log: true })
+```
+
+- So the message goes to a **`LogOutputChannel` at warn level**, and the user sees it only if they open the channel. A popup would interrupt on every session start for anyone with a function breakpoint — strictly worse than the reference while claiming to match it.
+- `createOutputChannel(factory)` is therefore built here with the same shape Task 11 needs: name `PRODUCT_IDENTITY.displayName`, `{ log: true }`, and the `factory` injected so tests need no real VS Code. **Task 11 consumes this module rather than creating it** — its brief has been updated to say so. Keep the factory-injection signature exactly as Task 11's brief specifies, so the two fit without either changing.
+
+Two things to get right and to state in your report. First, warn **after** the launcher succeeds, not before: a descriptor that throws already surfaces an error, and adding a performance warning on top of a failure would be noise at the worst moment. Second, this fires on **each** session start, so a user with a function breakpoint gets a line every launch. That matches the reference, and it is harmless in a log channel precisely because it does **not** interrupt — which is why the emission target matters and not just the text. Do not add "don't show again" state: that is surface the reference does not have and it is not in this task's scope.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -960,9 +975,15 @@ git commit -m "feat: add the Unity API reference command"
 ### Task 11: Output channel
 
 **Files:**
-- Create: `extension/src/outputChannel.ts`
+- Create: *(nothing — Task 9 creates `extension/src/outputChannel.ts`)*
 - Modify: `extension/src/extension.ts`
-- Test: `tests/extension/outputChannel.test.ts`
+- Test: `tests/extension/outputChannel.test.ts` (extend Task 9's file; the module already exists)
+
+**Task 9 now creates `outputChannel.ts`, because its function-breakpoint warning must go through a `LogOutputChannel` rather than a popup — verified against the reference's shipped bundle.** So this task **consumes** that module instead of authoring it.
+
+- **Do not recreate or re-signature it.** Task 9 builds it to the exact shape named under "Produces" below, with `factory` injected, and the name from `PRODUCT_IDENTITY.displayName`. If what Task 9 landed does not match what you need, **say so and stop** rather than editing it into a second shape — a module authored in one task and reshaped in another is how the two-copies-disagree class starts.
+- Your tests still belong here: they exercise the channel through the two commands (`openLogs`, `copyDiagnostics`) and the diagnostics behaviours this task adds, which is consumer-level coverage rather than a duplicate of Task 9's construction tests. Extend `outputChannel.test.ts` rather than creating a parallel file.
+- If Task 9's module turns out to be missing something this task needs, that is a finding to report, not a licence to rewrite — the fix belongs in Task 9's file with its own test.
 
 **Interfaces:**
 - Produces: `createOutputChannel(factory): LogOutputChannel` where `factory` is injected for testing; the channel name is `PRODUCT_IDENTITY.displayName`.
