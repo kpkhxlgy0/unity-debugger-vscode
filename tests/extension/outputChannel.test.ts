@@ -12,6 +12,7 @@ import type { LogOutputChannel } from "vscode";
  */
 const mocks = vi.hoisted(() => ({
   homeDirectory: "C:\\Users\\Admin",
+  homedirFailure: null as Error | null,
   channel: {
     append: vi.fn(),
     appendLine: vi.fn(),
@@ -31,7 +32,14 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("node:os", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:os")>();
-  const homedir = (): string => mocks.homeDirectory;
+  const homedir = (): string => {
+    // Real hosts can fail to name a home; the flag lets one test model that
+    // without disturbing the rest.
+    if (mocks.homedirFailure) {
+      throw mocks.homedirFailure;
+    }
+    return mocks.homeDirectory;
+  };
   // Everything else the extension reaches for (`hostname`, `tmpdir`) still
   // comes from the real module.
   return { ...actual, default: { ...actual, homedir }, homedir };
@@ -78,6 +86,7 @@ vi.mock("vscode", () => ({
 
 import * as vscode from "vscode";
 import {
+  CHANNEL_REFUSED_LINE,
   COPY_DIAGNOSTICS_COMMAND,
   NO_SANITIZED_DIAGNOSTICS,
   OPEN_LOGS_COMMAND,
@@ -98,6 +107,7 @@ beforeEach(() => {
   // in one test would leak into the next one's call counts.
   vi.clearAllMocks();
   mocks.homeDirectory = "C:\\Users\\Admin";
+  mocks.homedirFailure = null;
   mocks.createOutputChannel.mockReturnValue(mocks.channel);
 });
 
@@ -137,14 +147,21 @@ describe("writeSanitized", () => {
 
     channel.writeSanitized("attached to C:\\Users\\Admin\\proj");
 
-    // Refused, not redacted and not echoed: nothing about the offending line
-    // reaches the channel at any level, because repeating it — even to say it
-    // was refused — would leak the same path.
-    expect(mocks.channel.info).not.toHaveBeenCalled();
+    // Refused, not redacted and not echoed: the offending line reaches no level
+    // method — and not `appendLine`, `append` or `replace` either, so a refusal
+    // implemented with the channel's non-level writes cannot pass this — because
+    // repeating the line, even to say it was refused, would leak the same path.
+    // What does reach the channel is the path-free marker, which is what keeps
+    // the refusal itself observable. The exact array is the assertion: the only
+    // line written is the marker, and the path is nowhere in it.
+    expect(loggedLines()).toEqual([CHANNEL_REFUSED_LINE]);
     expect(mocks.channel.warn).not.toHaveBeenCalled();
     expect(mocks.channel.error).not.toHaveBeenCalled();
     expect(mocks.channel.debug).not.toHaveBeenCalled();
     expect(mocks.channel.trace).not.toHaveBeenCalled();
+    expect(mocks.channel.append).not.toHaveBeenCalled();
+    expect(mocks.channel.appendLine).not.toHaveBeenCalled();
+    expect(mocks.channel.replace).not.toHaveBeenCalled();
   });
 
   it("passes through a sanitized line", () => {
@@ -160,10 +177,12 @@ describe("writeSanitized", () => {
 
     // `PathRedactor` matches the user profile with `[\\/]` and
     // `RegexOptions.IgnoreCase`, so the same path spelled with the other
-    // separator or different casing is the same leak and must not slip past.
+    // separator and a different case is the same leak and must not slip past:
+    // the mocked home is `C:\Users\Admin` and this line is its lowercase
+    // forward-slash spelling, so it needs both folds to be recognised.
     channel.writeSanitized("opened c:/users/admin/appdata/local/logs");
 
-    expect(mocks.channel.info).not.toHaveBeenCalled();
+    expect(loggedLines()).toEqual([CHANNEL_REFUSED_LINE]);
   });
 
   it("does not read a whole drive as the user's own directory", () => {
@@ -178,6 +197,55 @@ describe("writeSanitized", () => {
     expect(loggedLines()).toEqual(["opened C:\\proj\\logs"]);
   });
 
+  it("does not refuse every line when the home names no user", () => {
+    // The POSIX spelling of the same degenerate home: `/` normalizes to the
+    // empty string, and an empty home must match nothing rather than
+    // everything. `""` reaches the same branch directly.
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    mocks.homeDirectory = "/";
+    channel.writeSanitized("opened /srv/proj/logs");
+    mocks.homeDirectory = "";
+    channel.writeSanitized("event=attach");
+
+    expect(loggedLines()).toEqual([
+      "opened /srv/proj/logs",
+      "event=attach",
+    ]);
+  });
+
+  it("writes the line when the home directory cannot be read", () => {
+    // `os.homedir()` can throw, and this guard runs inside a command handler:
+    // letting the throw escape would suppress the message the user is meant to
+    // see and reject the command. An unreadable home is therefore "nothing to
+    // match" — the line is written, with the producer's redaction still the
+    // authority — rather than a reason to drop the whole channel's output.
+    mocks.homedirFailure = new Error("no home directory");
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    channel.writeSanitized("opened C:\\Users\\Admin\\logs");
+
+    expect(loggedLines()).toEqual(["opened C:\\Users\\Admin\\logs"]);
+  });
+
+  it("refuses at a path boundary, not a shared name prefix", () => {
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    // `C:\Users\Administrator` and `C:\Users\Admin2` merely *contain*
+    // `C:\Users\Admin`. `PathRedactor` may match them because it rewrites what
+    // it matches; this guard drops, so an over-broad match would cost a
+    // diagnostic that leaks nothing.
+    channel.writeSanitized("opened C:\\Users\\Administrator\\logs");
+    channel.writeSanitized("opened C:\\Users\\Admin2\\logs");
+    channel.writeSanitized("opened C:\\Users\\Admin\\logs");
+
+    expect(loggedLines()).toEqual([
+      "opened C:\\Users\\Administrator\\logs",
+      "opened C:\\Users\\Admin2\\logs",
+      CHANNEL_REFUSED_LINE,
+    ]);
+  });
+
   it("takes the user path from the home directory rather than a literal", () => {
     mocks.homeDirectory = "D:\\profiles\\Somebody";
     const channel = createOutputChannel(mocks.createOutputChannel);
@@ -185,10 +253,13 @@ describe("writeSanitized", () => {
     channel.writeSanitized("opened D:\\profiles\\Somebody\\AppData\\logs");
     // A path that is not this user's home is not this boundary's business: the
     // producer's redactor owns the workspace path, which a channel that knows
-    // only its factory cannot see.
+    // only its factory cannot see. Re-pointing the mock moved the refusal with
+    // it — the first line is refused, the second is not — which is what shows
+    // the comparison reads the home directory rather than a literal.
     channel.writeSanitized("attached to C:\\Users\\Admin\\proj");
 
     expect(loggedLines()).toEqual([
+      CHANNEL_REFUSED_LINE,
       "attached to C:\\Users\\Admin\\proj",
     ]);
   });
@@ -258,12 +329,22 @@ describe("the diagnostics commands", () => {
 
     await invokeCommand(OPEN_LOGS_COMMAND);
     // Written through the channel `activate()` registered, not a fresh one, so
-    // this also covers the subscription wiring the channel depends on.
+    // this also covers the subscription wiring the channel depends on. The
+    // leaking line is built from the *mocked* home — `opened
+    // C:\Users\Admin\logs` — and not from the real log directory above: the
+    // guard compares against that mocked home, and a real temp path contains it
+    // only on a machine whose profile happens to be the mocked name. Built from
+    // `temporaryDirectory()` this assertion passed locally and failed CI, where
+    // `%TEMP%` is under `runneradmin`; the temp path stays where it belongs, in
+    // the `LOCALAPPDATA` the command must really resolve.
     activatedChannel(context).writeSanitized(
-      `opened ${logDirectory(localApplicationData)}`,
+      `opened ${mocks.homeDirectory}\\logs`,
     );
 
-    expect(loggedLines()).toEqual(["event=diagnostics.openLogs"]);
+    expect(loggedLines()).toEqual([
+      "event=diagnostics.openLogs",
+      CHANNEL_REFUSED_LINE,
+    ]);
   });
 });
 

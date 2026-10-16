@@ -29,6 +29,17 @@ export const COPY_DIAGNOSTICS_UNAVAILABLE_LINE =
   "event=diagnostics.copyDiagnostics.unavailable";
 
 /**
+ * The channel's record that a line was refused for naming the user's home
+ * directory.
+ *
+ * It names the event and no path, which is the whole point: the line it stands
+ * in for is the one that must not be repeated, so the refusal cannot be
+ * reported by echoing it. Without this marker a refused diagnostic leaves no
+ * trace at all, and an over-broad refusal is invisible.
+ */
+export const CHANNEL_REFUSED_LINE = "event=diagnostics.channel.refused";
+
+/**
  * The reference extension's attach-failure strings, copied verbatim from its
  * English bundle (`out/nls.bundle.json`). Do not paraphrase them; the wording
  * is the user-visible contract this alignment exists to keep.

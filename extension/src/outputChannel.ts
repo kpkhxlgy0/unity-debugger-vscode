@@ -1,5 +1,6 @@
 import os from "node:os";
 import type * as vscode from "vscode";
+import { CHANNEL_REFUSED_LINE } from "./diagnostics.js";
 import { PRODUCT_IDENTITY } from "./productIdentity.js";
 
 /**
@@ -17,14 +18,31 @@ type LogChannelFactory = (
 export interface SanitizedOutputChannel extends vscode.LogOutputChannel {
   /**
    * Writes one diagnostics line, unless that line names the user's home
-   * directory — in which case the line is dropped.
+   * directory — in which case the line is dropped and a path-free
+   * `event=diagnostics.channel.refused` marker is written in its place.
    *
    * The producers already write only allowlisted, redacted lines; this is the
    * backstop for the producer that forgets. It refuses rather than redacts
    * because redaction already has one implementation — the adapter's
    * `PathRedactor`, whose match of the user profile this mirrors — and a second
-   * one here could disagree with it. The refusal is silent: repeating the line,
-   * even to report that it was refused, would leak the same path.
+   * one here could disagree with it.
+   *
+   * The refused line is never repeated, not even to report the refusal: that
+   * would leak the very path the refusal exists to keep out. The refusal
+   * itself is recorded, as the marker, so a dropped diagnostic stays
+   * observable without its path. The match ends at a path boundary, so
+   * `C:\Users\Admin` refuses `C:\Users\Admin\logs` but not
+   * `C:\Users\Administrator\logs`: unlike `PathRedactor`, which rewrites, this
+   * guard drops, and an over-broad match would cost a diagnostic rather than
+   * merely redact a path.
+   *
+   * A home that cannot be read (`os.homedir()` throwing) is treated as
+   * "nothing to match", exactly like one that names no user (`/`, a drive
+   * root): the line is written. The guard can only refuse a path it can
+   * recognise, and refusing everything would silently drop the whole channel's
+   * output — a worse outcome than the single line it would hold back, with the
+   * producer's redaction still in place. Refusal is a backstop here, never the
+   * only gate.
    *
    * Only the home directory is checked. A workspace path is redacted by the
    * adapter and is not visible to a channel built from nothing but a factory,
@@ -55,6 +73,9 @@ export function createOutputChannel(
   return Object.assign(channel, {
     writeSanitized: (line: string): void => {
       if (namesUserPath(line)) {
+        // The marker names the event and no path, so the dropped diagnostic is
+        // observable without repeating the line that caused the refusal.
+        channel.info(CHANNEL_REFUSED_LINE);
         return;
       }
       channel.info(line);
@@ -69,17 +90,58 @@ const DRIVE_ROOT_PATTERN = /^[a-z]:$/;
  * Whether `line` names the user's home directory.
  *
  * The comparison mirrors the adapter's `PathRedactor`: the user profile with
- * either separator and no trailing one, matched case-insensitively.
+ * either separator and no trailing one, matched case-insensitively and ending
+ * at a path boundary.
  */
 function namesUserPath(line: string): boolean {
-  const home = normalizeUserPath(os.homedir());
-  // A home that names no user — `/` or a drive root — is not matched: it would
-  // match every line containing a separator, which loses all diagnostics rather
-  // than one leaking line.
+  const home = normalizeUserPath(homeDirectory());
+  // A home that names no user — `/`, a drive root, or a home the platform
+  // could not read at all, which normalizes to `""` — is not matched: it would
+  // match every line, or every line containing a separator, losing all
+  // diagnostics rather than one leaking line.
   if (home.length === 0 || DRIVE_ROOT_PATTERN.test(home)) {
     return false;
   }
-  return normalizeUserPath(line).includes(home);
+  return namesHomePath(normalizeUserPath(line), home);
+}
+
+/**
+ * The user's home directory, or `""` when the platform cannot name one.
+ *
+ * `os.homedir()` reads the environment and can throw. It is called from inside
+ * a command handler, and a throw escaping from here would suppress the
+ * `NO_SANITIZED_DIAGNOSTICS` message and reject the command, so the failure is
+ * caught and treated as "nothing to match" — see `writeSanitized`.
+ */
+function homeDirectory(): string {
+  try {
+    return os.homedir();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Whether the normalized `line` names `home` as a whole path segment.
+ *
+ * A bare `includes` would also match a sibling whose name merely starts with
+ * the user's — `C:\Users\Administrator` and `C:\Users\Admin2` both contain
+ * `C:\Users\Admin` — and this guard drops lines where `PathRedactor` rewrites
+ * them, so an over-broad match costs a diagnostic instead of a redaction. The
+ * match therefore has to end where the segment does: at the end of the string
+ * or at a separator. Normalization folds both separators to `/`, so only `/`
+ * has to be considered.
+ */
+function namesHomePath(normalizedLine: string, home: string): boolean {
+  let index = normalizedLine.indexOf(home);
+  while (index >= 0) {
+    const following = normalizedLine.charAt(index + home.length);
+    if (following === "" || following === "/") {
+      return true;
+    }
+    index = normalizedLine.indexOf(home, index + 1);
+  }
+  return false;
 }
 
 /** Forward slashes, no trailing separator, and the platform's case rules. */
