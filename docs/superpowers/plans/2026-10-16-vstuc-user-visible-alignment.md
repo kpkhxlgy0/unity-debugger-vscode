@@ -54,7 +54,7 @@ Input classes and failure modes the spec implies but that no task's tests would 
 | `extension/src/model.ts` | Shared extension types; host widens from a literal to `string` | 5, 7 |
 | `extension/src/editorDiscovery.ts` | UDP discovery; begins surfacing Player targets | 5, 6 |
 | `extension/src/projectVersion.ts` | `ProjectVersion.txt` reader; becomes tolerant of a missing file | 6 |
-| `extension/src/diagnostics.ts` | Extension-side command ids and log access; gains message constants | 6, 10 |
+| `extension/src/diagnostics.ts` | Extension-side command ids and log access; gains the aligned message constants | 6 |
 | `extension/src/debugConfigurationProvider.ts` | Attach resolution; gains `endPoint`/`projectPath` and the aligned messages | 6, 7 |
 | `extension/src/attachTargetPicker.ts` | **New.** The `attachUnityDebugger` QuickPick and its label/filter rules | 8 |
 | `extension/src/functionBreakpointWarning.ts` | **New.** The reference's function-breakpoint performance warning | 9 |
@@ -248,7 +248,7 @@ The reference has no domain-reload-specific code; our rebinding is owned by the 
 
 - [ ] **Step 1: Enumerate the real reference set**
 
-Run: `rg -n "MarkAllPending|BeginReload|CompleteReload|RebindAll|RebindPending|ReloadStarted|ReloadProgress|ReloadCompleted|ReconnectFailed|Continued\b|NotImplemented\(" adapter/src tests`
+Run: `git grep -n -E "MarkAllPending|BeginReload|CompleteReload|RebindAll|RebindPending|ReloadStarted|ReloadProgress|ReloadCompleted|ReconnectFailed|NotImplemented\(" -- adapter/src tests`
 Expected: reads of these names appear only in their own definitions, `UnavailableDebuggerBackend`, `ScenarioDebuggerBackend`, and unit tests. **If any production call site exists, stop and report it — do not delete.**
 
 - [ ] **Step 2: Delete and re-run the affected suites to prove nothing depended on them**
@@ -399,6 +399,7 @@ git commit -m "fix: tolerate missing project metadata and align failure messages
 **Interfaces:**
 - Consumes: `EditorCandidate.host: string` (Task 5).
 - Produces: the provider accepts `endPoint` (`"host:port"`) and `projectPath` (string, `${workspaceFolder}` expanded) and emits `__host`/`__port` from `endPoint` when present.
+- Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side `AttachArguments.LogFile` is actually reachable. This is the only producer of that field.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -414,6 +415,13 @@ it("uses endPoint and skips discovery entirely", async () => {
 
 it("expands workspaceFolder in projectPath", async () => {
   // projectPath "${workspaceFolder}/sub" -> discovery called with the expanded root
+});
+
+it("passes logFile through as the private log field", async () => {
+  const resolved = await provider(async () => [candidate]).resolveDebugConfiguration(folder, {
+    ...attach, logFile: "H:\\logs\\unity.log",
+  });
+  expect(resolved).toMatchObject({ __logFile: "H:\\logs\\unity.log" });
 });
 
 it("rejects a malformed endPoint without starting discovery", async () => {
@@ -438,7 +446,7 @@ Expected: FAIL — `endPoint`/`projectPath` are ignored and `required` is `[name
 
 - [ ] **Step 3: Implement**
 
-Add the properties to the manifest with `required: []` and `projectPath` defaulting to `${workspaceFolder}`; add `projectPath` to `initialConfigurations[0]`. In the provider, parse `endPoint` as `host:port` (reject and `showError` on a malformed value), skip discovery when present, and use `projectPath` (after `${workspaceFolder}` expansion) as the discovery root.
+Add the properties to the manifest with `required: []` and `projectPath` defaulting to `${workspaceFolder}`; add `projectPath` to `initialConfigurations[0]`. In the provider, parse `endPoint` as `host:port` (reject and `showError` on a malformed value), skip discovery when present, use `projectPath` (after `${workspaceFolder}` expansion) as the discovery root, and pass `__logFile` through from `logFile` in `toAttachConfiguration` (`debugConfigurationProvider.ts:154-171`).
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -715,7 +723,7 @@ Pick a method in the project that is provably reached (an `Awake`/`Start` on an 
 
 - [ ] **Step 5: Run the A/B acceptance and record it**
 
-For each item implemented by Tasks 1, 2, 5, 6, 8, 9, 10, and 11, run the same action sequence with the reference extension (configured as `"type": "vstuc"`, already present in the project's `.vscode/launch.json`) and with Unity Debugger Pure, then set the row's status. Mark anything not exercised `not verified` with the reason.
+For each item implemented by Tasks 1, 2, 3, 5, 6, 7, 8, 9, 10, and 11, run the same action sequence with the reference extension (configured as `"type": "vstuc"`, already present in the project's `.vscode/launch.json`) and with Unity Debugger Pure, then set the row's status. Mark anything not exercised `not verified` with the reason.
 
 - [ ] **Step 6: Commit the evidence**
 
