@@ -51,7 +51,9 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
         // Deliberately stricter than the reference adapter, which answers
         // success and silently attaches to nothing when endPoint is not an
-        // address literal.
+        // address literal — and stricter than the framework parser, which
+        // rewrites a short or zero-padded form (1.2.3, 010.1.1.1) into a
+        // different host than the user wrote.
         [Theory]
         [InlineData("")]
         [InlineData("   ")]
@@ -59,7 +61,11 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [InlineData("localhost")]
         [InlineData("not a host")]
         [InlineData("192.168.1.50:56234")]
-        public void Parse_rejects_a_host_that_is_not_an_address_literal(
+        [InlineData("1.2.3")]
+        [InlineData("1")]
+        [InlineData("010.1.1.1")]
+        [InlineData("192.168.001.001")]
+        public void Parse_rejects_a_host_that_is_not_a_canonical_address_literal(
             string host)
         {
             var json = ValidArguments();
@@ -68,11 +74,10 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var error = Assert.Throws<AttachArgumentException>(
                 () => AttachArguments.Parse(json));
 
-            Assert.Contains("IP address", error.Message);
-            Assert.DoesNotContain(
-                "loopback",
-                error.Message,
-                StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(
+                "__host must be an IP address literal, such as " +
+                "192.168.1.50.",
+                error.Message);
         }
 
         // The reference adapter answers an unreachable endpoint with

@@ -9,6 +9,9 @@ namespace UnityDebugger.Adapter.Dap
 {
     internal static class AttachArguments
     {
+        private const string HostErrorMessage =
+            "__host must be an IP address literal, such as 192.168.1.50.";
+
         private static readonly Regex VersionPattern = new Regex(
             @"^(?:\d{4}\.\d+\.\d+[abfpxt]\d+|\d{4}\.\d+\.\d+)$",
             RegexOptions.CultureInvariant);
@@ -25,21 +28,25 @@ namespace UnityDebugger.Adapter.Dap
                     "__processId must be a positive integer.");
 
             // The reference adapter attaches to any explicit endPoint, so a
-            // non-loopback address literal is accepted here. A host that is
-            // not an address literal is rejected: the reference answers
-            // success for an endpoint it cannot parse and attaches to nothing.
+            // non-loopback address literal is accepted here. Everything else
+            // is rejected: the reference answers success for an endpoint it
+            // cannot parse and attaches to nothing, and the framework parser
+            // rewrites a short or zero-padded form (1.2.3, 010.1.1.1) into a
+            // different host than the user wrote, which would attach to a
+            // machine nobody asked for.
+            var host = RequiredString(arguments, "__host");
             IPAddress address;
             try
             {
-                address = IPAddress.Parse(
-                    RequiredString(arguments, "__host"));
+                address = IPAddress.Parse(host);
             }
             catch (FormatException)
             {
-                throw new AttachArgumentException(
-                    "__host must be an IP address literal, such as " +
-                    "192.168.1.50.");
+                throw new AttachArgumentException(HostErrorMessage);
             }
+            var canonicalHost = address.ToString();
+            if (!string.Equals(canonicalHost, host, StringComparison.Ordinal))
+                throw new AttachArgumentException(HostErrorMessage);
 
             var port = RequiredInteger(arguments, "__port");
             if (port <= 0 || port > 65535)
