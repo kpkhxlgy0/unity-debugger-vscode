@@ -71,6 +71,12 @@ test("the packaged extension entry loads in the VS Code CommonJS host", () => {
           openExternal: async () => undefined,
           clipboard: { writeText: async () => undefined },
         },
+        extensions: {
+          // Activation reads the registry for the deprecated-extension
+          // warning, so the host fixture has to provide one; this one has no
+          // such extension installed.
+          getExtension: () => undefined,
+        },
       };
     `,
   );

@@ -69,6 +69,12 @@ vi.mock("vscode", () => ({
     startDebugging: vi.fn(async () => true),
   },
   env: { clipboard: { writeText: vi.fn() }, openExternal: vi.fn() },
+  extensions: {
+    // `activate()` reads the registry for the deprecated-extension warning, so
+    // every double that runs activation has to provide one. Absent here, which
+    // is the branch that warns about nothing.
+    getExtension: () => undefined,
+  },
   window: {
     createOutputChannel: mocks.createOutputChannel,
     createQuickPick: vi.fn(),

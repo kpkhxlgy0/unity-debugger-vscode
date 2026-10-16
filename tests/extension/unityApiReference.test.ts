@@ -26,6 +26,12 @@ vi.mock("vscode", () => ({
     clipboard: { writeText: vi.fn() },
     openExternal: mocks.openExternal,
   },
+  extensions: {
+    // `activate()` reads the registry for the deprecated-extension warning, so
+    // every double that runs activation has to provide one. Absent here, which
+    // is the branch that warns about nothing.
+    getExtension: () => undefined,
+  },
   window: {
     // The handler reads the active editor when it runs, not when the extension
     // activates, so this has to be a live read of mutable state.

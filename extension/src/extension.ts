@@ -12,6 +12,7 @@ import {
   DebugConfigurationProvider,
   type ConfigurationUi,
 } from "./debugConfigurationProvider.js";
+import { warnAboutDeprecatedExtensions } from "./deprecatedExtension.js";
 import {
   COPY_DIAGNOSTICS_COPIED_LINE,
   COPY_DIAGNOSTICS_COMMAND,
@@ -283,6 +284,18 @@ export function activate(
     unityApiReferenceRegistration,
     terminationRegistration,
   );
+
+  // Fired last, and without awaiting it, exactly where the reference fires it:
+  // it is a courtesy to a user who has a deprecated third-party Unity debugger
+  // active, so it must never be in the way of the debugger activating. It reads
+  // the registry only, which declares no dependency on that extension —
+  // `extensionDependencies` stays empty.
+  warnAboutDeprecatedExtensions({
+    extensions: vscode.extensions,
+    showWarningMessage: (message) => {
+      void vscode.window.showWarningMessage(message);
+    },
+  });
 
   return new UnityDebuggerPureApi(
     discovery,
