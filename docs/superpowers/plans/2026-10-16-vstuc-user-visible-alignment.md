@@ -493,7 +493,7 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 **Interfaces:**
 - Consumes: `EditorCandidate.host: string` (Task 5).
 - Produces: the provider accepts `endPoint` (`"host:port"`) and `projectPath` (string, `${workspaceFolder}` expanded) and emits `__host`/`__port` from `endPoint` when present.
-- Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side `AttachArguments.LogFile` is actually reachable. This is the only producer of that field.
+- Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side reader is actually reachable. This is the only producer of that field. **The reader is `AttachArguments.ParseLogFile(JObject?)`, not an `AttachArguments.LogFile` member** — an earlier revision of this line named the latter, which does not exist; Task 3 kept it a static parser because parsed request values live on `AttachTarget` in a file it was forbidden to change. You are emitting a wire key (`__logFile`), so nothing here depends on the member name; the correction is so you do not go looking for a property that is not there.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -559,7 +559,15 @@ The reference localizes those strings through `package.nls*.json` (14 locales). 
 
 Both extensions can be installed at the same time — the acceptance project already has the reference installed — so our label and initial-config name exist to let a user tell the two apart in the Run and Debug dropdown and in a shared `launch.json`. Aligning them to `Unity` / `Unity Debugger` would make two entries indistinguishable, which is worse for the user than the difference it removes. Keep our names, add `projectPath` to `initialConfigurations[0]`, and record the label/name pair in Task 12 as a **deliberate coexistence divergence** rather than a miss.
 
-**Use the existing constants rather than new literals.** `extension/src/productIdentity.ts` already holds `displayName: "Unity Debugger Pure"` and `defaultConfigurationName: "Attach to Unity Debugger Pure"` (verified — the file is 18 lines and carries `commandIds` for `refreshTargets`, `openLogs` and `copyDiagnostics`). Write the manifest's initial-configuration name and debug-type label from those values, not from a fresh string, so the three coexistence names cannot drift apart from each other. `settingIds` does **not** exist yet — Task 8 adds that block.
+**How the coexistence names stay consistent — corrected, because the earlier instruction was impossible.** An earlier revision said to "write the manifest's initial-configuration name and debug-type label from those values [in `productIdentity.ts`], not from a fresh string". **`package.json` is static JSON and cannot import a TypeScript module**, and no build step generates it (verified: no script writes it). So the manifest must carry the **literals** `Unity Debugger Pure` and `Attach to Unity Debugger Pure`.
+
+Consistency is enforced by tests instead, and that mechanism already exists: `tests/build/scaffold.test.mjs:9` asserts `manifest.displayName === "Unity Debugger Pure"` as a literal, and `:59` asserts `initialConfigurations` against an expected object. So the three coexistence names are **pinned by the scaffold test**, not by shared code — which is the thing to preserve. If you change any of them, change the test in the same commit; do not delete the assertion to make a rename pass.
+
+**One coupling in that test will break, and this is the part the earlier revision missed.** `expectedAttachConfiguration` (`scaffold.test.mjs:50-54`) is shared: it is compared against **both** `configurationSnippets[0].body` (`:55-58`) and `initialConfigurations` (`:59-61`). Adding `projectPath` to `initialConfigurations[0]` alone breaks `:59`. **Add `"projectPath": "${workspaceFolder}"` to `expectedAttachConfiguration` and to the snippet body as well**, so both keep resolving to the same object. Rationale: `projectPath` defaults to `${workspaceFolder}` in the manifest, so a snippet without it still works — but then a user who creates a config from the snippet and one who takes the initial configuration get different `launch.json` entries for the same product, which is the kind of inconsistency this work item exists to remove. Keeping the shared expected object also keeps the test a single source of truth rather than two literals that can drift.
+
+**Recorded additive divergence for Task 12:** the reference declares **no `configurationSnippets` at all** (verified), while we declare one. That is extra user-visible surface, not a conflict — a snippet pre-fills an attach configuration in the Run and Debug dropdown. Keep it, and note it in the matrix as additive rather than as a miss.
+
+`settingIds` does **not** exist in `productIdentity.ts` yet — Task 8 adds that block.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -569,9 +577,12 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add package.json extension/src/debugConfigurationProvider.ts tests/extension tests/build
+git add package.json extension/src/debugConfigurationProvider.ts \
+        tests/extension/debugConfigurationProvider.test.ts tests/build/scaffold.test.mjs
 git commit -m "feat: add endPoint and projectPath attach properties"
 ```
+
+An earlier revision staged the whole `tests/extension` and `tests/build` directories. Name the two test files explicitly — a directory path silently picks up any scratch file another agent leaves there. Then run `git status --short` and confirm nothing you edited is left unstaged; the six `adapter/vendor/*/packages.lock.json` files are the only entries that should remain.
 
 ---
 
