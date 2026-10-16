@@ -24,7 +24,10 @@ Copied verbatim from the spec. Every task's requirements implicitly include this
 - Advertised exception filter ids become `all` and `unhandled`; `uncaught` continues to be accepted on input.
 - Exact reference strings for the aligned messages (from the reference `out/nls.bundle.json`):
   `Unity is not running for the current project`, `No Unity endPoint to connect to`,
-  `No processes to attach to`.
+  `No Process to attach to`. **Singular.** An earlier revision of this very list said
+  "No processes to attach to", which the bundle does not contain — a list asserting exactness
+  is the worst place to carry a paraphrase, and this one was found only by grepping the
+  corrected string back across the plan after fixing Task 6's Interfaces block.
 - `logFile` is implemented, not stubbed.
 - Dead domain-reload code is deleted, not wired up.
 - Environment deviation, recorded not hidden: the repo declares Node `>=26.5.0` (`.node-version` 26.5.0) but **24.17.0** is installed. `dotnet --version` is **10.0.401**, exactly the `global.json` pin. `npx vitest run` was verified working under Node 24; do not "fix" Node.
