@@ -274,13 +274,15 @@ Do **not** use `git add -A` here: the six pre-existing `adapter/vendor/*/package
 ### Task 5: Widen the host type and surface Player targets
 
 **Files:**
-- Modify: `extension/src/model.ts:18`, `:29`, `extension/src/editorDiscovery.ts:110-126`
-- Test: `tests/extension/editorDiscovery.test.ts`
+- Modify: `extension/src/model.ts:18`, `:29`, `extension/src/editorDiscovery.ts:110-126`, `extension/src/playerAdvertisement.ts`
+- Test: `tests/extension/editorDiscovery.test.ts`, `tests/extension/playerAdvertisement.test.ts`
 
 **Interfaces:**
 - Produces: `EditorCandidate.host: string` and `UnityAttachConfiguration.__host: string` (was the literal `"127.0.0.1"`).
 - Produces: `EditorCandidate.source` gains the value `"player-advertisement"`.
-- Consumes: `parsePlayerAdvertisement` (`playerAdvertisement.ts`), unchanged.
+- Produces: `EditorCandidate.machine: string` — the machine label used by Task 8's picker label. For an Editor it is the local host name; for a Player it comes from the advertisement's `[Id]` field.
+- Produces: `PlayerAdvertisement.machine: string`, parsed from `[Id]`. The live record is `AndroidPlayer(11,samsung_SM-S9260@10.30.154.73)`; the machine is the second comma-separated component inside the parentheses. When `[Id]` does not match `^([^()]*)\(([^,]*),([^)]*)\)$`, `machine` is the advertised `ip`.
+- Consumes: `parsePlayerAdvertisement` (`playerAdvertisement.ts`) — this task changes it.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -315,6 +317,29 @@ it("keeps two players on different hosts that share a port", async () => {
 
 The third test must fail before the change: both players carry `processId: 0`, so the current `${processId}:${port}` key collapses them.
 
+Add two more tests, both driven by the live advertisement captured during planning:
+
+```ts
+it("parses the machine label out of the [Id] field", () => {
+  const parsed = parsePlayerAdvertisement(
+    "[IP] 10.30.154.73 [Port] 55000 [Flags] 19 [Guid] 3598034322 [EditorId] 2737672203 " +
+    "[Version] 1048832 [Id] AndroidPlayer(11,samsung_SM-S9260@10.30.154.73) [Debug] 0 " +
+    "[PackageName] AndroidPlayer [ProjectName] 头号禁区",
+  );
+  expect(parsed.machine).toBe("samsung_SM-S9260@10.30.154.73");
+  expect(parsed.allowDebugging).toBe(false);
+});
+
+it("does not offer an advertisement that carries no debugger port", async () => {
+  // the same real record: it has [Port] 55000 but no [DebuggerPort], so
+  // parsePlayerAdvertisement yields debuggerPort 0 and discovery must omit it
+  const found = await discovery.discover(["H:\\fixture"]);
+  expect(found.filter((c) => c.source === "player-advertisement")).toHaveLength(0);
+});
+```
+
+The second test encodes the recorded divergence: the reference attaches to that exact player by obtaining a debugger port through the device (adb port forwarding, `/proc/net/tcp`, usbmuxd), which the spec puts out of scope. Offering a target we cannot attach to would be worse than omitting it, so the explicit `endPoint` path (Task 7) is the supported way to reach a player. State this in the test's comment so the omission is never read as a bug.
+
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tests/extension/editorDiscovery.test.ts`
@@ -322,7 +347,7 @@ Expected: FAIL — the first two because players are dropped, the third only if 
 
 - [ ] **Step 3: Implement**
 
-Widen `host`/`__host` to `string`. In `discover`, after the per-root Editor pass, append one candidate per remaining advertisement (those not consumed as the current Editor's port source) that has `allowDebugging === true` and a positive `debuggerPort`, with `source: "player-advertisement"`, `workspaceRoot` set to the first root, `processId: 0`, and `projectVersion: ""`. Change the dedupe key from `${processId}:${port}` to `${host}:${port}`.
+In `playerAdvertisement.ts`, parse `machine` from `[Id]` per the rule in Interfaces. Widen `host`/`__host` to `string` in `model.ts` and add `machine: string` to `EditorCandidate`. In `discover`, set `machine: os.hostname()` (import `node:os`) on Editor candidates, then append one candidate per remaining advertisement (those not consumed as the current Editor's port source) that has `allowDebugging === true` and a positive `debuggerPort`, with `source: "player-advertisement"`, `machine` from the advertisement, `workspaceRoot` set to the first root, `processId: 0`, and `projectVersion: ""`. Adding a required field to `EditorCandidate` breaks every existing literal. Update the fixtures in `tests/extension/editorDiscovery.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`, and any other construction site before running the suite. Change the dedupe key from `${processId}:${port}` to `${host}:${port}`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -470,9 +495,9 @@ git commit -m "feat: add endPoint and projectPath attach properties"
 - Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`
 
 **Interfaces:**
-- Produces: `formatTargetLabel(candidate: EditorCandidate, machineName: string): string` returning `Unity <type>, <projectName>, <machine>, <connection>` with empty parts omitted, joined by `", "`. `machineName` is injected so the label is testable without touching the host.
+- Produces: `formatTargetLabel(candidate: EditorCandidate): string` returning `Unity <type>, <projectName>, <machine>, <connection>` with empty parts omitted, joined by `", "`.
   - `<type>` is `Editor` when `source` is `"advertisement"` or `"derived-port"`, and `Player` when `source` is `"player-advertisement"` (the reference's `displayType` values, observed as `"Editor"` and `"Player"`).
-  - `<machine>` is the injected `machineName` (`os.hostname()`) for Editor targets, and the advertised `ip` for Player targets. The reference reports a device-specific machine label such as `samsung_SM-S9260@10.30.154.73` for a network player; a Unity advertisement carries no such name, so Task 12 records the difference rather than inventing one.
+  - `<machine>` is `candidate.machine`, produced by Task 5 (`os.hostname()` for Editors, the `[Id]` component for Players). The label function reads the field rather than touching the host, so it stays testable.
   - `<connection>` is `` `Port:${port} (Mono)` ``, matching the reference's observed format `Port:<debuggerPort> (<debuggerEngine>)`, e.g. `Port:56548 (VSTU)` for its local Editor. Our engine token differs; Task 12 records that as an accepted cosmetic divergence.
 - Produces: `selectTarget(candidates, options): Promise<EditorCandidate | undefined>` where `options` carries `displayBackgroundProcesses` and the QuickPick factory, so the picker is testable without VS Code.
 - Produces: `PRODUCT_IDENTITY.commandIds.attachUnityDebugger = "unity-debugger-pure.attachUnityDebugger"` and `PRODUCT_IDENTITY.settingIds.displayBackgroundProcesses = "unity-debugger-pure.displayBackgroundProcesses"`.
@@ -481,7 +506,7 @@ git commit -m "feat: add endPoint and projectPath attach properties"
 
 ```ts
 it("formats a label like the reference", () => {
-  expect(formatTargetLabel({ ...candidate, projectName: "sgproj" }, "xiaolonghan"))
+  expect(formatTargetLabel({ ...candidate, projectName: "sgproj", machine: "xiaolonghan" }))
     .toBe("Unity Editor, sgproj, xiaolonghan, Port:56234 (Mono)");
 });
 
