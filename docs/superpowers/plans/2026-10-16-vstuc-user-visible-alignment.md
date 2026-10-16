@@ -1149,6 +1149,20 @@ So: look up `unity.unity-debug`; **return if it is absent or not active**; other
 
 Add one row per line of the spec's two diff tables to `docs/reference-debugger-compatibility.md`, using the existing `| ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |` shape and the existing status vocabulary. Reference the observed `initialize` body, the observed `debuggerTargets` payload, and the REA evidence ids where they apply. Status is `aligned` only for items verified by running both extensions; everything implemented but not yet A/B-run is `not yet verified`.
 
+**The `Evidence` cell has a convention, and matching it is what makes 42 new rows indistinguishable from the 28 old ones.** Every existing cell is a **semicolon-separated list of dated observations**, not a bare source name:
+
+| Row | `Evidence` |
+| --- | --- |
+| `BP-01` | `2026-08-06 MyGame reference and Pure 0.3.0 runs` |
+| `EX-01` | `2026-08-06 and 2026-08-10 MyGame reference/Pure A/B runs; sanitized Adapter logs` |
+| `CFG-01` | `2026-08-06 reference manifest; 2026-08-08 Pure installed manifest and bundle inspection` |
+
+So write yours as `2026-10-16 <what was observed>` — for example `2026-10-16 reference 1.3.2 out/nls.bundle.json; REA ev_…` for a bundle read, or `2026-10-16 debuggerTargets payload captured from 10.30.154.73:54997` for the live probe. **The date is the part that carries the weight**: it is what tells a future reader whether an observation predates or postdates a change, and a cell reading only "reference bundle" cannot be aged. Task 12 exists partly because `CFG-01`'s evidence was still describing a build whose configuration surface has since changed — the date is the mechanism that makes that visible next time.
+
+`Decision` is a single sentence of rationale, and the existing rows all answer *why this status is correct* rather than restating the status. Keep that shape; for the `divergent` rows the sentence is where the approval gets cited.
+
+**And the `Scenario/action` cell names a concrete, checkable action rather than a category** — `First hit at \`GameRuntimeBootstrap.Install()\` line 11`, not "breakpoints work". Some cells use inline `<code>` to keep backticked identifiers legible inside the table. Neither is mandatory on its own, but a row whose scenario is a category cannot be re-run, which leaves the evidence column beside it asserting something nobody can check.
+
 **The two diff tables hold 42 data rows between them, and that number is the scope — items 1–19 below detail only the divergent ones.** Counted this round: `Reference capability diff` at spec `:95` has **19** data rows (`| Capability | Reference | Pure | Action |`), and `Reference extension-surface diff` at `:119` has **23** (`| Area | Reference 1.3.2 | Pure 0.3.2 | Action |`). 19 + 23 = **42 new rows** on top of the existing 28.
 
 - **The asymmetry is deliberate and easy to misread.** Items 1–19 enumerate the *divergences* — the rows where our status is `divergent` or a recorded gap — because those are the ones needing a justification and an approval citation. The other 23 are `aligned`, `implement`, `keep`, `identical` or `not applicable` rows from the same two tables, and they need rows too: **a compatibility matrix that lists only the differences is not a compatibility matrix**, and the spec's tables are the record of what was compared, not only of what disagreed.
