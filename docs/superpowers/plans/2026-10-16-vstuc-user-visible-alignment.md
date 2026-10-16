@@ -594,7 +594,17 @@ Remove **only** the `[InlineData("__processId", 0)]` row; the two `__port` rows 
 
 Then add explicit coverage for the behaviour you introduce: `__processId: 0` is **accepted**; a negative `__processId` is rejected; an absent one is rejected. The last two are already covered (`:177-194` removes each field in turn, and negatives have no row yet — add one).
 
-**For `__projectVersion`, check what must *not* change before you touch anything.** Three existing tests pin the checks you are keeping, and all three must still pass unmodified: `Parse_rejects_malformed_version` (`:167-175`, `"latest"`), `Parse_rejects_unsupported_versions` (`:151-165`, `2021.3.45f1` and `2023.2.20f1`, asserting the exact policy message), and `Parse_accepts_unverified_compatible_versions` (`:136-149`, `2022.3.61f1` / `6000.0.50f1` / `6000.1.4f1`). If any of those three needs editing, your relaxation is wider than the empty case and that is a defect — stop and say so.
+**For `__projectVersion`, check what must *not* change before you touch anything.** Three existing tests pin the checks you are keeping, and all three must still pass unmodified. **They live in `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`, and every line number this paragraph used to cite was stale by about fifty lines — verified against the file and corrected here:**
+
+| Test | Line | Pins |
+| --- | --- | --- |
+| `Parse_accepts_unverified_compatible_versions` | `:189-198` | `2022.3.61f1` / `6000.0.50f1` / `6000.1.4f1` |
+| `Parse_rejects_unsupported_versions` | `:203-214` | `2021.3.45f1` and `2023.2.20f1`, asserting the exact policy message |
+| `Parse_rejects_malformed_version` | `:217-224` | `"latest"` |
+
+If any of those three needs editing, your relaxation is wider than the empty case and that is a defect — stop and say so.
+
+- **The rule this paragraph states is right and its citations were wrong, which is the worst combination for a brief.** A reader who checks the line numbers finds unrelated tests, concludes the paragraph is stale, and may then discount the *instruction* along with the citation — when the instruction is exactly what prevents a too-wide relaxation. **Stale line numbers do not degrade gracefully; they undermine the claim they decorate.** This is the third time this session a cited range has drifted (round 79's command arrays, the earlier `scaffold.test.mjs` corrections, now here), and the durable fix is to cite the **file and test name** as the primary identifier with lines as a convenience, which is what the table above does.
 
 Add only the new case: an **empty** `__projectVersion` is accepted.
 
