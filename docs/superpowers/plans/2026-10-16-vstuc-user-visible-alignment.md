@@ -267,23 +267,36 @@ git commit -m "feat: honor the logFile attach property"
 
 ### Task 4: Delete the dead domain-reload and reconnect code
 
-The reference has no domain-reload-specific code; our rebinding is owned by the mature vendored session (matrix row RLD-01 was verified `aligned` on 0.3.0). These members have zero callers.
+The reference has no domain-reload-specific code; our rebinding is owned by the mature vendored session (matrix row RLD-01 was verified `aligned` on 0.3.0).
+
+**The premise "these members have zero callers" is wrong as written, and the real reference map was verified before dispatching this task.** Use this instead of rediscovering it, and treat it as the expected output of Step 1:
+
+| Symbol | Real status |
+| --- | --- |
+| `UnityDebugSession.NotImplemented(Response)` (`:832`) | **No references anywhere** — not in `adapter/src`, not in `tests`. Genuinely dead; safe to delete. |
+| `BreakpointManager.MarkAllPending` (`:231`), `BeginReload` (`:251`), `CompleteReload` (`:264`) | No production callers. `MarkAllPending` is reached only from `BeginReload` (`:261`), so the three form a closed, unreferenced group. |
+| `BreakpointManager.RebindAll` (`:273`), `RebindPending` (`:291`) | **No production callers, but referenced by tests**: `BreakpointManagerTests.cs:235` and `:268` (`RebindPending_preserves_id_and_retries_only_pending`). They are not "zero caller" — they are test-only. |
+| `UnavailableDebuggerBackend:18-21` (`ReloadStarted`, `ReloadProgress`, `ReloadCompleted`, `ReconnectFailed`) | Declared under `#pragma warning disable CS0067` and **never raised, and never subscribed to anywhere in `adapter/src`**. Note they are **not** on `IDebuggerBackend`, whose events are only `Stopped`, `ThreadChanged`, `ModuleChanged`, `BreakpointChanged`, `Output`, `Terminated` — so they are extra, unreferenced surface on a concrete class. |
+| `Continued` | **Not authorized by this task.** It is also absent from `IDebuggerBackend`, and the fakes raise it in timing-sensitive paths (`ExecutionControlTests.cs:118,194`, `InspectionRequestTests.cs:443`). If you find it is production-dead, report that as a separate finding rather than folding it in. |
 
 **Files:**
 - Modify: `adapter/src/UnityDebugger.Adapter/Breakpoints/BreakpointManager.cs:231-309`, `adapter/src/UnityDebugger.Adapter/Backend/UnavailableDebuggerBackend.cs:11-21`, `adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs:835-838`, `tests/integration/UnityDebugger.TestAdapter/ScenarioDebuggerBackend.cs:26-37`, `tests/adapter/UnityDebugger.Adapter.Tests/Breakpoints/BreakpointManagerTests.cs`
 
 **Interfaces:**
-- Produces: `BreakpointManager` keeps its binding API (`ReplaceForSource`, `RebindPending` if reachable, `BindingGeneration`) and loses `MarkAllPending`, `BeginReload`, `CompleteReload`, `RebindAll`, `RebindPending` **only if** they are unreferenced after the check below.
+- Produces: `BreakpointManager` keeps its binding API (`ReplaceForSource`, `BindingGeneration`) and loses `MarkAllPending`, `BeginReload`, `CompleteReload`, `RebindAll`, `RebindPending` **only if** they are unreferenced after the check below.
 
-- [ ] **Step 1: Enumerate the real reference set**
+- [ ] **Step 1: Confirm the reference set**
 
 Run: `git grep -n -E "MarkAllPending|BeginReload|CompleteReload|RebindAll|RebindPending|ReloadStarted|ReloadProgress|ReloadCompleted|ReconnectFailed|NotImplemented\(" -- adapter/src tests`
-Expected: reads of these names appear only in their own definitions, `UnavailableDebuggerBackend`, `ScenarioDebuggerBackend`, and unit tests. **If any production call site exists, stop and report it — do not delete.**
+
+Expected output is the table above. **If any production call site exists for anything you intend to delete, stop and report it — do not delete.** Also search for subscribers, not just names: `git grep -n -E "ReloadStarted|ReloadProgress|ReloadCompleted|ReconnectFailed" -- adapter/src | Select-String '\+='` returns nothing today, and if that changes, the events are live.
 
 - [ ] **Step 2: Delete and re-run the affected suites to prove nothing depended on them**
 
 Delete the dead members and the unit tests that only exercise them. Run: `dotnet test UnityDebugger.sln -c Release --no-restore`
 Expected: PASS with a reduced test count. If any test fails, the member was live — restore it and report.
+
+**Report the coverage you removed, explicitly.** Deleting `RebindAll`/`RebindPending` means deleting the `RebindPending_preserves_id_and_retries_only_pending` test and the `RebindAll` reference at `BreakpointManagerTests.cs:235`. Name every test you delete in your report and state why the loss is acceptable — the methods are production-unreachable, so the property they assert cannot be exercised by the product. Do **not** delete a test whose subject survives, and do not quietly drop an assertion to make the suite green. Give the before and after test counts so the delta is checkable.
 
 - [ ] **Step 3: Commit**
 
