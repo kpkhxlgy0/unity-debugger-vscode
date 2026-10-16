@@ -326,10 +326,26 @@ W7 error; `projectPath` defaults to the workspace folder and is never required.
 
 `logFile` is **implemented**, not merely declared: the adapter writes its
 existing sanitized per-session log to this path instead of the default
-`%LOCALAPPDATA%\unity-debugger-pure\logs` location. The reference declares this
-property and never reads it (`logFile` occurs 0 times in `out/extension.js`);
-implementing it is a superset that changes no reference-visible behaviour. The
-redirected file keeps the existing allowlist and path redaction.
+`%LOCALAPPDATA%\unity-debugger-pure\logs` location. The redirected file keeps
+the existing allowlist and path redaction.
+
+**Correction to an earlier claim in this spec.** It previously said the
+reference "declares this property and never reads it (`logFile` occurs 0 times
+in `out/extension.js`)". The measurement was right and the inference was wrong.
+`logFile` is indeed absent from the reference's **extension** runtime, but its
+**adapter** names it: `UnityDebugAdapter.dll` carries the literal run
+`.ProjectFileMapper: unable to map .Assets.Packages.Library.pid.projectPath.logFile.endPoint.|`,
+in which `logFile` sits alongside `pid`, `projectPath` and `endPoint` — the
+other attach keys the adapter reads. So "never read" is unsupported, and
+treating our implementation as a favourable superset would have been wrong.
+
+What that literal does **not** establish is the behaviour: a name in the
+literal pool proves the adapter refers to the property, not what it does with
+it. Our matrix row is therefore **`not verified`**, to be settled by A/B at
+W13, rather than `aligned` (unproven) or `divergent` (also unproven, and the
+earlier framing). The lesson generalises: absence from the extension bundle is
+not absence from the product, because the extension forwards the whole attach
+configuration to the adapter.
 
 ### W4 — Non-loopback endPoint
 
