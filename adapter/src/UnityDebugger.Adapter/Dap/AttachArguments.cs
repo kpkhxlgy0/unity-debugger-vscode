@@ -93,6 +93,19 @@ namespace UnityDebugger.Adapter.Dap
                 projectVersion);
         }
 
+        // The reference extension declares `logFile` and never reads it. The
+        // adapter honours it as an optional diagnostics mirror, so a value
+        // that is absent or is not a non-empty string is simply not
+        // redirectable and must never block an attach.
+        public static string? ParseLogFile(JObject? arguments)
+        {
+            var token = arguments?["__logFile"];
+            if (token == null || token.Type != JTokenType.String)
+                return null;
+            var value = token.Value<string>();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+
         private static int RequiredInteger(
             JObject arguments,
             string property)

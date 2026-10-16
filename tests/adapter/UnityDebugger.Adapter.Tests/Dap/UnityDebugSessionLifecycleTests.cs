@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
+using UnityDebugger.Adapter.Diagnostics;
 using UnityDebugger.Adapter.Tests.Fakes;
 using Xunit;
 
@@ -53,6 +54,46 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.DoesNotContain(
                 messages,
                 item => OptionalText(item["event"]) == "output");
+        }
+
+        [Fact]
+        public void Attach_mirrors_the_log_to_the_requested_log_file()
+        {
+            var logFilePath = Path.Combine(
+                Path.GetTempPath(),
+                "unity-debugger-pure-log-file-" +
+                Guid.NewGuid().ToString("N") + ".log");
+            try
+            {
+                var backend = new FakeDebuggerBackend();
+                using (var writer = new StringWriter())
+                using (var log = new DiagnosticLog(
+                    writer,
+                    new PathRedactor(@"C:\Users\alice", null)))
+                {
+                    var arguments = ValidAttachArguments();
+                    arguments["__logFile"] = logFilePath;
+                    var messages = Run(
+                        new UnityDebugSession(() => backend, log),
+                        Request("attach", arguments));
+
+                    Assert.True(Required<bool>(
+                        Response(messages, "attach")["success"]));
+                    Assert.Equal(1, backend.AttachCount);
+                }
+                var mirrored = File.ReadAllLines(logFilePath);
+                Assert.Contains(
+                    mirrored,
+                    line => line.Contains("event=logFile.redirect"));
+                Assert.DoesNotContain(
+                    mirrored,
+                    line => line.Contains(logFilePath));
+            }
+            finally
+            {
+                if (File.Exists(logFilePath))
+                    File.Delete(logFilePath);
+            }
         }
 
         [Fact]

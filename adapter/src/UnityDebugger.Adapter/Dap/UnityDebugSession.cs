@@ -100,7 +100,9 @@ namespace UnityDebugger.Adapter.Dap
 
             try
             {
-                var target = AttachArguments.Parse((JObject)arguments);
+                var json = (JObject)arguments;
+                var target = AttachArguments.Parse(json);
+                RedirectDiagnosticLog(AttachArguments.ParseLogFile(json));
                 var createdBackend = backendFactory();
                 backend = createdBackend;
                 Subscribe(createdBackend);
@@ -947,6 +949,47 @@ namespace UnityDebugger.Adapter.Dap
                         hitBreakpointIds)));
         }
 
+        private void RedirectDiagnosticLog(string? path)
+        {
+            var log = diagnosticLog;
+            if (log == null || path == null || path.Length == 0)
+                return;
+            try
+            {
+                // Program.Main creates the default log before the first
+                // request is read, so attach is the earliest point at which
+                // the requested logFile can receive lines.
+                log.OpenSecondary(path);
+            }
+            catch (Exception exception)
+            {
+                SafeWriteDiagnostic(
+                    "logFile.redirectFailed",
+                    new Dictionary<string, object>
+                    {
+                        ["exceptionType"] = exception.GetType().Name,
+                    });
+                return;
+            }
+            SafeWriteDiagnostic(
+                "logFile.redirect",
+                new Dictionary<string, object>());
+        }
+
+        private void SafeWriteDiagnostic(
+            string eventName,
+            IReadOnlyDictionary<string, object> fields)
+        {
+            try
+            {
+                diagnosticLog?.Write(eventName, fields);
+            }
+            catch
+            {
+                // Diagnostics must never corrupt the DAP channel.
+            }
+        }
+
         private void WriteExceptionStopDiagnostic(
             BackendStoppedEventArgs arguments)
         {
@@ -977,16 +1020,7 @@ namespace UnityDebugger.Adapter.Dap
                 fields["eventCount"] =
                     arguments.ExceptionEventCount.Value;
             }
-            try
-            {
-                diagnosticLog.Write(
-                    "debugger.exception.stop",
-                    fields);
-            }
-            catch
-            {
-                // Diagnostics must never corrupt the DAP channel.
-            }
+            SafeWriteDiagnostic("debugger.exception.stop", fields);
         }
 
         private void OnThreadChanged(
