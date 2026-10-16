@@ -131,7 +131,7 @@ Comparison with the current adapter
 | `endPoint` | `address + ":" + debuggerPort`; address is `127.0.0.1` or the docker host | loopback only, hardcoded | implement (policy change) |
 | Settings | 5 contributed; **`displayBackgroundProcesses` is the only one that changes debugger behaviour** | **0 contributed** | implement the debugger-relevant one |
 | Function-breakpoint warning | raised from `createDebugAdapterDescriptor` whenever any `vscode.FunctionBreakpoint` exists | absent | implement |
-| Attach errors | "Unity is not running for the current project"; "No Unity endPoint to connect to"; "No Process to attach to"; "No processes to attach to"; and, observed live for an unreachable endpoint, `Failed to attach debugger to <host>:<port>` | "No local debug-enabled Tuanjie or Unity Editor was found. Switch Code Optimization to Debug, then refresh." | align |
+| Attach errors | "Unity is not running for the current project"; "No Unity endPoint to connect to"; "No Process to attach to" (singular — there is no "No processes to attach to"); and, observed live for an unreachable endpoint, `Failed to attach debugger to <host>:<port>` | "No local debug-enabled Tuanjie or Unity Editor was found. Switch Code Optimization to Debug, then refresh." | align |
 | Unity API Reference | `vstuc.showUnityAPIReference` → opens `https://docs.unity3d.com/ScriptReference/30_search.html?q=<selection>` | absent | implement |
 | Output channel | one channel titled with the extension display name | absent | implement |
 | Deprecated-extension warning | warns when `unity.unity-debug` is active | absent | implement |
@@ -140,6 +140,37 @@ Comparison with the current adapter
 | Engine routing | `DebuggerEngine.CoreCLR` (delegates to the `coreclr` debug type with `processId`) or `VSTU` (Mono, with `endPoint`) | Mono only | keep Mono |
 | Telemetry | `@vscode/extension-telemetry` with an `aiKey`; launch/end/project events | none | keep none |
 | Concord | writes `%USERPROFILE%\.dotnet\vsdbg-extensions\<id>.link` at activation | absent | not applicable (vsdbg/CoreCLR only) |
+
+## Authoritative user-visible strings
+
+Read verbatim from the reference's English bundle,
+`C:\Users\Admin\.cursor\extensions\local.vstuc-1.3.2\out\nls.bundle.json`. Use
+these exactly; several earlier paraphrases in this spec were wrong.
+
+| # | String | Where it is used |
+| --- | --- | --- |
+| 1 | `Select Unity Instance` | the attach command's QuickPick **title** |
+| 2 | `Detecting... press any key to filter` | the QuickPick **placeholder** while discovery runs |
+| 3 | `Unity is not running for the current project` | no Editor found for the open project |
+| 4 | `No Unity endPoint to connect to` | no endpoint could be resolved |
+| 5 | `No Process to attach to` | the picker is empty — **singular**; the bundle contains no "No processes to attach to" |
+| 6 | `You are using function breakpoints. Even if they are fully supported, they have a major negative impact on debugging performance. Use them only when necessary.` | the function-breakpoint warning (Task 9) |
+| 7 | `Unable to get local address for {0}: {1}.` | local-address resolution failure |
+| 8 | `Could not resolve the dotnet path` / `dotnet is not yet acquired! Please retry later` / `Dotnet path: {0}` | .NET acquisition |
+| 9 | `The Unity Package 'Visual Studio Editor' is missing. Please install it in Unity's Package Manager.` | Unity package preflight |
+| 10 | `The version of the Unity Package 'Visual Studio Editor' is too old. Please update to version {0} or later in Unity's Package Manager.` | Unity package preflight |
+| 11 | `The {0} extension is deprecated and incompatible with the {1} extension. Please uninstall or disable it.` | conflicting-extension warning |
+
+Strings 1 and 2 were missing from earlier revisions of this spec and are needed
+by W2/W9; string 6 replaces a paraphrase and is needed by W8. The rest are
+language-service or tooling strings outside this plan's scope, but they are
+recorded so a later reader does not have to re-derive the bundle.
+
+**Divergence in our favour — no telemetry.** The same bundle carries
+`Unable to initialize telemetry: {0}.` and `Unable to send telemetry event [{0}]: {1}.`,
+confirming the reference initializes telemetry. Our invariant is **no telemetry**,
+so these have no counterpart and must not be added. Recorded so nobody "aligns"
+by adding the very thing the project forbids.
 
 ## Observed target-list payload
 
