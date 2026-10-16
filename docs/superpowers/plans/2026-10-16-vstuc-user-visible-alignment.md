@@ -620,8 +620,24 @@ An earlier revision staged the whole `tests/extension` and `tests/build` directo
 
 **Files:**
 - Create: `extension/src/attachTargetPicker.ts`
-- Modify: `extension/src/productIdentity.ts`, `extension/src/extension.ts`, `package.json`
-- Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`
+- Modify: `extension/src/productIdentity.ts`, `extension/src/extension.ts`, `extension/src/model.ts`, `extension/src/editorDiscovery.ts`, `package.json`
+- Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`, `tests/extension/editorDiscovery.test.ts`, `tests/extension/attachRequestRegistry.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`
+
+**`isBackground` is a new *required* field, and an earlier revision of this file list named almost none of what it breaks.** Step 3 adds it to `EditorCandidate`, which is the same shape of change as Task 5's `machine` — and it touches the *same set of files*, for the same reason. Enumerated by grep rather than assumed, because this is the fourth time in this plan a required-field addition has had an incomplete file list:
+
+| Site | Needs |
+| --- | --- |
+| `extension/src/model.ts:14-25` | add `readonly isBackground: boolean` to the interface |
+| `extension/src/editorDiscovery.ts` | set it at **both** construction sites — the Editor candidate and the appended Player candidate |
+| `tests/extension/editorDiscovery.test.ts:72,101,118,168,198` | five expectation objects; these are compared with `toEqual`, so an extra actual property fails them even though they are not typed literals — which is why a grep for `: EditorCandidate = {` does not find them |
+| `tests/extension/attachRequestRegistry.test.ts:6,86` | two typed literals |
+| `tests/extension/debugConfigurationProvider.test.ts:9` | one typed literal |
+| `tests/extension/publicApi.test.ts:22` | one typed literal |
+| `extension/src/attachRequestRegistry.ts:36` | **no change** — it spreads the candidate |
+
+Note the trap in that table: four sites are typed literals a compiler will catch, but the five in `editorDiscovery.test.ts` are **`toEqual` expectations** that fail at *runtime* with a confusing diff. The compiler will not point at them, so fix them deliberately rather than by chasing errors.
+
+**Also extend the two hardcoded command arrays in `tests/build/scaffold.test.mjs`.** Adding a command breaks `:62-69` (`contributes.commands.map(c => c.command)`) and `:70-77` (`.title`), both compared against fixed three-element arrays and both order-sensitive. Task 10 makes the same two edits for its own command; whichever lands second rebases onto the other's array rather than rewriting its line.
 
 **Interfaces:**
 - Produces: `formatTargetLabel(candidate: EditorCandidate): string` returning `Unity <type>, <projectName>, <machine>, <connection>` with empty parts omitted, joined by `", "`.
@@ -670,9 +686,16 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add extension/src/attachTargetPicker.ts extension/src/model.ts extension/src/productIdentity.ts extension/src/extension.ts package.json tests
+git add extension/src/attachTargetPicker.ts extension/src/model.ts \
+        extension/src/productIdentity.ts extension/src/extension.ts \
+        extension/src/editorDiscovery.ts package.json \
+        tests/extension/attachTargetPicker.test.ts tests/extension/editorDiscovery.test.ts \
+        tests/extension/attachRequestRegistry.test.ts tests/extension/debugConfigurationProvider.test.ts \
+        tests/extension/publicApi.test.ts tests/build/scaffold.test.mjs
 git commit -m "feat: add the attach Unity debugger command and picker"
 ```
+
+An earlier revision staged the whole `tests` directory — the broadest path in this plan, and it would sweep in `tests/extension`, `tests/build`, `tests/integration` and `tests/package` alike. Name the files explicitly. Then run `git status --short` and confirm the only entries remaining are the six `adapter/vendor/*/packages.lock.json` files plus whatever the controller is editing; if you see a file you did not intend to change staged, unstage it rather than committing it.
 
 ---
 
