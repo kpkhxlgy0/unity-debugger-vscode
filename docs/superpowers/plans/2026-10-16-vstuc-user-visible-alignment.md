@@ -887,6 +887,7 @@ A repo-wide `git grep` for `zlorn` and `1\.2\.1` found the stale identity in **s
 
 - `AGENTS.md:32`
 - `docs/reference-debugger-compatibility.md:3` (the matrix header) and `:255` (the debug configuration it records)
+- `docs/reference-debugger-compatibility.md:4` — **the matrix's own Target line**, which currently reads `Target: D:\Unity\TuanjieHub\Projects\MyGame, Tuanjie 2022.3.62t12.` This one is easy to miss because it is not a reference-identity line at all: it names the *acceptance project*, and the objective moves that to `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` on Unity `2022.3.23f1`. Update it in the same pass as `AGENTS.md:6-10`, and keep the two consistent — a matrix that says the target is MyGame while `AGENTS.md` says otherwise is exactly the kind of split-brain the identity sweep exists to prevent. Note the acceptance project genuinely has **no `ProjectSettings\ProjectVersion.txt`**, so the version must come from `Library\EditorInstance.json` (`2022.3.23f1`), not from the usual file.
 - `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md:56` — the "defines the expected user-visible and DAP-visible behavior" sentence
 - `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md:14` — "is the sole authority for observable debugger behavior"
 
