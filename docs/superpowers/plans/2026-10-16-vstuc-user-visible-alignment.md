@@ -433,7 +433,20 @@ git commit -m "feat: surface Unity player targets from discovery"
 ### Task 6: Discovery robustness and the aligned failure messages
 
 **Files:**
-- Modify: `extension/src/projectVersion.ts:13-23`, `extension/src/editorDiscovery.ts:89-145`, `extension/src/debugConfigurationProvider.ts:97-113`, `extension/src/diagnostics.ts`
+- Modify: `extension/src/projectVersion.ts:13-23`, `extension/src/editorDiscovery.ts`, `extension/src/debugConfigurationProvider.ts:97-113`, `extension/src/diagnostics.ts`
+
+**Line numbers for `editorDiscovery.ts` were deliberately dropped, and here are the current anchors instead.** Task 5 rewrote that file and grew it from **251 to 303 lines**, so an earlier revision's `:89-145` now points into the middle of unrelated code. Trust these symbols, not line numbers:
+
+| What you need | Where it is now |
+| --- | --- |
+| the `readProjectVersion` call inside Editor discovery | `:137` |
+| the `catch` that currently swallows the failure and returns `[]` | `:168` |
+| the other `catch` blocks, so you can tell them apart | `:213`, `:226`, `:231`, `:253` |
+| the `catch (error)` that already inspects the error | `:300` |
+
+Handle **only** the discovery path this task is about — the one that fails because `readProjectVersion` throws on a project with no `ProjectSettings\ProjectVersion.txt`. The others are unrelated and swallowing more broadly than the brief asks would be a change nobody requested. If you cannot tell which one is which from the symbols, ask rather than widening all of them.
+
+`debugConfigurationProvider.ts:97-113` and `projectVersion.ts:13-23` were re-checked and are still accurate.
 - Test: `tests/extension/projectVersion.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`
 
 **Interfaces:**
