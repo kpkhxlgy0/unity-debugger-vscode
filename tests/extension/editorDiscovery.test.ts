@@ -201,6 +201,79 @@ describe("EditorDiscovery", () => {
     ]);
   });
 
+  it("falls back to the Editor version when ProjectVersion.txt is unknown", async () => {
+    // A project may have no ProjectSettings/ProjectVersion.txt at all — the
+    // acceptance project does not — while Library/EditorInstance.json records
+    // the version the Editor actually runs.
+    const discovery = new EditorDiscovery(
+      dependencies({
+        readFile: async () =>
+          '{"process_id":1234,"version":"2022.3.23f1"}',
+        readProjectVersion: async () => "",
+      }),
+    );
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([
+      {
+        processId: 1234,
+        projectName: "fixture",
+        workspaceRoot: path.resolve("H:\\fixture"),
+        host: "127.0.0.1",
+        port: 56234,
+        projectVersion: "2022.3.23f1",
+        machine: os.hostname(),
+        source: "derived-port",
+      },
+    ]);
+  });
+
+  it("prefers ProjectVersion.txt over the recorded Editor version", async () => {
+    const discovery = new EditorDiscovery(
+      dependencies({
+        readFile: async () =>
+          '{"process_id":1234,"version":"2022.3.23f1"}',
+      }),
+    );
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([
+      {
+        processId: 1234,
+        projectName: "fixture",
+        workspaceRoot: path.resolve("H:\\fixture"),
+        host: "127.0.0.1",
+        port: 56234,
+        projectVersion: "2022.3.62t11",
+        machine: os.hostname(),
+        source: "derived-port",
+      },
+    ]);
+  });
+
+  it.each([
+    ["carries no version", '{"process_id":1234}'],
+    ["carries a non-string version", '{"process_id":1234,"version":42}'],
+  ])(
+    "reports no version when EditorInstance.json %s and ProjectVersion.txt is unknown",
+    async (_label, instanceJson) => {
+      const discovery = new EditorDiscovery(
+        dependencies({
+          readFile: async () => instanceJson,
+          readProjectVersion: async () => "",
+        }),
+      );
+
+      const found = await discovery.discover(["H:\\fixture"]);
+
+      expect(editorCandidates(found)).toMatchObject([
+        { projectVersion: "" },
+      ]);
+    },
+  );
+
   it("offers a player advertisement as its own target", async () => {
     const discovery = new EditorDiscovery({
       collectAdvertisements: async () => [
@@ -219,6 +292,8 @@ describe("EditorDiscovery", () => {
 
     expect(found).toContainEqual(
       expect.objectContaining({
+        processId: 0,
+        projectVersion: "",
         host: "192.168.1.77",
         port: 56_001,
         source: "player-advertisement",

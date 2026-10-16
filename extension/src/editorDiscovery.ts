@@ -125,16 +125,19 @@ export class EditorDiscovery {
         "Library",
         "EditorInstance.json",
       );
-      const instance = parseEditorInstance(
-        await this.dependencies.readFile(editorInstancePath, "utf8"),
+      const instanceJson = await this.dependencies.readFile(
+        editorInstancePath,
+        "utf8",
       );
+      const instance = parseEditorInstance(instanceJson);
 
       if (!(await this.dependencies.isProcessAlive(instance.processId))) {
         return noDiscovery();
       }
 
       const projectVersion =
-        await this.dependencies.readProjectVersion(workspaceRoot);
+        (await this.dependencies.readProjectVersion(workspaceRoot)) ||
+        editorVersionFromInstance(instanceJson);
       const matching = advertisements.filter(
         (item) => item.projectName === projectName,
       );
@@ -258,6 +261,28 @@ export class EditorDiscovery {
 
 function noDiscovery(): DiscoveryOutcome {
   return { candidates: [], consumedAdvertisements: [] };
+}
+
+/**
+ * A project may have no `ProjectSettings/ProjectVersion.txt` at all, while
+ * `Library/EditorInstance.json` records the version the running Editor
+ * reports. This fallback is deliberately narrow: it supplies a version only
+ * when the ProjectVersion.txt read yielded nothing, and it never invents one
+ * from absent, unusable or malformed JSON. Player targets never consult it —
+ * a Player's Editor version is genuinely unknown.
+ */
+function editorVersionFromInstance(json: string): string {
+  try {
+    const value: unknown = JSON.parse(json);
+    if (typeof value !== "object" || value === null) {
+      return "";
+    }
+
+    const version = (value as Record<string, unknown>).version;
+    return typeof version === "string" ? version.trim() : "";
+  } catch {
+    return "";
+  }
 }
 
 function toPlayerCandidate(

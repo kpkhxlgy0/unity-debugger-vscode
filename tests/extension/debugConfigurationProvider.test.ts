@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -289,6 +289,43 @@ describe("DebugConfigurationProvider", () => {
       expect(configurationUi.showNoEditor).toHaveBeenCalledWith(
         "Unity is not running for the current project",
       );
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("attaches using the version recorded in EditorInstance.json", async () => {
+    // The acceptance project has no ProjectSettings/ProjectVersion.txt, so the
+    // version has to come from Library/EditorInstance.json. Real discovery,
+    // real filesystem, a live process id and no advertisements.
+    const workspaceRoot = await mkdtemp(
+      path.join(os.tmpdir(), "unity-debugger-editor-"),
+    );
+
+    try {
+      await mkdir(path.join(workspaceRoot, "Library"));
+      await writeFile(
+        path.join(workspaceRoot, "Library", "EditorInstance.json"),
+        JSON.stringify({
+          process_id: process.pid,
+          version: "2022.3.23f1",
+        }),
+        "utf8",
+      );
+
+      const resolved = await new DebugConfigurationProvider(
+        new EditorDiscovery({ collectAdvertisements: async () => [] }),
+        ui(),
+        (currentFolder) => [currentFolder],
+      ).resolveDebugConfiguration(
+        { uri: { fsPath: workspaceRoot } },
+        attach,
+      );
+
+      expect(resolved).toMatchObject({
+        __processId: process.pid,
+        __projectVersion: "2022.3.23f1",
+      });
     } finally {
       await rm(workspaceRoot, { recursive: true, force: true });
     }
