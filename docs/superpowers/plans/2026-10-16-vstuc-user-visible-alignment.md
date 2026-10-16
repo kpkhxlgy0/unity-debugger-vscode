@@ -981,9 +981,19 @@ In `2026-08-06-reference-debugger-engine-parity-design.md`, replace the out-of-s
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs AGENTS.md README.md
+git add AGENTS.md README.md \
+        docs/reference-debugger-compatibility.md \
+        docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md \
+        docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md
 git commit -m "docs: record VSTU alignment matrix, reference identity, and scope amendment"
 ```
+
+**Do not stage the `docs` directory, and read this before you stage anything.** An earlier revision of this step was `git add docs AGENTS.md README.md`. That is not merely untidy here — it is a live contamination risk in this specific repository, for two reasons:
+
+1. `docs/` holds this plan and this spec, which **the controller is editing continuously between tasks**. A directory-wide stage at the wrong moment commits the controller's in-flight edits under your message, producing a commit whose message describes work it does not contain — the same failure mode as the Task 1 incident recorded in the executor notes, where an implementer's `--amend` folded a test hunk into the controller's docs commit and hid those lines from the commit-scoped review package.
+2. `docs/` also holds frozen historical plans that must not be touched at all. This task edits exactly two of them, and only at the lines Rules B and C name.
+
+Name the five paths above explicitly. Then run `git status --short` and confirm the only entries remaining are the six `adapter/vendor/*/packages.lock.json` files plus whatever the controller is currently editing — if you see a plan or spec file you did not intend to change staged, unstage it rather than committing it.
 
 ---
 
