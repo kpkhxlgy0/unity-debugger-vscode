@@ -23,9 +23,15 @@ namespace UnityDebugger.Adapter.Dap
                     "Attach arguments are required.");
 
             var processId = RequiredInteger(arguments, "__processId");
-            if (processId <= 0)
+            // Zero is the "unknown process id" sentinel: an explicit endPoint
+            // skips discovery, and a Player target's process id on this
+            // machine is meaningless, so both send 0. Nothing reads
+            // AttachTarget.ProcessId, so accepting it cannot change
+            // behaviour. A negative id is always malformed, and an absent one
+            // is still an error.
+            if (processId < 0)
                 throw new AttachArgumentException(
-                    "__processId must be a positive integer.");
+                    "__processId must not be negative.");
 
             // The reference adapter attaches to any explicit endPoint, so a
             // non-loopback address literal is accepted here. Everything else
@@ -76,20 +82,30 @@ namespace UnityDebugger.Adapter.Dap
             var projectVersion = RequiredString(
                 arguments,
                 "__projectVersion");
-            if (!VersionPattern.IsMatch(projectVersion))
-                throw new AttachArgumentException(
-                    "__projectVersion is malformed.");
-            if (
-                !projectVersion.StartsWith(
-                    "2022.3.",
-                    StringComparison.Ordinal) &&
-                !projectVersion.StartsWith(
-                    "6000.",
-                    StringComparison.Ordinal))
+            // An absent version is not a malformed one. An explicit endPoint
+            // has no Editor to read a version from and a Player target has
+            // none by design, so both send an empty value meaning "unknown".
+            // Only the empty case skips the checks below: a real version
+            // keeps exactly the pattern and compatibility-policy validation
+            // it had, and this is not a licence to accept an out-of-policy
+            // version.
+            if (projectVersion.Length > 0)
             {
-                throw new AttachArgumentException(
-                    "The Editor version is outside the version 0.3.2 " +
-                    "compatibility policy.");
+                if (!VersionPattern.IsMatch(projectVersion))
+                    throw new AttachArgumentException(
+                        "__projectVersion is malformed.");
+                if (
+                    !projectVersion.StartsWith(
+                        "2022.3.",
+                        StringComparison.Ordinal) &&
+                    !projectVersion.StartsWith(
+                        "6000.",
+                        StringComparison.Ordinal))
+                {
+                    throw new AttachArgumentException(
+                        "The Editor version is outside the version 0.3.2 " +
+                        "compatibility policy.");
+                }
             }
 
             return new AttachTarget(

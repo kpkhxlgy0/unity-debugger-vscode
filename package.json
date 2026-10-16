@@ -65,11 +65,7 @@
         ],
         "configurationAttributes": {
           "attach": {
-            "required": [
-              "name",
-              "type",
-              "request"
-            ],
+            "required": [],
             "properties": {
               "name": {
                 "type": "string"
@@ -83,6 +79,21 @@
                 "enum": [
                   "attach"
                 ]
+              },
+              "projectPath": {
+                "type": "string",
+                "default": "${workspaceFolder}",
+                "description": "Project Path"
+              },
+              "logFile": {
+                "type": "string",
+                "default": "",
+                "description": "Path to the log file for the debugger"
+              },
+              "endPoint": {
+                "type": "string",
+                "default": "",
+                "description": "ip:port"
               }
             }
           }
@@ -93,7 +104,8 @@
             "body": {
               "name": "Attach to Unity Debugger Pure",
               "type": "unity-debugger-pure",
-              "request": "attach"
+              "request": "attach",
+              "projectPath": "${workspaceFolder}"
             }
           }
         ],
@@ -101,7 +113,8 @@
           {
             "name": "Attach to Unity Debugger Pure",
             "type": "unity-debugger-pure",
-            "request": "attach"
+            "request": "attach",
+            "projectPath": "${workspaceFolder}"
           }
         ]
       }

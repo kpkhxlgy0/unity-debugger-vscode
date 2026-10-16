@@ -108,8 +108,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
             }
         }
 
+        // `__processId: 0` used to be a row here. Zero is now the "unknown
+        // process id" sentinel that the explicit-endPoint and Player attach
+        // paths send, so it is accepted (see
+        // Parse_accepts_an_unknown_process_id). The port range is still
+        // enforced, and a negative process id is still rejected.
         [Theory]
-        [InlineData("__processId", 0)]
         [InlineData("__port", 0)]
         [InlineData("__port", 65536)]
         public void Parse_rejects_invalid_numeric_fields(
@@ -121,6 +125,51 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
             Assert.Throws<AttachArgumentException>(
                 () => AttachArguments.Parse(json));
+        }
+
+        // An explicit endPoint skips discovery and a Player target has no
+        // process id on this machine, so both send 0 and the adapter must
+        // accept it as "unknown".
+        [Fact]
+        public void Parse_accepts_an_unknown_process_id()
+        {
+            var json = ValidArguments();
+            json["__processId"] = 0;
+
+            var target = AttachArguments.Parse(json);
+
+            Assert.Equal(0, target.ProcessId);
+            Assert.Equal(IPAddress.Loopback, target.Address);
+            Assert.Equal(56234, target.Port);
+        }
+
+        [Fact]
+        public void Parse_rejects_a_negative_process_id()
+        {
+            var json = ValidArguments();
+            json["__processId"] = -1;
+
+            var error = Assert.Throws<AttachArgumentException>(
+                () => AttachArguments.Parse(json));
+
+            Assert.Equal("__processId must not be negative.", error.Message);
+        }
+
+        // The explicit-endPoint and Player attach paths have no Editor version
+        // to send, so an empty value means "unknown" and must not block the
+        // attach. Every check still applies to a real version, which the three
+        // version theories around this test pin.
+        [Fact]
+        public void Parse_accepts_an_unknown_project_version()
+        {
+            var json = ValidArguments();
+            json["__projectVersion"] = "";
+
+            var target = AttachArguments.Parse(json);
+
+            Assert.Equal(string.Empty, target.ProjectVersion);
+            Assert.Equal("127.0.0.1", target.Address.ToString());
+            Assert.Equal(56234, target.Port);
         }
 
         [Fact]

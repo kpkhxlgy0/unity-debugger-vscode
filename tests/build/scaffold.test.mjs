@@ -47,10 +47,42 @@ test("manifest defines an independent attach-only debugger", () => {
     debuggerContribution.configurationAttributes.launch,
     undefined,
   );
+  // The attach properties and their description strings mirror the reference
+  // extension's manifest verbatim. `required` is empty for the same reason:
+  // VS Code supplies name/type/request itself, and the adapter validates what
+  // it actually needs at attach time.
+  assert.deepEqual(
+    debuggerContribution.configurationAttributes.attach.required,
+    [],
+  );
+  assert.deepEqual(
+    debuggerContribution.configurationAttributes.attach.properties,
+    {
+      name: { type: "string" },
+      type: { enum: ["unity-debugger-pure"] },
+      request: { enum: ["attach"] },
+      projectPath: {
+        type: "string",
+        default: "${workspaceFolder}",
+        description: "Project Path",
+      },
+      logFile: {
+        type: "string",
+        default: "",
+        description: "Path to the log file for the debugger",
+      },
+      endPoint: {
+        type: "string",
+        default: "",
+        description: "ip:port",
+      },
+    },
+  );
   const expectedAttachConfiguration = {
     name: "Attach to Unity Debugger Pure",
     type: "unity-debugger-pure",
     request: "attach",
+    projectPath: "${workspaceFolder}",
   };
   assert.deepEqual(
     debuggerContribution.configurationSnippets[0].body,
@@ -59,6 +91,10 @@ test("manifest defines an independent attach-only debugger", () => {
   assert.deepEqual(debuggerContribution.initialConfigurations, [
     expectedAttachConfiguration,
   ]);
+  assert.equal(
+    debuggerContribution.initialConfigurations[0].projectPath,
+    "${workspaceFolder}",
+  );
   assert.deepEqual(
     manifest.contributes.commands.map((command) => command.command),
     [

@@ -274,6 +274,44 @@ describe("EditorDiscovery", () => {
     },
   );
 
+  it("does not supply an EditorInstance version the policy cannot classify", async () => {
+    // Library/EditorInstance.json may carry the value in the shape Unity uses
+    // for m_EditorVersionWithRevision. The version policy cannot classify it,
+    // and passing it through as the project version would block an attach that
+    // an absent version allows, so the fallback degrades to "unknown".
+    const discovery = new EditorDiscovery(
+      dependencies({
+        readFile: async () =>
+          '{"process_id":1234,"version":"2022.3.62t11 (b1a0a2c)"}',
+        readProjectVersion: async () => "",
+      }),
+    );
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toMatchObject([
+      { projectVersion: "" },
+    ]);
+  });
+
+  it("keeps a ProjectVersion.txt version that carries a revision suffix", async () => {
+    // The guard is a fallback-only contract. ProjectVersion.txt is the
+    // authoritative declaration, so its value reaches the policy unchanged
+    // and still blocks as malformed.
+    const discovery = new EditorDiscovery(
+      dependencies({
+        readFile: async () => '{"process_id":1234}',
+        readProjectVersion: async () => "2022.3.62t11 (b1a0a2c)",
+      }),
+    );
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toMatchObject([
+      { projectVersion: "2022.3.62t11 (b1a0a2c)" },
+    ]);
+  });
+
   it("offers a player advertisement as its own target", async () => {
     const discovery = new EditorDiscovery({
       collectAdvertisements: async () => [

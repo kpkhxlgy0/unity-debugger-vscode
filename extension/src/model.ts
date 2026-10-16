@@ -35,4 +35,5 @@ export interface UnityAttachConfiguration {
   readonly __workspaceRoot: string;
   readonly __projectVersion: string;
   readonly __apiAttachRequestId?: string;
+  readonly __logFile?: string;
 }

@@ -12,6 +12,7 @@ import {
   type PlayerAdvertisement,
 } from "./playerAdvertisement.js";
 import { readProjectVersion } from "./projectVersion.js";
+import { isClassifiableVersion } from "./versionPolicy.js";
 
 const PLAYER_CONNECTION_GROUP = "225.0.0.222";
 const PLAYER_CONNECTION_PORTS = [54_997, 34_997, 57_997, 58_997] as const;
@@ -267,9 +268,14 @@ function noDiscovery(): DiscoveryOutcome {
  * A project may have no `ProjectSettings/ProjectVersion.txt` at all, while
  * `Library/EditorInstance.json` records the version the running Editor
  * reports. This fallback is deliberately narrow: it supplies a version only
- * when the ProjectVersion.txt read yielded nothing, and it never invents one
- * from absent, unusable or malformed JSON. Player targets never consult it —
- * a Player's Editor version is genuinely unknown.
+ * when the ProjectVersion.txt read yielded nothing, it never invents one from
+ * absent, unusable or malformed JSON, and it supplies only a version the
+ * version policy can classify. Anything else — a revision-suffixed value such
+ * as `2022.3.62t11 (b1a0a2c)`, for instance — degrades to `""`, which the
+ * policy treats as *unknown* and attachable, rather than reaching the policy
+ * as *malformed* and blocking an attach this fallback was meant to enable.
+ * Player targets never consult it: a Player's Editor version is genuinely
+ * unknown.
  */
 function editorVersionFromInstance(json: string): string {
   try {
@@ -279,7 +285,12 @@ function editorVersionFromInstance(json: string): string {
     }
 
     const version = (value as Record<string, unknown>).version;
-    return typeof version === "string" ? version.trim() : "";
+    if (typeof version !== "string") {
+      return "";
+    }
+
+    const extracted = version.trim();
+    return isClassifiableVersion(extracted) ? extracted : "";
   } catch {
     return "";
   }

@@ -414,4 +414,167 @@ describe("DebugConfigurationProvider", () => {
       expect.stringContaining("outside the version 0.3.2"),
     );
   });
+
+  it("still blocks a suffix-bearing Editor version supplied directly", async () => {
+    // The EditorInstance.json fallback degrades an unusable version to "", so
+    // it must remain true that the same value supplied as the authoritative
+    // version still blocks. Those two facts together are what make the guard
+    // legible: it removes a defect, it does not open the gate.
+    const configurationUi = ui();
+    const configurationProvider = provider(
+      async () => [
+        { ...candidate, projectVersion: "2022.3.62t11 (b1a0a2c)" },
+      ],
+      configurationUi,
+    );
+
+    await expect(
+      configurationProvider.resolveDebugConfiguration(folder, attach),
+    ).resolves.toBeUndefined();
+    expect(configurationUi.showError).toHaveBeenCalledWith(
+      expect.stringContaining("Malformed or unsupported Editor version"),
+    );
+  });
+
+  it("attaches when the Editor version could not be determined", async () => {
+    const configurationUi = ui();
+    const configurationProvider = provider(
+      async () => [{ ...candidate, projectVersion: "" }],
+      configurationUi,
+    );
+
+    await expect(
+      configurationProvider.resolveDebugConfiguration(folder, attach),
+    ).resolves.toMatchObject({
+      __processId: 1234,
+      __projectVersion: "",
+    });
+    expect(configurationUi.showError).not.toHaveBeenCalled();
+  });
+
+  it("resolves a Player candidate to its advertised host, not loopback", async () => {
+    // Task 5 gave every candidate a real host: an Editor carries 127.0.0.1 and
+    // a Player carries its advertised LAN address. A literal here would attach
+    // to whatever Editor happens to listen locally instead of the Player the
+    // user chose.
+    const player: EditorCandidate = {
+      ...candidate,
+      processId: 0,
+      projectVersion: "",
+      host: "192.168.1.77",
+      port: 56234,
+      source: "player-advertisement",
+    };
+
+    const resolved = await provider(async () => [player])
+      .resolveDebugConfiguration(folder, attach);
+
+    expect(resolved).toMatchObject({
+      __host: "192.168.1.77",
+      __port: 56234,
+    });
+  });
+
+  it("uses endPoint and skips discovery entirely", async () => {
+    const discover = vi.fn(async () => [candidate]);
+
+    const resolved = await provider(discover).resolveDebugConfiguration(
+      folder,
+      { ...attach, endPoint: "192.168.1.50:56234" },
+    );
+
+    expect(resolved).toMatchObject({
+      __host: "192.168.1.50",
+      __port: 56234,
+    });
+    expect(discover).not.toHaveBeenCalled();
+  });
+
+  it("records an unknown process id and version for an explicit endPoint", async () => {
+    // endPoint skips discovery, so nothing supplies a process id, an Editor
+    // version or a candidate workspace root. 0 and "" are the "unknown"
+    // sentinels the adapter accepts; a fabricated positive pid would be
+    // indistinguishable from a real one in a log.
+    const resolved = await provider(async () => [candidate])
+      .resolveDebugConfiguration(folder, {
+        ...attach,
+        endPoint: "192.168.1.50:56234",
+      });
+
+    expect(resolved).toMatchObject({
+      __processId: 0,
+      __projectVersion: "",
+      __workspaceRoot: "H:\\fixture",
+    });
+  });
+
+  it("expands workspaceFolder in projectPath for discovery", async () => {
+    const discover = vi.fn(async () => [candidate]);
+
+    const resolved = await provider(discover).resolveDebugConfiguration(
+      folder,
+      { ...attach, projectPath: "${workspaceFolder}/sub" },
+    );
+
+    expect(discover).toHaveBeenCalledWith(["H:\\fixture/sub"]);
+    expect(resolved).toMatchObject({ __processId: 1234 });
+  });
+
+  it("uses projectPath as the workspace root for an explicit endPoint", async () => {
+    const resolved = await provider(async () => [candidate])
+      .resolveDebugConfiguration(folder, {
+        ...attach,
+        endPoint: "192.168.1.50:56234",
+        projectPath: "${workspaceFolder}/sub",
+      });
+
+    expect(resolved).toMatchObject({ __workspaceRoot: "H:\\fixture/sub" });
+  });
+
+  it.each([
+    "not-a-host-port",
+    "localhost:56234",
+    "192.168.1.50",
+    "192.168.1.50:0",
+    "010.1.1.1:56234",
+  ])(
+    "rejects the malformed endPoint %s without starting discovery",
+    async (endPoint) => {
+      const discover = vi.fn(async () => [candidate]);
+      const configurationUi = ui();
+
+      await expect(
+        provider(discover, configurationUi).resolveDebugConfiguration(
+          folder,
+          { ...attach, endPoint },
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(configurationUi.showError).toHaveBeenCalledWith(
+        "endPoint must be an IP address literal and a port, such as " +
+          "192.168.1.50:56234.",
+      );
+      expect(discover).not.toHaveBeenCalled();
+    },
+  );
+
+  it("passes logFile through as the private log field", async () => {
+    const resolved = await provider(async () => [candidate])
+      .resolveDebugConfiguration(folder, {
+        ...attach,
+        logFile: "H:\\logs\\unity.log",
+      });
+
+    expect(resolved).toMatchObject({ __logFile: "H:\\logs\\unity.log" });
+  });
+
+  it.each([
+    ["absent", undefined],
+    ["empty", ""],
+  ])("emits no log field when logFile is %s", async (_label, logFile) => {
+    const resolved = await provider(async () => [candidate])
+      .resolveDebugConfiguration(folder, { ...attach, logFile });
+
+    expect(resolved).not.toHaveProperty("__logFile");
+  });
 });

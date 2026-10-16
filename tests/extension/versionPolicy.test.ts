@@ -31,4 +31,36 @@ describe("classifyVersion", () => {
   it("rejects malformed version metadata", () => {
     expect(classifyVersion("latest").level).toBe("unsupported");
   });
+
+  it("treats an absent version as unknown rather than malformed", () => {
+    // A project may have no ProjectSettings/ProjectVersion.txt at all, and
+    // every Player candidate carries no Editor version by design, so an
+    // absent version must not block attaching.
+    const result = classifyVersion("");
+
+    expect(result.level).toBe("compatible-unverified");
+    expect(result.version).toBe("");
+    expect(result.warning).toContain("could not be determined");
+    expect(result.warning).not.toContain("Malformed");
+  });
+
+  it("does not treat a whitespace-only version as absent", () => {
+    // Only an exactly empty string is absent. A whitespace value is a version
+    // that is wrong, not a version that is missing, so it stays malformed
+    // rather than falling out of a trim() by accident.
+    const result = classifyVersion("   ");
+
+    expect(result.level).toBe("unsupported");
+    expect(result.warning).toContain(
+      "Malformed or unsupported Editor version:",
+    );
+  });
+
+  it("still rejects a version carrying a revision suffix", () => {
+    // The shape Unity uses for m_EditorVersionWithRevision must keep blocking
+    // when it is supplied as the Editor version directly.
+    expect(classifyVersion("2022.3.62t11 (b1a0a2c)").level).toBe(
+      "unsupported",
+    );
+  });
 });
