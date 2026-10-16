@@ -808,9 +808,13 @@ That forbids decompiling outright, which now contradicts the recorded decision p
 
 
 
-Also add these four `divergent` rows, which are known and must not be silently absorbed:
+Also add these six `divergent` rows, which are known and must not be silently absorbed. The first four are behaviours; the last two are accepted representation differences in wire shape:
 
 -1. **No localization.** The reference ships 14 `package.nls*.json` locales and routes its command titles and property descriptions through them (`%commands.attachUnityDebugger.title%` → "Attach Unity Debugger", etc.). We ship **no** localizations, so every string is English-only even for a `zh-cn` user, who would otherwise see `附加 Unity 调试程序`. This plan does not add localization. **Flag it to the user as a scope decision** rather than treating it as closed: it is a real user-visible difference, and the fix is additive (add `package.nls.json` plus translations and switch the manifest to placeholders) rather than architectural.
+
+-2. **Unparseable `endPoint`.** We are deliberately **stricter** than the reference: a non-IP-literal host or a zero/missing port is rejected with an explicit error, where the reference answers `success:true` with no message and attaches to nothing. Evidence and the full table are in the spec's "Observed `endPoint` handling" section. This is a divergence **in our favour** and must never be "aligned" to the silent no-op. (Task 2's implementer flagged that this row was missing from an earlier version of this list — it was present in the spec table but not here, which is exactly the kind of gap that lets a row get skipped.)
+
+-3. **Error-response body and sequence numbers.** For the same failing attach, the reference replies `body:{}` with `seq:2` while we emit the vendored error object (`{"error":{"id":2004,"format":"Failed to attach debugger to …"}}`) with `seq:3`. Our `success`, `command` and `message` match the reference character for character, and the body shape is what this adapter emits for **every** error rather than something attach-specific, so it is an accepted representation difference — but record it rather than leaving it unmentioned.
 
 0. **Exception filter conditions.** The reference advertises `supportsCondition: true`, so the client offers an exception-condition box and sends `filterOptions[].condition`. Task 1 accepts `filterId` and ignores `condition`, so a typed condition list is not honoured. Reference and ours otherwise agree on the filters themselves.
 1. **Player advertisement `debug` gating.** The reference lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true`; our `playerAdvertisement.ts` treats `debug === "1"` as `allowDebugging` and Task 5 filters on it, so we would exclude that target. Neither behaviour is changed by this plan.
