@@ -1083,6 +1083,55 @@ git commit -m "feat: add the extension output channel"
 
 ---
 
+### Task 11b: The deprecated-extension warning
+
+**Found missing this round, and it is a spec deliverable that no task owned.** The spec's surface table says `` | Deprecated-extension warning | warns when `unity.unity-debug` is active | absent | implement | `` (`:138`), and its authoritative-strings table lists the text as item 11 (`:163`). **The plan contained no occurrence of the word "deprecated" at all**, and neither does the shipped source — so one of the rows Task 12 must record as implemented has nothing behind it. This closes that before Task 12 documents it.
+
+**Files:**
+- Create: `extension/src/deprecatedExtension.ts`
+- Modify: `extension/src/extension.ts` (call it during activation)
+- Test: `tests/extension/deprecatedExtension.test.ts`
+
+**The reference's mechanism, read out of its bundle, verbatim:**
+
+```js
+async function(e){
+  var t = b.extensions.getExtension("unity.unity-debug");
+  if (void 0 === t || !t.isActive) return;
+  const n = b.Uri.parse(`command:extension.open?["${t.id}"]`),
+        r = new b.MarkdownString(`[${t.packageJSON.displayName}](${n})`);
+  b.window.showWarningMessage(E.extensionStrings.deprecatedExtension(r.value, e.extension.packageJSON.displayName))
+}
+```
+
+So: look up `unity.unity-debug`; **return if it is absent or not active**; otherwise warn with the deprecated extension's `displayName` linked to `command:extension.open?["<id>"]`, and our own `displayName` as the second argument.
+
+**Interfaces:**
+- Produces: the verbatim string `The {0} extension is deprecated and incompatible with the {1} extension. Please uninstall or disable it.` — confirmed character-for-character in the reference's `out/nls.bundle.json` this round. **Do not paraphrase it.**
+- Produces: `warnAboutDeprecatedExtensions(deps): void` with the extension registry and the warning sink injected, so the absent / inactive / active branches are testable without a host.
+
+**Two things to get right, both of which the reference gets wrong and we should not silently copy:**
+
+- **The reference passes `r.value` — the markdown string — into the format, so the link renders literally as `[Name](command:extension.open?["unity.unity-debug"])` rather than as a clickable link.** That is a defect in the reference, not behaviour to preserve. Either pass `{0}` as the display name in plain text, or pass a `MarkdownString` as the whole *message* so the link works. **Record whichever you choose as a divergence with its reasoning** — do not reproduce a broken link merely because it is what ships.
+- **`unity.unity-debug` is a different extension from `local.vstuc`, the reference this work item aligns to.** Coexistence with `local.vstuc` is approved and expected; this warning targets a third, genuinely deprecated extension. Do not conflate the two, and note that `docs/release-checklist.md:70` names a *third* distinct id for uninstall during migration.
+
+**Constraints:**
+- **This must not add a dependency.** `extensionDependencies`/`extensionPack`/`dependencies` stay `[]`, and no `ms-dotnettools` or `com.unity.ide.*` reference is introduced. `vscode.extensions.getExtension` creates no dependency; declaring one would break the invariant.
+- **Check whether `activationEvents` needs anything** rather than assuming — the warning runs at activation, and Task 10 had to add an event for its command. If nothing needs to change, say so explicitly.
+
+- [ ] **Step 1: Write the failing test** — the three branches (absent, present-but-inactive, present-and-active) plus a `toBe` pinning the verbatim string, **split at a different point from the production literal** so a typo in either is caught rather than both drifting together.
+- [ ] **Step 2: Run it and confirm it fails for the right reason** — not module resolution alone.
+- [ ] **Step 3: Implement**, wiring the call into activation.
+- [ ] **Step 4: Run the full gate** — `npx vitest run tests/extension`, `node --test tests/build/*.test.mjs`, `tsc`, plus the three invariants:
+  - `extensionDependencies`, `extensionPack` and `dependencies` all still `[]`
+  - no `ms-dotnettools`/`csdevkit` and no `com.unity.ide.*` in `extension/`, `adapter/src/` or `package.json`
+  - no telemetry identifier in shipped source
+- [ ] **Step 5: Commit** — explicit paths only; the six `adapter/vendor/*/packages.lock.json` stay untouched and uncommitted.
+
+**Report the link decision for Task 12**: this adds a matrix row, and the link question is a `divergent` entry needing its own justification rather than a silent improvement.
+
+---
+
 ### Task 12: Documentation — matrix, reference identity, security, amended scope
 
 **Files:**
