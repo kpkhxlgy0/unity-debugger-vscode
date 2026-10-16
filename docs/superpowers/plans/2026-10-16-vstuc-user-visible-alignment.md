@@ -1008,7 +1008,12 @@ git commit -m "feat: add the Unity API reference command"
 
 **Interfaces:**
 - Produces: `createOutputChannel(factory): LogOutputChannel` where `factory` is injected for testing; the channel name is `PRODUCT_IDENTITY.displayName`.
-- Produces: `OutputChannel.writeSanitized(line: string): void` that refuses any line containing an absolute user path (defence in depth for the allowlist constraint).
+- Produces: `OutputChannel.writeSanitized(line: string): void` that **refuses a line naming the user's home directory** — defence in depth for the allowlist constraint.
+
+**The scope of that refusal is the home directory, not "any absolute path", and an earlier revision of this line said the latter — the reviewer caught the over-claim and the code is right.** The precise behaviour: a line is refused when the user's home directory appears in it, matched case-insensitively, with either separator, and **with a boundary after it** so `C:\Users\Admin` does not also refuse `C:\Users\Administrator\…`. Paths outside the home — a workspace on another drive, `\\build-server\share`, `/opt/unity/proj` — **pass**, because a channel built from nothing but a factory cannot know which roots to treat as sensitive; the adapter's `PathRedactor` redacts both `<user-home>` and `<workspace>`, and the workspace half remains the producer's job.
+
+- **This is recorded as a deliberate limit rather than a gap, and Task 12 must say so in the matrix.** The reviewer's point was that the *claim* was broader than the code: "refuses any line containing an absolute user path" describes a general boundary, and what exists is one specific one. A future reader who trusted the broad wording would assume workspace paths were covered, which is exactly the path a debug log most naturally carries. → Task 14 item 44 owns the record.
+- One consequence worth inheriting: because the matched home has to be known, the guard **cannot** be widened to "looks like an absolute path" without also refusing legitimate lines that mention a Unity install root. If a later task wants the broader guarantee, it needs a defined root list, not a syntactic test.
 
 **The reference's mechanism, read out of its bundle, and a correction to this brief.** The reference activates with:
 
