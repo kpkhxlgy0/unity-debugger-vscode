@@ -116,9 +116,15 @@ Expected: FAIL — `supportsExceptionOptions` is currently `true`, the second fi
 
 - [ ] **Step 3: Implement the capability block**
 
-In `UnityDebugSession.cs`, in the `Capabilities` initializer: delete `supportsExceptionOptions`; add `supportsExceptionFilterOptions = true` and `supportsExceptionConditions = true`; replace both `ExceptionBreakpointsFilter` entries with the full six-field form above. In `SetExceptionBreakpoints`, accept `all`, `unhandled`, **and** `uncaught` (mapping `uncaught` to the same mode as `unhandled`); keep the existing `2030` error only for genuinely unknown ids.
+In `UnityDebugSession.cs`, in the `Capabilities` initializer: delete `supportsExceptionOptions`; add `supportsExceptionFilterOptions = true` and `supportsExceptionConditions = true`; replace both `ExceptionBreakpointsFilter` entries with the full six-field form above.
 
-For `pid`: our adapter uses the **vendored** `VSCodeDebug` protocol types, not the reference's `Microsoft.VisualStudio.Shared.VSCodeDebugProtocol`. First check whether `adapter/vendor/vscode-mono-debug/Protocol.cs`'s `Capabilities` (and its `InitializeResponse` body) already carries `pid`. If it does, set it. If it does not, add the property to the vendored type **and** append the change to the `modifications` list for `vscode-mono-debug` in `third-party/sources.json`, because `scripts/verify-third-party.mjs` pins that provenance and will otherwise fail. If the vendored edit turns out to be disproportionate, drop `pid`, and record the omission as its own `divergent` matrix row in Task 12 — a knowingly recorded omission, never a silent one.
+**Also accept `filterOptions[].filterId`.** This is required, not optional scope creep: the client switches request shape on the very capability you are advertising. VS Code/Cursor `sendExceptionBreakpoints` reads `capabilities.supportsExceptionFilterOptions ? { filters: [], filterOptions: e.map(...) } : { filters: e.map(...) }` (verified in `%LOCALAPPDATA%\Programs\cursor\resources\app\out\vs\workbench\workbench.desktop.main.js`), so once the capability is advertised the client sends an **empty** `filters` array with the ids in `filterOptions`. A handler that reads only `filters` sets no exception breakpoints at all and silently disables both filters. Read the ids from `filters` and from `filterOptions[].filterId`; ignore `condition` (recorded as a divergence).
+
+In `SetExceptionBreakpoints`, accept `all`, `unhandled`, **and** `uncaught` (mapping `uncaught` to the same mode as `unhandled`); keep the existing `2030` error only for genuinely unknown ids.
+
+**Do not edit vendored source.** The vendored `VSCodeDebug` types cannot express this body: `Capabilities` lives in `vendored/vscode-mono-debug/DebugSession.cs` (not `Protocol.cs`), has no `supportsExceptionFilterOptions`/`supportsExceptionConditions`/`pid`, and its non-nullable `supportsExceptionOptions` is always serialized, so "removed" is unreachable; `ExceptionBreakpointsFilter` is immutable with only `filter`/`label`/`default`. Add adapter-owned DAP model types instead, following the repository's existing local-model convention (`DapSource`, `DapBreakpoint`, `DapStackTraceResponseBody`), and keep `scripts/verify-third-party.mjs` passing. Creating such a file is the expected solution here, not a deviation.
+
+For `pid`: set it to the adapter's own process id. If the vendored type cannot carry it either, the same adapter-owned model carries it; verify on a real framed DAP exchange that the emitted value equals the spawned adapter's own PID, matching the reference's semantics. If instead you cannot carry `pid` at all, say so explicitly — never omit it silently.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -699,8 +705,9 @@ git commit -m "feat: add the extension output channel"
 
 Add one row per line of the spec's two diff tables to `docs/reference-debugger-compatibility.md`, using the existing `| ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |` shape and the existing status vocabulary. Reference the observed `initialize` body, the observed `debuggerTargets` payload, and the REA evidence ids where they apply. Status is `aligned` only for items verified by running both extensions; everything implemented but not yet A/B-run is `not verified`.
 
-Also add these three `divergent` rows, which are known and must not be silently absorbed:
+Also add these four `divergent` rows, which are known and must not be silently absorbed:
 
+0. **Exception filter conditions.** The reference advertises `supportsCondition: true`, so the client offers an exception-condition box and sends `filterOptions[].condition`. Task 1 accepts `filterId` and ignores `condition`, so a typed condition list is not honoured. Reference and ours otherwise agree on the filters themselves.
 1. **Player advertisement `debug` gating.** The reference lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true`; our `playerAdvertisement.ts` treats `debug === "1"` as `allowDebugging` and Task 5 filters on it, so we would exclude that target. Neither behaviour is changed by this plan.
 2. **Connection label engine token.** The reference renders `Port:56548 (VSTU)`; we render `Port:<port> (Mono)`. Same format, different engine name.
 3. **Machine label for network players.** The reference reports `samsung_SM-S9260@10.30.154.73`; a Unity advertisement carries no device name, so Task 8 uses the advertised `ip`.

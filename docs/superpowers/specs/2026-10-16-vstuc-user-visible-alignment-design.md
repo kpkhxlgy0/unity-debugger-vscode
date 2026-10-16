@@ -121,6 +121,7 @@ Comparison with the current adapter
 | Attach command | `vstuc.attachUnityDebugger` → QuickPick titled "Select Unity Instance", placeholder "Detecting... press any key to filter", `busy: true` | only `refreshTargets` (current workspace, editors only) | implement |
 | Target list | Editors **and** Players (local, Android via adb/`Mono.AndroidTools`, Apple via usbmuxd P/Invoke); background processes filtered by a setting; non-background first | players parsed then discarded (`editorDiscovery.ts:110-126`) | implement, but only for advertisements that carry a usable debugger port — see the port divergence below |
 | Item label | `Unity <displayType>, <projectName>, <machine>, <displayConnection>` joined with ", ". Observed live: `Unity Editor, sgproj, xiaolonghan, Port:56548 (VSTU)` | n/a | implement, with the three label divergences below recorded |
+| Exception filter conditions | Advertises `supportsCondition: true` with `conditionDescription: "List of exceptions ..."`, so the client offers a condition box and sends `filterOptions[].condition` | We will accept `filterId` and ignore `condition`; an exception-condition list a user types is not honoured | **divergent — recorded, not implemented in this plan** |
 | Player `debug` gating | Lists an Android player whose advertisement carried `[Debug] 0` as `isValidForAttachment: true` | `playerAdvertisement.ts:52` maps `debug === "1"` to `allowDebugging`, and W2 filters on it, so we exclude that exact target | **divergent — recorded, not changed** |
 | Player debugger port | Reports `debuggerPort: 56322` for that player and obtains it by reaching the device (adb port forwarding / `/proc/net/tcp`; usbmuxd for iOS) | The advertisement carries `[Port] 55000`, which is the player-connection port; it carries no debugger port. Our parser yields `debuggerPort: 0` and W2 therefore does not offer the target | **divergent — recorded; `endPoint` is the supported player path** |
 | Connection label engine token | `Port:56548 (VSTU)` | will render `Port:<port> (Mono)` | **divergent — accepted cosmetic** |
@@ -326,6 +327,16 @@ In `UnityDebugSession.cs:51-74`:
 
 - remove `supportsExceptionOptions` (the reference does not send it);
 - add `supportsExceptionFilterOptions = true` and `supportsExceptionConditions = true`;
+- **accept `filterOptions[].filterId` on input, not only `filters`.** This is a
+  consequence of the previous bullet, not an extra: the VS Code / Cursor
+  workbench bundle switches request shape on that capability. Its
+  `sendExceptionBreakpoints` reads
+  `this.capabilities.supportsExceptionFilterOptions ? { filters: [], filterOptions: e.map(...) } : { filters: e.map(...) }`,
+  so advertising the capability makes the client send an **empty** `filters`
+  array and carry the ids in `filterOptions`. A handler that reads only
+  `filters` would therefore set no exception breakpoints at all, silently
+  disabling both filters — verified in
+  `%LOCALAPPDATA%\Programs\cursor\resources\app\out\vs\workbench\workbench.desktop.main.js`.
 - rename the user-unhandled filter id from `uncaught` to `unhandled` in the
   advertised filters, and keep accepting both ids on input so an existing
   `launch.json` or `exceptionOptions` payload that names `uncaught` still works
@@ -333,6 +344,16 @@ In `UnityDebugSession.cs:51-74`:
 - add `description`, `supportsCondition`, and `conditionDescription` to both
   filters, matching the reference strings;
 - report `pid` (adapter process id) in the initialize response body.
+
+The vendored `VSCodeDebug` types cannot express this body: `Capabilities` (which
+lives in `vendored/vscode-mono-debug/DebugSession.cs`, not `Protocol.cs`) has no
+`supportsExceptionFilterOptions`, `supportsExceptionConditions`, or `pid`, its
+non-nullable `supportsExceptionOptions` is always serialized so "removed" is
+unreachable, and `ExceptionBreakpointsFilter` is immutable with only
+`filter`/`label`/`default`. The adapter therefore carries its own DAP model types,
+following the repository's existing local-model convention (`DapSource`,
+`DapBreakpoint`, `DapStackTraceResponseBody`). Vendored source stays untouched so
+`third-party/sources.json` and `scripts/verify-third-party.mjs` remain valid.
 
 `ReferenceCapabilityTests.cs` encodes the current expectations and must be
 updated from the observed reference response above, not from preference.
