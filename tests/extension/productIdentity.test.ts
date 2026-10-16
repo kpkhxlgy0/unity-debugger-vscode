@@ -23,6 +23,12 @@ describe("PRODUCT_IDENTITY", () => {
         (command: { command: string }) => command.command,
       ),
     );
+    expect(PRODUCT_IDENTITY.settingIds.displayBackgroundProcesses).toBe(
+      "unity-debugger-pure.displayBackgroundProcesses",
+    );
+    expect(
+      Object.keys(manifest.contributes.configuration?.properties ?? {}),
+    ).toEqual(Object.values(PRODUCT_IDENTITY.settingIds));
     expect(
       manifest.contributes.configuration?.properties ?? {},
     ).not.toHaveProperty("unityDebuggerPure.enableImplicitEvaluation");

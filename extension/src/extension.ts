@@ -3,6 +3,12 @@ import * as vscode from "vscode";
 import { AdapterLauncher } from "./adapterLauncher.js";
 import { AttachRequestRegistry } from "./attachRequestRegistry.js";
 import {
+  formatTargetLabel,
+  selectTarget,
+  type TargetPicker,
+  type TargetPickerItem,
+} from "./attachTargetPicker.js";
+import {
   DebugConfigurationProvider,
   type ConfigurationUi,
 } from "./debugConfigurationProvider.js";
@@ -16,12 +22,75 @@ import {
   terminationMessageFromLog,
 } from "./diagnostics.js";
 import { EditorDiscovery } from "./editorDiscovery.js";
+import type { EditorCandidate } from "./model.js";
 import { PRODUCT_IDENTITY } from "./productIdentity.js";
 import {
   UnityDebuggerPureApi,
   VscodeDebugSessionStarter,
 } from "./publicApi.js";
 import type { UnityDebuggerPureApiV1 } from "./publicApiTypes.js";
+
+const ATTACH_UNITY_DEBUGGER_COMMAND =
+  PRODUCT_IDENTITY.commandIds.attachUnityDebugger;
+/**
+ * VS Code addresses a contributed setting as `<section>.<key>`, so this is the
+ * key inside the section named by our extension name — the same shape the
+ * reference uses when it reads `displayBackgroundProcesses` from `vstuc`.
+ */
+const DISPLAY_BACKGROUND_PROCESSES_SETTING = "displayBackgroundProcesses";
+const NO_WORKSPACE_FOLDER_MESSAGE =
+  "Open a Unity or Tuanjie project folder before attaching.";
+
+export interface WorkspaceFolderLike {
+  readonly uri: { readonly fsPath: string };
+}
+
+export interface AttachCommandDependencies {
+  discover(
+    workspaceRoot: string,
+  ): Promise<readonly EditorCandidate[]>;
+  displayBackgroundProcesses(): boolean;
+  createQuickPick(): TargetPicker;
+  startDebugging(
+    folder: WorkspaceFolderLike,
+    configuration: Readonly<Record<string, unknown>>,
+  ): PromiseLike<boolean>;
+  showError(message: string): Promise<void>;
+}
+
+/**
+ * The reference's attach command, minus its streaming picker: discover the
+ * targets for the open project, let the user pick one, start a single attach
+ * session. The synthesized configuration carries `endPoint` and no process id,
+ * exactly as the reference's picker does (`address + ":" + debuggerPort`), so
+ * the provider validates the literal and does not discover a second time.
+ */
+export async function runAttachUnityDebugger(
+  folder: WorkspaceFolderLike | undefined,
+  dependencies: AttachCommandDependencies,
+): Promise<void> {
+  if (!folder) {
+    await dependencies.showError(NO_WORKSPACE_FOLDER_MESSAGE);
+    return;
+  }
+
+  const candidates = await dependencies.discover(folder.uri.fsPath);
+  const candidate = await selectTarget(candidates, {
+    displayBackgroundProcesses: dependencies.displayBackgroundProcesses(),
+    createQuickPick: dependencies.createQuickPick,
+  });
+  if (!candidate) {
+    return;
+  }
+
+  await dependencies.startDebugging(folder, {
+    name: PRODUCT_IDENTITY.defaultConfigurationName,
+    type: PRODUCT_IDENTITY.debugType,
+    request: "attach",
+    endPoint: `${candidate.host}:${candidate.port}`,
+    projectPath: candidate.workspaceRoot,
+  });
+}
 
 export function activate(
   context: vscode.ExtensionContext,
@@ -66,6 +135,29 @@ export function activate(
       },
     );
 
+  const attachRegistration = vscode.commands.registerCommand(
+    ATTACH_UNITY_DEBUGGER_COMMAND,
+    () =>
+      runAttachUnityDebugger(
+        (vscode.workspace.workspaceFolders ?? [])[0],
+        {
+          discover: (workspaceRoot) =>
+            discovery.discover(listWorkspaceRoots(workspaceRoot)),
+          displayBackgroundProcesses: () =>
+            vscode.workspace
+              .getConfiguration(PRODUCT_IDENTITY.extensionName)
+              .get<boolean>(DISPLAY_BACKGROUND_PROCESSES_SETTING, false),
+          createQuickPick: () =>
+            vscode.window.createQuickPick<TargetPickerItem>(),
+          startDebugging: (folder, configuration) =>
+            vscode.debug.startDebugging(
+              folder as unknown as vscode.WorkspaceFolder | undefined,
+              configuration as vscode.DebugConfiguration,
+            ),
+          showError: (message) => ui.showError(message),
+        },
+      ),
+  );
   const refreshRegistration = vscode.commands.registerCommand(
     REFRESH_TARGETS_COMMAND,
     async () => {
@@ -130,6 +222,7 @@ export function activate(
     discovery,
     configurationRegistration,
     descriptorRegistration,
+    attachRegistration,
     refreshRegistration,
     openLogsRegistration,
     copyDiagnosticsRegistration,
@@ -146,13 +239,15 @@ export function activate(
 
 export function deactivate(): void {}
 
-function createConfigurationUi(): ConfigurationUi {
+export function createConfigurationUi(): ConfigurationUi {
   return {
     async selectCandidate(candidates) {
       const items = candidates.map((candidate) => ({
-        label:
-          `${candidate.projectName} — PID ${candidate.processId} — ` +
-          `${candidate.projectVersion} — port ${candidate.port}`,
+        // The reference shows one label format wherever a target is listed, so
+        // the configuration-flow picker shares the attach command's. A Player
+        // carries no process id and no Editor version, which is what the
+        // previous ad-hoc `PID … — port …` label got wrong.
+        label: formatTargetLabel(candidate),
         candidate,
       }));
       const selected = await vscode.window.showQuickPick(items, {

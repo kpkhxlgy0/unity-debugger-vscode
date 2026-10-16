@@ -34,7 +34,8 @@
     "onDebugResolve:unity-debugger-pure",
     "onCommand:unity-debugger-pure.refreshTargets",
     "onCommand:unity-debugger-pure.openLogs",
-    "onCommand:unity-debugger-pure.copyDiagnostics"
+    "onCommand:unity-debugger-pure.copyDiagnostics",
+    "onCommand:unity-debugger-pure.attachUnityDebugger"
   ],
   "contributes": {
     "commands": [
@@ -49,8 +50,22 @@
       {
         "command": "unity-debugger-pure.copyDiagnostics",
         "title": "Unity Debugger Pure: Copy Sanitized Diagnostics"
+      },
+      {
+        "command": "unity-debugger-pure.attachUnityDebugger",
+        "title": "Attach Unity Debugger"
       }
     ],
+    "configuration": {
+      "title": "Unity Debugger Pure",
+      "properties": {
+        "unity-debugger-pure.displayBackgroundProcesses": {
+          "type": "boolean",
+          "default": false,
+          "description": "Display background processes created by the main Unity process"
+        }
+      }
+    },
     "breakpoints": [
       {
         "language": "csharp"

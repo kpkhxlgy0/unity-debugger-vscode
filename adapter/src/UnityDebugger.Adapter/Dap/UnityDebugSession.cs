@@ -129,10 +129,7 @@ namespace UnityDebugger.Adapter.Dap
                 {
                     SendEvent(new OutputEvent(
                         "console",
-                        $"Editor {target.ProjectVersion} is unverified; " +
-                        $"the supported baseline is {SupportedVersion}. " +
-                        $"Support policy: {SupportPolicyUrl}" +
-                        Environment.NewLine));
+                        UnverifiedVersionWarning(target.ProjectVersion)));
                 }
             }
             catch (AttachArgumentException exception)
@@ -1241,6 +1238,26 @@ namespace UnityDebugger.Adapter.Dap
             long backendThreadId,
             out int dapThreadId) =>
             threadIds.TryGetDapId(backendThreadId, out dapThreadId);
+
+        /// <summary>
+        /// The one thing a user sees after an attach that succeeded on a
+        /// version this build cannot confirm. A Player candidate and an
+        /// explicit endPoint attach both send an empty version, and on those
+        /// paths the extension surfaces no warning of its own, so this text is
+        /// the entire account of the attach: it must not call the target an
+        /// Editor and must not name a version it does not have.
+        /// </summary>
+        private static string UnverifiedVersionWarning(string projectVersion)
+        {
+            var warning =
+                projectVersion.Length > 0
+                    ? $"Editor {projectVersion} is unverified; "
+                    : "The Unity version could not be determined; ";
+            return warning +
+                $"the supported baseline is {SupportedVersion}. " +
+                $"Support policy: {SupportPolicyUrl}" +
+                Environment.NewLine;
+        }
 
         private static string ToDapStopReason(
             BackendStopReason reason)

@@ -121,6 +121,39 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Fact]
+        public void Attach_unknown_version_emits_one_target_neutral_warning()
+        {
+            // A Player candidate and an explicit endPoint attach both send an
+            // empty version, and the provider surfaces no warning of its own on
+            // those paths, so this message is the whole account of the attach.
+            // It must not call the target an Editor and must not interpolate a
+            // version it does not have.
+            var arguments = ValidAttachArguments();
+            arguments["__processId"] = 0;
+            arguments["__host"] = "192.168.1.77";
+            arguments["__projectVersion"] = "";
+            var messages = Run(
+                new UnityDebugSession(() => new FakeDebuggerBackend()),
+                Request("attach", arguments));
+
+            var warning = Assert.Single(messages
+                .Where(item => OptionalText(item["event"]) == "output")
+                .ToArray());
+            Assert.Equal(
+                "console",
+                OptionalText(warning.SelectToken("body.category")));
+            var text = Required<string>(warning.SelectToken("body.output"));
+            Assert.DoesNotContain("Editor", text);
+            Assert.DoesNotContain("  ", text);
+            Assert.Contains("could not be determined", text);
+            Assert.Contains("the supported baseline is 2022.3.62t11", text);
+            Assert.Contains(
+                "https://marketplace.visualstudio.com/items?itemName=" +
+                "kpk.unity-debugger-pure#support-policy",
+                text);
+        }
+
+        [Fact]
         public void Disconnect_releases_backend_and_terminates_once()
         {
             var backend = new FakeDebuggerBackend();

@@ -164,6 +164,10 @@ export class EditorDiscovery {
               defaultEditorPort(instance.processId),
             projectVersion,
             machine: os.hostname(),
+            // Discovery cannot tell a background process from the Editor that
+            // spawned it: neither the UDP advertisement nor
+            // Library/EditorInstance.json reports a parent process.
+            isBackground: false,
             source: advertised ? "advertisement" : "derived-port",
           },
         ],
@@ -308,6 +312,8 @@ function toPlayerCandidate(
     port: advertisement.debuggerPort,
     projectVersion: "",
     machine: advertisement.machine,
+    // A Player advertisement carries no parent-process relationship either.
+    isBackground: false,
     source: "player-advertisement",
   };
 }

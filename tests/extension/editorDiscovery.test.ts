@@ -99,6 +99,7 @@ describe("EditorDiscovery", () => {
         port: 56234,
         projectVersion: "2022.3.62t11",
         machine: os.hostname(),
+        isBackground: false,
         source: "derived-port",
       },
     ]);
@@ -166,6 +167,7 @@ describe("EditorDiscovery", () => {
         port: 56234,
         projectVersion: "2022.3.62t11",
         machine: os.hostname(),
+        isBackground: false,
         source: "derived-port",
       },
     ]);
@@ -196,6 +198,7 @@ describe("EditorDiscovery", () => {
         port: 56234,
         projectVersion: "2022.3.62t11",
         machine: os.hostname(),
+        isBackground: false,
         source: "derived-port",
       },
     ]);
@@ -224,6 +227,7 @@ describe("EditorDiscovery", () => {
         port: 56234,
         projectVersion: "2022.3.23f1",
         machine: os.hostname(),
+        isBackground: false,
         source: "derived-port",
       },
     ]);
@@ -248,6 +252,7 @@ describe("EditorDiscovery", () => {
         port: 56234,
         projectVersion: "2022.3.62t11",
         machine: os.hostname(),
+        isBackground: false,
         source: "derived-port",
       },
     ]);
@@ -334,6 +339,7 @@ describe("EditorDiscovery", () => {
         projectVersion: "",
         host: "192.168.1.77",
         port: 56_001,
+        isBackground: false,
         source: "player-advertisement",
         machine: "samsung_SM-S9260@192.168.1.77",
       }),

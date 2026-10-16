@@ -11,6 +11,15 @@ export const PRODUCT_IDENTITY = {
     refreshTargets: "unity-debugger-pure.refreshTargets",
     openLogs: "unity-debugger-pure.openLogs",
     copyDiagnostics: "unity-debugger-pure.copyDiagnostics",
+    attachUnityDebugger: "unity-debugger-pure.attachUnityDebugger",
+  },
+  /**
+   * A setting id is `<extensionName>.<settingName>`, which is why ours ends in
+   * our own extension name where the reference's ends in `vstuc`.
+   */
+  settingIds: {
+    displayBackgroundProcesses:
+      "unity-debugger-pure.displayBackgroundProcesses",
   },
   adapterExecutable: "UnityDebuggerPure.exe",
   diagnosticsDirectoryName: "unity-debugger-pure",

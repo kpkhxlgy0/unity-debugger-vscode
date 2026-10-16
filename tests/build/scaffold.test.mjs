@@ -101,6 +101,7 @@ test("manifest defines an independent attach-only debugger", () => {
       "unity-debugger-pure.refreshTargets",
       "unity-debugger-pure.openLogs",
       "unity-debugger-pure.copyDiagnostics",
+      "unity-debugger-pure.attachUnityDebugger",
     ],
   );
   assert.deepEqual(
@@ -109,7 +110,28 @@ test("manifest defines an independent attach-only debugger", () => {
       "Unity Debugger Pure: Refresh Local Editors",
       "Unity Debugger Pure: Open Sanitized Diagnostics",
       "Unity Debugger Pure: Copy Sanitized Diagnostics",
+      "Attach Unity Debugger",
     ],
+  );
+  assert.ok(
+    manifest.activationEvents.includes(
+      "onCommand:unity-debugger-pure.attachUnityDebugger",
+    ),
+    "the attach command must activate the extension",
+  );
+  // The reference declares `vstuc.displayBackgroundProcesses` as a boolean
+  // defaulting to false, with this description verbatim. Our id follows our own
+  // extension name for the same reason the reference's follows its own.
+  assert.deepEqual(
+    manifest.contributes.configuration?.properties?.[
+      "unity-debugger-pure.displayBackgroundProcesses"
+    ],
+    {
+      type: "boolean",
+      default: false,
+      description:
+        "Display background processes created by the main Unity process",
+    },
   );
 
   assert.equal(

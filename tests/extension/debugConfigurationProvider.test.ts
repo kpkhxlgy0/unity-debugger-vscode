@@ -17,6 +17,7 @@ const candidate: EditorCandidate = {
   port: 56234,
   projectVersion: "2022.3.62t11",
   machine: os.hostname(),
+  isBackground: false,
   source: "derived-port",
 };
 

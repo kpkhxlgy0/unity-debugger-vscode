@@ -19,6 +19,16 @@ export interface EditorCandidate {
   readonly port: number;
   readonly projectVersion: string;
   readonly machine: string;
+  /**
+   * The reference's probe reports whether a target is a background process
+   * created by the main Unity process, and its picker hides those unless the
+   * `displayBackgroundProcesses` setting is on. Neither our UDP advertisement
+   * nor `Library/EditorInstance.json` carries a parent-process relationship,
+   * so this release cannot identify one and every candidate is `false`: the
+   * filter and sort are implemented and tested against synthetic candidates
+   * but stay inert against real discovery.
+   */
+  readonly isBackground: boolean;
   readonly source:
     | "advertisement"
     | "derived-port"
