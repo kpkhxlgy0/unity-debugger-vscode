@@ -491,15 +491,25 @@ Both must surface the W7 messages instead of silence.
 
 ## Invariants
 
-Unchanged and enforced by existing tests:
+Unchanged. **An earlier revision of this heading read "Unchanged and enforced by
+existing tests", which was an over-claim: three of the five are not enforced by
+any test, and saying so is more useful than the reassurance was.** The honest
+per-invariant position:
 
 - no C# Dev Kit dependency, and no `ms-dotnettools.*` runtime dependency;
+  — **partly enforced**: `tests/build/scaffold.test.mjs:37` asserts `manifest.extensionDependencies === undefined` and nothing else. `extensionPack`, `dependencies` and the `ms-dotnettools` string itself are unasserted.
 - no Unity-side package requirement;
+  — **not enforced**: no test mentions `com.unity.ide.*`.
 - no telemetry and no network egress other than the debug transport and the
   multicast discovery socket;
+  — **not enforced**: no test asserts the absence of either. `editorDiscovery.test.ts` exercises the discovery socket, which covers the "other than" clause rather than the prohibition.
 - no Microsoft/SyntaxTree binary in the VSIX (the package audit and runtime
   inventory continue to enforce this);
+  — **enforced, and by construction rather than by an assertion about that family**: `scripts/generate-runtime-inventory.mjs` fails on any assembly absent from the pinned `third-party/runtime-assemblies.json`, so an unaudited binary cannot ship quietly. `scripts/verify-vsix.mjs` checks forbidden *paths*, not assembly names — the two are different scripts and only one of them can catch this.
 - the sanitized diagnostics allowlist stays closed.
+  — **partly enforced**: the adapter's own `DiagnosticLogTests` cover the producer side; nothing covers the channel boundary, which is why `writeSanitized`'s scope is a live question rather than a settled one.
+
+**Three assertions in `tests/build/scaffold.test.mjs` close the first three**, and they are worth having because these are *negative* claims: an absent dependency cannot be noticed by reading the code and cannot be preserved by intent, so the only durable enforcement is a test that fails when someone adds one for an unrelated reason. Until then, verification of them rests on a person remembering to grep. See the plan's Task 14 item 46.
 
 Changed: the loopback-only attach restriction (W4).
 
