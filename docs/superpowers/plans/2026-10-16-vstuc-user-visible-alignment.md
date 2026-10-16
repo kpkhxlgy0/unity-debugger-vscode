@@ -428,7 +428,12 @@ git commit -m "feat: surface Unity player targets from discovery"
 
 **Interfaces:**
 - Produces: `readProjectVersion` returns `""` when the file is missing or has no `m_EditorVersion` line, instead of throwing.
-- Produces: exported constants `UNITY_NOT_RUNNING_MESSAGE = "Unity is not running for the current project"`, `NO_UNITY_ENDPOINT_MESSAGE = "No Unity endPoint to connect to"`, `NO_PROCESSES_MESSAGE = "No processes to attach to"`.
+- Produces: exported constants `UNITY_NOT_RUNNING_MESSAGE = "Unity is not running for the current project"`, `NO_UNITY_ENDPOINT_MESSAGE = "No Unity endPoint to connect to"`, `NO_PROCESSES_MESSAGE = "No Process to attach to"`.
+
+**Two corrections to this block, both verified against the reference's own string bundle (`out/nls.bundle.json`) rather than paraphrased:**
+
+1. **The third message is singular: `No Process to attach to`.** An earlier revision said `"No processes to attach to"` — a string **the reference does not contain**. It was corrected in the spec but not here, so do not reintroduce it. Deviation from the reference's English text is the one thing this work item exists to prevent, and a plausible-sounding paraphrase is exactly how it happens.
+2. **Only `UNITY_NOT_RUNNING_MESSAGE` is exercised in this task.** The other two are exported now for **Task 8**, which owns the picker: it shows `NO_UNITY_ENDPOINT_MESSAGE` when no endpoint can be resolved and `NO_PROCESSES_MESSAGE` when the picker is empty. Declaring them here avoids a second edit to the same module later. Say in your report that you exported-but-did-not-use two of the three, so a reader does not go looking for their call sites in this task's diff.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -466,9 +471,13 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add extension/src/projectVersion.ts extension/src/editorDiscovery.ts extension/src/debugConfigurationProvider.ts extension/src/diagnostics.ts tests/extension
+git add extension/src/projectVersion.ts extension/src/editorDiscovery.ts \
+        extension/src/debugConfigurationProvider.ts extension/src/diagnostics.ts \
+        tests/extension/projectVersion.test.ts tests/extension/debugConfigurationProvider.test.ts
 git commit -m "fix: tolerate missing project metadata and align failure messages"
 ```
+
+An earlier revision staged the whole `tests/extension` directory. Name the two test files explicitly instead: a directory path silently picks up any scratch file another agent leaves there, and the six `adapter/vendor/*/packages.lock.json` files are the only entries that should remain unstaged. Run `git status --short` after staging and confirm nothing you edited is left out.
 
 ---
 
