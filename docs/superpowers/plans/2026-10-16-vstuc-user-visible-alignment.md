@@ -515,6 +515,10 @@ Use those description strings verbatim for the matching properties; they are the
 
 The reference localizes those strings through `package.nls*.json` (14 locales). We ship no localizations and this plan does not add any — recorded as a divergence for the user to decide on, not something to silently ignore or to expand this task into.
 
+**Two names must NOT be aligned, and this is deliberate — do not "fix" them.** Verified against the current manifest: our debug type is `unity-debugger-pure` with label `Unity Debugger Pure`, and `initialConfigurations[0]` is `{"name":"Attach to Unity Debugger Pure","type":"unity-debugger-pure","request":"attach"}`. The reference's are type `vstuc`, label `Unity`, and initial name `Unity Debugger`.
+
+Both extensions can be installed at the same time — the acceptance project already has the reference installed — so our label and initial-config name exist to let a user tell the two apart in the Run and Debug dropdown and in a shared `launch.json`. Aligning them to `Unity` / `Unity Debugger` would make two entries indistinguishable, which is worse for the user than the difference it removes. Keep our names, add `projectPath` to `initialConfigurations[0]`, and record the label/name pair in Task 12 as a **deliberate coexistence divergence** rather than a miss.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/extension && node --test tests/build/scaffold.test.mjs`
