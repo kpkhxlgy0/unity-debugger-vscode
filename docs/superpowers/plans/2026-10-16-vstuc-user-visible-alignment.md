@@ -895,7 +895,24 @@ git commit -m "feat: warn about function breakpoint performance"
 - Modify: `extension/src/productIdentity.ts`, `extension/src/extension.ts`, `package.json`
 - Test: `tests/extension/unityApiReference.test.ts`, **`tests/build/scaffold.test.mjs`**
 
-**This task must also update `tests/build/scaffold.test.mjs`, and an earlier revision of this file list omitted it.** Adding a command breaks **two** existing assertions in that file: `:62-69` compares `contributes.commands.map(c => c.command)` against a hardcoded three-element array, and `:70-77` does the same for `.title`. Adding `unity-debugger-pure.showUnityApiReference` fails both. Extend each array with this command in the position it occupies in the manifest — the arrays are order-sensitive, so append to match your manifest ordering rather than sorting them.
+**This task must also update `tests/build/scaffold.test.mjs`, and an earlier revision of this file list omitted it.** Adding a command breaks **two** existing assertions in that file — and the line numbers an earlier revision of this brief cited (`:62-69`, `:70-77`) are **stale**, because Task 8 added a command and pushed them down. They are now **`:98-106`** (ids) and **`:107-115`** (titles), both `assert.deepEqual` against order-sensitive arrays whose current contents are:
+
+```js
+// :101-104
+"unity-debugger-pure.refreshTargets",
+"unity-debugger-pure.openLogs",
+"unity-debugger-pure.copyDiagnostics",
+"unity-debugger-pure.attachUnityDebugger",
+// :110-113
+"Unity Debugger Pure: Refresh Local Editors",
+"Unity Debugger Pure: Open Sanitized Diagnostics",
+"Unity Debugger Pure: Copy Sanitized Diagnostics",
+"Attach Unity Debugger",          // <- the bare title this task renames
+```
+
+- **`:113` is the bare `Attach Unity Debugger` that your rename must change**, which is why this task and the rename are the same change: leaving it would fail the array, and changing the manifest without it would fail the assertion.
+- **These arrays are order-sensitive**, so append `showUnityApiReference` in the position it occupies in your manifest rather than sorting them — and change the fourth id's title entry in place, do not move it.
+- **Do not weaken either assertion** to a length or containment check. They are the only place the command *titles* are pinned anywhere in the repository, and the user has just made a decision about exactly those strings.
 
 Task 8 makes the same two edits for its own command. Whichever of the two lands second will rebase its array onto the other's; do not rewrite the other task's line, just add yours.
 
