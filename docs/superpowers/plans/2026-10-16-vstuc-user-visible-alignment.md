@@ -319,8 +319,14 @@ Do **not** use `git add -A` here: the six pre-existing `adapter/vendor/*/package
 ### Task 5: Widen the host type and surface Player targets
 
 **Files:**
-- Modify: `extension/src/model.ts:18`, `:29`, `extension/src/editorDiscovery.ts:110-126`, `extension/src/playerAdvertisement.ts`
+- Modify: `extension/src/model.ts:18`, `:29`, `extension/src/editorDiscovery.ts:110-126`, `extension/src/playerAdvertisement.ts`, `extension/src/publicApiTypes.ts`
 - Test: `tests/extension/editorDiscovery.test.ts`, `tests/extension/playerAdvertisement.test.ts`, `tests/extension/attachRequestRegistry.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`
+
+**`publicApiTypes.ts` is a ninth file, and the earlier enumeration missed it.** `PublicTargetSource` is declared as `"advertisement" | "derived-port"` — a union that **mirrors `EditorCandidate.source`**. Adding `"player-advertisement"` to the candidate without adding it here breaks the assignment at `attachRequestRegistry.ts:51` (`source: scopedCandidate.source`), because the wider union is not assignable to the narrower one. Add the new member to `PublicTargetSource`.
+
+The generalisable form, since this is the second enumeration gap in this task: widening a union in one type requires widening **every exported type that mirrors it**, and a construction-site grep does not find those — they are assignments, not literals. Grep for the *member name* (`"derived-port"`) rather than for the type.
+
+What genuinely does **not** need changing: `PublicEditorTarget` carries `targetId`, `processId`, `projectName`, `workspaceRoot`, `projectVersion` and `source` — it has **neither `host` nor `machine`**, so widening `EditorCandidate.host` does not touch it and it does not need `machine` added. The picker works from `EditorCandidate`, which it already receives.
 
 **Interfaces:**
 - Produces: `EditorCandidate.host: string` and `UnityAttachConfiguration.__host: string` (was the literal `"127.0.0.1"`).
@@ -413,13 +419,14 @@ Expected: PASS, including the pre-existing `editorDiscovery` and `debugConfigura
 
 ```bash
 git add extension/src/model.ts extension/src/editorDiscovery.ts extension/src/playerAdvertisement.ts \
+        extension/src/publicApiTypes.ts \
         tests/extension/editorDiscovery.test.ts tests/extension/playerAdvertisement.test.ts \
         tests/extension/attachRequestRegistry.test.ts tests/extension/debugConfigurationProvider.test.ts \
         tests/extension/publicApi.test.ts
 git commit -m "feat: surface Unity player targets from discovery"
 ```
 
-**An earlier revision of this step staged only three of those eight paths**, omitting `playerAdvertisement.ts` — which holds the `machine` parsing this task's own Interfaces promise, and which Task 8 consumes — plus four test files. That would have committed a tree that does not satisfy its own requirements. Run `git status --short` after staging and confirm nothing you edited is left unstaged; the six `adapter/vendor/*/packages.lock.json` files are the only entries that should remain, and they must stay uncommitted.
+**An earlier revision of this step staged only three of those nine paths**, omitting `playerAdvertisement.ts` — which holds the `machine` parsing this task's own Interfaces promise, and which Task 8 consumes — plus four test files and `publicApiTypes.ts`. That would have committed a tree that does not satisfy its own requirements. Run `git status --short` after staging and confirm nothing you edited is left unstaged; the six `adapter/vendor/*/packages.lock.json` files are the only entries that should remain, and they must stay uncommitted.
 
 ---
 
