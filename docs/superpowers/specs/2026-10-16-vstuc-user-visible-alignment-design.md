@@ -341,7 +341,7 @@ treating our implementation as a favourable superset would have been wrong.
 
 What that literal does **not** establish is the behaviour: a name in the
 literal pool proves the adapter refers to the property, not what it does with
-it. Our matrix row is therefore **`not verified`**, to be settled by A/B at
+it. Our matrix row is therefore **`not yet verified`**, to be settled by A/B at
 W13, rather than `aligned` (unproven) or `divergent` (also unproven, and the
 earlier framing). The lesson generalises: absence from the extension bundle is
 not absence from the product, because the extension forwards the whole attach
