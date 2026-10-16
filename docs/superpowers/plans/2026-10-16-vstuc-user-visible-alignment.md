@@ -997,7 +997,7 @@ git commit -m "feat: add the Unity API reference command"
 
 **Files:**
 - Create: *(nothing — Task 9 creates `extension/src/outputChannel.ts`)*
-- Modify: `extension/src/extension.ts`
+- Modify: `extension/src/extension.ts`, **and `extension/src/outputChannel.ts`** (to add `writeSanitized`; an earlier revision of this list omitted it)
 - Test: `tests/extension/outputChannel.test.ts` (extend Task 9's file; the module already exists)
 
 **Task 9 now creates `outputChannel.ts`, because its function-breakpoint warning must go through a `LogOutputChannel` rather than a popup — verified against the reference's shipped bundle.** So this task **consumes** that module instead of authoring it.
@@ -1046,18 +1046,28 @@ it("creates a log channel named after the product", () => {
 ```
 
 **If you decide you genuinely need the home directory injected anyway, that is a re-signature of a module Task 9 built and Task 11 was told to consume — so report it rather than performing it.** Task 9 deliberately did not pre-add an optional second parameter for this. Note also that `outputChannel.test.ts` has no `vi.mock("vscode")` today: consumer-level tests added here will need the mock pattern `functionBreakpointWarning.test.ts` already demonstrates.
-```
 
 The third test pins the two things the reference's own activation proves: the `{ log: true }` option, without which this is a plain `OutputChannel` and the level methods do not exist, and the name coming from the product identity rather than a loose literal.
+
+**Steps 2, 3 and the staging line below were written when this task authored the module, and Task 9 taking it over did not update them. They contradict the header above, and the header is right.** Corrected this round:
+
+| Was | Actually |
+| --- | --- |
+| Step 2 expected `FAIL — the module does not exist` | The module **does** exist (`extension/src/outputChannel.ts`, 26 lines). RED comes from `writeSanitized` not existing on it, so the failures are `channel.writeSanitized is not a function` — **not** a missing module. If you see a module-resolution error, something is wrong with your working tree, not with your test. |
+| Step 3 said "Create the module and register the channel in `context.subscriptions`" | **Do not create it.** Add `writeSanitized` to the existing module, and note that Task 9 **already** registers the channel in `context.subscriptions` from `extension.ts` — so verify that wiring rather than writing it a second time. |
+| Staging was `extension/src/outputChannel.ts extension/src/extension.ts tests/extension/outputChannel.test.ts` | Still correct as a *list*, but only because Task 11 modifies `outputChannel.ts` — which the Files block above does not mention. See the next bullet. |
+
+- **The Files block is incomplete: `extension/src/outputChannel.ts` belongs under "Modify".** `writeSanitized` is our own addition and has no home other than the module that owns the channel. Staging it is right; not listing it is what makes the staging line look wrong. Rule 11 covers you either way, but the list should be right on its face.
+- **A stray closing code fence sat between the snippet and the paragraph that explains it**, which would have rendered every step after it as code. Removed. Worth naming because a brief whose *formatting* is broken is harder to trust than one whose content is, and a reader who sees Step 2 and Step 3 rendered as a wall of code is likely to skim exactly the part that contradicts the header.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/extension/outputChannel.test.ts`
-Expected: FAIL — the module does not exist.
+Expected: FAIL — `writeSanitized` does not exist yet, so the consumer tests fail on `channel.writeSanitized is not a function`. **The module itself already exists**; a module-resolution failure means your tree is wrong.
 
 - [ ] **Step 3: Implement**
 
-Create the module and register the channel in `context.subscriptions`.
+**Add `writeSanitized` to the existing module; do not create it.** Task 9 authored `extension/src/outputChannel.ts` (one parameter, `factory` injected, name from `PRODUCT_IDENTITY.displayName`) and already registers the channel in `context.subscriptions` from `extension.ts` — so confirm that wiring rather than duplicating it. Your edit is the `writeSanitized` method and whatever the two consumer commands (`openLogs`, `copyDiagnostics`) need to route through it.
 
 - [ ] **Step 4: Run test to verify it passes**
 
