@@ -1110,6 +1110,11 @@ So: look up `unity.unity-debug`; **return if it is absent or not active**; other
 - Produces: the verbatim string `The {0} extension is deprecated and incompatible with the {1} extension. Please uninstall or disable it.` — confirmed character-for-character in the reference's `out/nls.bundle.json` this round. **Do not paraphrase it.**
 - Produces: `warnAboutDeprecatedExtensions(deps): void` with the extension registry and the warning sink injected, so the absent / inactive / active branches are testable without a host.
 
+**One more divergence is baked into the message, and it is the approved one rather than a new choice.** `{1}` is the extension's own `displayName`, and the reference's resolves to **`Unity`** (its manifest declares `%extension.displayName%` and `package.nls.json` resolves it to `Unity`) while ours is **`Unity Debugger Pure`**. So the same template renders *"…incompatible with the **Unity** extension"* there and *"…incompatible with the **Unity Debugger Pure** extension"* here.
+
+- That follows directly from the coexistence decision — the two extensions can be installed together, so a message naming only `Unity` would be ambiguous about which one to keep — and it needs **no separate approval**. Record it in the same matrix row as the link decision and cite the prefix decision it descends from, so a later reader does not treat it as a second unapproved divergence.
+- The template itself is unchanged, which is why this is a divergence in the *arguments* rather than in the string: anyone diffing the two bundles finds identical text and a different substitution.
+
 **Two things to get right, both of which the reference gets wrong and we should not silently copy:**
 
 - **The reference passes `r.value` — the markdown string — into the format, so the link renders literally as `[Name](command:extension.open?["unity.unity-debug"])` rather than as a clickable link.** That is a defect in the reference, not behaviour to preserve. Either pass `{0}` as the display name in plain text, or pass a `MarkdownString` as the whole *message* so the link works. **Record whichever you choose as a divergence with its reasoning** — do not reproduce a broken link merely because it is what ships.
