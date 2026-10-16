@@ -1,3 +1,4 @@
+import os from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import {
   DebugConfigurationProvider,
@@ -12,6 +13,7 @@ const candidate: EditorCandidate = {
   host: "127.0.0.1",
   port: 56234,
   projectVersion: "2022.3.62t11",
+  machine: os.hostname(),
   source: "derived-port",
 };
 

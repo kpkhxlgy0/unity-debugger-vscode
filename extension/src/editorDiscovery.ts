@@ -1,5 +1,6 @@
 import dgram from "node:dgram";
 import { readFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import {
   defaultEditorPort,
@@ -15,10 +16,20 @@ import { readProjectVersion } from "./projectVersion.js";
 const PLAYER_CONNECTION_GROUP = "225.0.0.222";
 const PLAYER_CONNECTION_PORTS = [54_997, 34_997, 57_997, 58_997] as const;
 const DEFAULT_DISCOVERY_TIMEOUT_MS = 350;
+const EDITOR_HOST = "127.0.0.1";
 
 type SocketFactory = (
   options: dgram.SocketOptions,
 ) => dgram.Socket;
+
+interface DiscoveryOutcome {
+  readonly candidates: readonly EditorCandidate[];
+  /**
+   * The advertisement that supplied the discovered Editor's debugger port. It
+   * describes that Editor, so it must not be offered a second time as a Player.
+   */
+  readonly consumedAdvertisements: readonly PlayerAdvertisement[];
+}
 
 export interface EditorDiscoveryDependencies {
   readonly readFile: (
@@ -63,16 +74,33 @@ export class EditorDiscovery {
 
     const advertisements =
       await this.dependencies.collectAdvertisements(timeoutMs);
-    const discovered = await Promise.all(
+    const outcomes = await Promise.all(
       normalizedRoots.map((workspaceRoot) =>
         this.discoverOne(workspaceRoot, advertisements),
       ),
     );
 
-    const candidates = discovered.flat();
+    const consumed = new Set(
+      outcomes.flatMap((outcome) => outcome.consumedAdvertisements),
+    );
+    const players = advertisements
+      .filter(
+        (advertisement) =>
+          !consumed.has(advertisement) &&
+          advertisement.allowDebugging &&
+          isValidPort(advertisement.debuggerPort),
+      )
+      .map((advertisement) =>
+        toPlayerCandidate(advertisement, normalizedRoots[0]),
+      );
+
+    const candidates = [
+      ...outcomes.flatMap((outcome) => outcome.candidates),
+      ...players,
+    ];
     const uniqueCandidates = new Map<string, EditorCandidate>();
     for (const candidate of candidates) {
-      const key = `${candidate.processId}:${candidate.port}`;
+      const key = `${candidate.host}:${candidate.port}`;
       if (!uniqueCandidates.has(key)) {
         uniqueCandidates.set(key, candidate);
       }
@@ -89,7 +117,7 @@ export class EditorDiscovery {
   private async discoverOne(
     workspaceRoot: string,
     advertisements: readonly PlayerAdvertisement[],
-  ): Promise<readonly EditorCandidate[]> {
+  ): Promise<DiscoveryOutcome> {
     try {
       const projectName = path.basename(workspaceRoot);
       const editorInstancePath = path.join(
@@ -102,7 +130,7 @@ export class EditorDiscovery {
       );
 
       if (!(await this.dependencies.isProcessAlive(instance.processId))) {
-        return [];
+        return noDiscovery();
       }
 
       const projectVersion =
@@ -114,34 +142,34 @@ export class EditorDiscovery {
         matching.length > 0 &&
         !matching.some((item) => item.allowDebugging)
       ) {
-        return [];
+        return noDiscovery();
       }
 
       const advertised = matching.find(
-        (item) =>
-          item.allowDebugging &&
-          Number.isInteger(item.debuggerPort) &&
-          item.debuggerPort > 0 &&
-          item.debuggerPort <= 65_535,
+        (item) => item.allowDebugging && isValidPort(item.debuggerPort),
       );
-      return [
-        {
-          processId: instance.processId,
-          projectName,
-          workspaceRoot,
-          host: "127.0.0.1",
-          port:
-            advertised?.debuggerPort ??
-            defaultEditorPort(instance.processId),
-          projectVersion,
-          source: advertised ? "advertisement" : "derived-port",
-        },
-      ];
+      return {
+        candidates: [
+          {
+            processId: instance.processId,
+            projectName,
+            workspaceRoot,
+            host: EDITOR_HOST,
+            port:
+              advertised?.debuggerPort ??
+              defaultEditorPort(instance.processId),
+            projectVersion,
+            machine: os.hostname(),
+            source: advertised ? "advertisement" : "derived-port",
+          },
+        ],
+        consumedAdvertisements: advertised ? [advertised] : [],
+      };
     } catch {
-      return [];
+      return noDiscovery();
     }
 
-    return [];
+    return noDiscovery();
   }
 
   private async collectAdvertisements(
@@ -226,6 +254,30 @@ export class EditorDiscovery {
       // A bind failure can leave a datagram socket already closed.
     }
   }
+}
+
+function noDiscovery(): DiscoveryOutcome {
+  return { candidates: [], consumedAdvertisements: [] };
+}
+
+function toPlayerCandidate(
+  advertisement: PlayerAdvertisement,
+  workspaceRoot: string,
+): EditorCandidate {
+  return {
+    processId: 0,
+    projectName: advertisement.projectName,
+    workspaceRoot,
+    host: advertisement.ip,
+    port: advertisement.debuggerPort,
+    projectVersion: "",
+    machine: advertisement.machine,
+    source: "player-advertisement",
+  };
+}
+
+function isValidPort(port: number): boolean {
+  return Number.isInteger(port) && port > 0 && port <= 65_535;
 }
 
 function uniqueRoots(workspaceRoots: readonly string[]): string[] {

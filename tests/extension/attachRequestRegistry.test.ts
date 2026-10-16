@@ -1,3 +1,4 @@
+import os from "node:os";
 import { describe, expect, it } from "vitest";
 import { AttachRequestRegistry } from "../../extension/src/attachRequestRegistry.js";
 import type { EditorCandidate } from "../../extension/src/model.js";
@@ -9,6 +10,7 @@ const candidate: EditorCandidate = {
   host: "127.0.0.1",
   port: 56234,
   projectVersion: "2022.3.62t11",
+  machine: os.hostname(),
   source: "derived-port",
 };
 

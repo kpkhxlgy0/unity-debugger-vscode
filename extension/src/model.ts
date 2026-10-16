@@ -15,10 +15,14 @@ export interface EditorCandidate {
   readonly processId: number;
   readonly projectName: string;
   readonly workspaceRoot: string;
-  readonly host: "127.0.0.1";
+  readonly host: string;
   readonly port: number;
   readonly projectVersion: string;
-  readonly source: "advertisement" | "derived-port";
+  readonly machine: string;
+  readonly source:
+    | "advertisement"
+    | "derived-port"
+    | "player-advertisement";
 }
 
 export interface UnityAttachConfiguration {
@@ -26,7 +30,7 @@ export interface UnityAttachConfiguration {
   readonly type: typeof PRODUCT_IDENTITY.debugType;
   readonly request: "attach";
   readonly __processId: number;
-  readonly __host: "127.0.0.1";
+  readonly __host: string;
   readonly __port: number;
   readonly __workspaceRoot: string;
   readonly __projectVersion: string;

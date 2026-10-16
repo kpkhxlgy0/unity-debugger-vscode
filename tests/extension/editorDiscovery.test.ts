@@ -1,14 +1,16 @@
 import type dgram from "node:dgram";
 import { EventEmitter } from "node:events";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   EditorDiscovery,
   type EditorDiscoveryDependencies,
 } from "../../extension/src/editorDiscovery.js";
+import type { EditorCandidate } from "../../extension/src/model.js";
 import { parsePlayerAdvertisement } from "../../extension/src/playerAdvertisement.js";
-import { packet } from "./playerAdvertisement.test.js";
+import { androidPlayerPacket, packet } from "./playerAdvertisement.test.js";
 
 function dependencies(
   overrides: Partial<EditorDiscoveryDependencies> = {},
@@ -67,6 +69,7 @@ describe("EditorDiscovery", () => {
         host: "127.0.0.1",
         port: address.port,
         source: "advertisement",
+        machine: os.hostname(),
       });
 
       connectionPhase = "adapter";
@@ -85,7 +88,9 @@ describe("EditorDiscovery", () => {
   it("returns a matching Editor on loopback only", async () => {
     const discovery = new EditorDiscovery(dependencies());
 
-    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([
       {
         processId: 1234,
         projectName: "fixture",
@@ -93,6 +98,7 @@ describe("EditorDiscovery", () => {
         host: "127.0.0.1",
         port: 56234,
         projectVersion: "2022.3.62t11",
+        machine: os.hostname(),
         source: "derived-port",
       },
     ]);
@@ -109,6 +115,7 @@ describe("EditorDiscovery", () => {
       host: "127.0.0.1",
       port: 56234,
       source: "advertisement",
+      machine: os.hostname(),
     });
     expect(candidate?.host).not.toBe("192.168.1.20");
   });
@@ -117,7 +124,10 @@ describe("EditorDiscovery", () => {
     const discovery = new EditorDiscovery(
       dependencies({ isProcessAlive: async () => false }),
     );
-    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([]);
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([]);
   });
 
   it("honors an explicit debug-disabled advertisement", async () => {
@@ -155,6 +165,7 @@ describe("EditorDiscovery", () => {
         host: "127.0.0.1",
         port: 56234,
         projectVersion: "2022.3.62t11",
+        machine: os.hostname(),
         source: "derived-port",
       },
     ]);
@@ -165,12 +176,18 @@ describe("EditorDiscovery", () => {
     const discovery = new EditorDiscovery(
       dependencies({ readFile: async () => "not json" }),
     );
-    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([]);
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([]);
   });
 
   it("uses the derived Editor port without a matching advertisement", async () => {
     const discovery = new EditorDiscovery(dependencies());
-    await expect(discovery.discover(["H:\\fixture"])).resolves.toEqual([
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(editorCandidates(found)).toEqual([
       {
         processId: 1234,
         projectName: "fixture",
@@ -178,9 +195,138 @@ describe("EditorDiscovery", () => {
         host: "127.0.0.1",
         port: 56234,
         projectVersion: "2022.3.62t11",
+        machine: os.hostname(),
         source: "derived-port",
       },
     ]);
+  });
+
+  it("offers a player advertisement as its own target", async () => {
+    const discovery = new EditorDiscovery({
+      collectAdvertisements: async () => [
+        {
+          ip: "192.168.1.77",
+          debuggerPort: 56_001,
+          projectName: "Other",
+          id: "p1",
+          allowDebugging: true,
+          machine: "samsung_SM-S9260@192.168.1.77",
+        },
+      ],
+    });
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(found).toContainEqual(
+      expect.objectContaining({
+        host: "192.168.1.77",
+        port: 56_001,
+        source: "player-advertisement",
+        machine: "samsung_SM-S9260@192.168.1.77",
+      }),
+    );
+  });
+
+  it("does not offer a player that has not enabled debugging", async () => {
+    const discovery = new EditorDiscovery(
+      dependencies({
+        collectAdvertisements: async () => [
+          {
+            ip: "192.168.1.77",
+            debuggerPort: 56_001,
+            projectName: "Other",
+            id: "p1",
+            allowDebugging: false,
+            machine: "samsung_SM-S9260@192.168.1.77",
+          },
+        ],
+      }),
+    );
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(
+      found.filter(
+        (candidate) => candidate.source === "player-advertisement",
+      ),
+    ).toHaveLength(0);
+    expect(found).toHaveLength(1);
+  });
+
+  it("keeps two players on different hosts that share a port", async () => {
+    const discovery = new EditorDiscovery({
+      collectAdvertisements: async () => [
+        {
+          ip: "192.168.1.77",
+          debuggerPort: 56_001,
+          projectName: "A",
+          id: "p1",
+          allowDebugging: true,
+          machine: "samsung_SM-S9260@192.168.1.77",
+        },
+        {
+          ip: "192.168.1.78",
+          debuggerPort: 56_001,
+          projectName: "B",
+          id: "p2",
+          allowDebugging: true,
+          machine: "samsung_SM-S9260@192.168.1.78",
+        },
+      ],
+    });
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(
+      found.filter(
+        (candidate) => candidate.source === "player-advertisement",
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("does not offer an advertisement that carries no debugger port", async () => {
+    // Recorded divergence: the reference attaches to this exact player by
+    // obtaining a debugger port through the device (adb port forwarding,
+    // /proc/net/tcp, usbmuxd), which the spec puts out of scope. The
+    // advertisement carries [Port] 55000 — the player-connection port — and no
+    // [DebuggerPort], so parsePlayerAdvertisement yields debuggerPort 0.
+    // Offering a target we cannot attach to would be worse than omitting it;
+    // the explicit endPoint path is the supported way to reach a player. The
+    // omission is deliberate, not a bug.
+    const discovery = new EditorDiscovery({
+      collectAdvertisements: async () => [
+        parsePlayerAdvertisement(androidPlayerPacket),
+      ],
+    });
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(
+      found.filter(
+        (candidate) => candidate.source === "player-advertisement",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("does not offer a debug-enabled advertisement with no debugger port", async () => {
+    // The live record above also carries [Debug] 0, so it cannot show that the
+    // missing debugger port alone excludes a target. Debugging is enabled here
+    // to isolate the positive-port gate.
+    const advertisement = {
+      ...parsePlayerAdvertisement(androidPlayerPacket),
+      allowDebugging: true,
+    };
+    const discovery = new EditorDiscovery({
+      collectAdvertisements: async () => [advertisement],
+    });
+
+    const found = await discovery.discover(["H:\\fixture"]);
+
+    expect(
+      found.filter(
+        (candidate) => candidate.source === "player-advertisement",
+      ),
+    ).toHaveLength(0);
   });
 
   it("collects advertisements once and preserves distinct roots", async () => {
@@ -256,6 +402,19 @@ describe("EditorDiscovery", () => {
     expect(sockets.every((socket) => socket.closed)).toBe(true);
   });
 });
+
+/**
+ * The Editor-path expectations are exact. Player targets are appended by
+ * `EditorDiscovery.discover` and have their own tests above, so they are
+ * filtered out here instead of being restated in every Editor expectation.
+ */
+function editorCandidates(
+  candidates: readonly EditorCandidate[],
+): readonly EditorCandidate[] {
+  return candidates.filter(
+    (candidate) => candidate.source !== "player-advertisement",
+  );
+}
 
 async function connectToLoopback(port: number): Promise<void> {
   await new Promise<void>((resolve, reject) => {

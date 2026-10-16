@@ -8,12 +8,15 @@ const REQUIRED_FIELDS = [
   "debug",
 ] as const;
 
+const MACHINE_PATTERN = /^([^()]*)\(([^,]*),([^)]*)\)$/;
+
 export interface PlayerAdvertisement {
   readonly ip: string;
   readonly debuggerPort: number;
   readonly projectName: string;
   readonly id: string;
   readonly allowDebugging: boolean;
+  readonly machine: string;
 }
 
 export function parsePlayerAdvertisement(
@@ -44,11 +47,26 @@ export function parsePlayerAdvertisement(
     throw new Error("Advertisement has an invalid debugger port");
   }
 
+  const ip = fields.get("ip")!;
+  const id = fields.get("id")!;
   return {
-    ip: fields.get("ip")!,
+    ip,
     debuggerPort,
     projectName: fields.get("projectname") ?? "",
-    id: fields.get("id")!,
+    id,
     allowDebugging: fields.get("debug") === "1",
+    machine: machineFromId(id, ip),
   };
+}
+
+/**
+ * The machine label the reference reports for a target: the second
+ * comma-separated component inside the `[Id]` parentheses, e.g.
+ * `AndroidPlayer(11,samsung_SM-S9260@10.30.154.73)` yields
+ * `samsung_SM-S9260@10.30.154.73`. An `[Id]` without that shape carries no
+ * machine, so the advertised address stands in for it.
+ */
+function machineFromId(id: string, ip: string): string {
+  const match = MACHINE_PATTERN.exec(id);
+  return match ? match[3] : ip;
 }

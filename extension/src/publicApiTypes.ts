@@ -1,4 +1,7 @@
-export type PublicTargetSource = "advertisement" | "derived-port";
+export type PublicTargetSource =
+  | "advertisement"
+  | "derived-port"
+  | "player-advertisement";
 
 export interface PublicEditorTarget {
   readonly targetId: string;
