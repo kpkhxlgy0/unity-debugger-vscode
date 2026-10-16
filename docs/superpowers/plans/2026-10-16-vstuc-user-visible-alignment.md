@@ -789,9 +789,11 @@ Expected: PASS.
 git add extension/src/attachTargetPicker.ts extension/src/model.ts \
         extension/src/productIdentity.ts extension/src/extension.ts \
         extension/src/editorDiscovery.ts package.json \
+        adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs \
         tests/extension/attachTargetPicker.test.ts tests/extension/editorDiscovery.test.ts \
         tests/extension/attachRequestRegistry.test.ts tests/extension/debugConfigurationProvider.test.ts \
-        tests/extension/publicApi.test.ts tests/build/scaffold.test.mjs
+        tests/extension/publicApi.test.ts tests/build/scaffold.test.mjs \
+        tests/adapter/UnityDebugger.Adapter.Tests/Dap/UnityDebugSessionLifecycleTests.cs
 git commit -m "feat: add the attach Unity debugger command and picker"
 ```
 
