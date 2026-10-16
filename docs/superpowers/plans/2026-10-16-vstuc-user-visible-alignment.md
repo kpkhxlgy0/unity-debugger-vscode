@@ -639,8 +639,22 @@ git commit -m "feat: warn about function breakpoint performance"
 - Test: `tests/extension/unityApiReference.test.ts`
 
 **Interfaces:**
-- Produces: `buildUnityReferenceUrl(selectedText: string | undefined): string`. Non-empty single-line text → `https://docs.unity3d.com/ScriptReference/30_search.html?q=<encodeURIComponent(text)>`; otherwise `https://docs.unity3d.com/ScriptReference`.
-- Produces: `PRODUCT_IDENTITY.commandIds.showUnityApiReference = "unity-debugger-pure.showUnityApiReference"`.
+- Produces: `buildUnityReferenceUrl(selectedText: string | undefined): string`. Non-empty, non-whitespace, **single-line** text → `https://docs.unity3d.com/ScriptReference/30_search.html?q=<encodeURIComponent(text)>`; otherwise the bare index `https://docs.unity3d.com/ScriptReference`.
+
+  The reference's handler was read out of `out/extension.js` verbatim, so this is the observed behaviour rather than an inference. It registers `vstuc.showUnityAPIReference`, takes `window.activeTextEditor` — and if there is **no active editor it does nothing at all**, with no message — reads the selection, falls back to `document.getWordRangeAtPosition(selection.start)` when the selection is empty, and then:
+
+  ```js
+  const base = "https://docs.unity3d.com/ScriptReference";
+  const url = isSingleLineNonEmpty(text) ? `${base}/30_search.html?q=${text}` : base;
+  commands.executeCommand("vscode.open", Uri.parse(url));
+  ```
+
+  Three consequences worth stating:
+
+  1. It is a **search** URL (`30_search.html?q=`), not a per-symbol page. There is no `<Symbol>.html` anywhere in the handler.
+  2. A **multi-line selection yields the index**, not a search — the guard is `(text.match(/\n/g) ?? []).length === 0`.
+  3. The reference does **not** URL-encode (`encodeURIComponent` appears zero times in the handler), so a symbol containing `#`, `&`, or a space produces a broken URL. **We will encode anyway.** That is a deliberate, documented improvement: identical output for every plain C# identifier, and correct where the reference is broken. Do not "align" by removing the encoding, and do not treat this as a divergence needing a matrix row — a difference that only appears on input the reference mishandles is not a behaviour we should reproduce.
+- Produces: `PRODUCT_IDENTITY.commandIds.showUnityApiReference = "unity-debugger-pure.showUnityApiReference"`. The command **title** must be `Unity API Reference`, verbatim from the reference's bundle. Note our id keeps our own prefix; the reference's is `vstuc.showUnityAPIReference` — and the id is **not** user-visible, so the title is what matters.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -665,7 +679,21 @@ Expected: FAIL — the module does not exist.
 
 - [ ] **Step 3: Implement**
 
-Add the module; register the command in the manifest and `extension.ts`, reading the active editor's selection and falling back to the word at the cursor, then `vscode.env.openExternal`.
+Add the module; register the command in the manifest and `extension.ts`, reading the active editor's selection and falling back to the word at the cursor. Add these three cases to the test file alongside the ones above, because they are the reference's actual edge behaviour and two of them are silent:
+
+```ts
+it("yields the index when the selection is only whitespace", () => {
+  expect(buildUnityReferenceUrl("   ")).toBe("https://docs.unity3d.com/ScriptReference");
+});
+it("encodes a symbol the reference would break on", () => {
+  expect(buildUnityReferenceUrl("Foo&Bar"))
+    .toBe("https://docs.unity3d.com/ScriptReference/30_search.html?q=Foo%26Bar");
+});
+```
+
+and a command-level test that invoking it with **no active editor** performs no `openExternal` call and shows no error.
+
+Open the URL with `vscode.env.openExternal(vscode.Uri.parse(url))`. The reference uses `commands.executeCommand("vscode.open", Uri.parse(url))`, which reaches the same browser for an `https` URI; `openExternal` is the documented API for this and is what we should use. Record that choice in your report rather than treating it as invisible.
 
 - [ ] **Step 4: Run test to verify it passes**
 
