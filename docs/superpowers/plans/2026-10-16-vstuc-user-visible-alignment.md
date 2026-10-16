@@ -532,6 +532,8 @@ The reference localizes those strings through `package.nls*.json` (14 locales). 
 
 Both extensions can be installed at the same time — the acceptance project already has the reference installed — so our label and initial-config name exist to let a user tell the two apart in the Run and Debug dropdown and in a shared `launch.json`. Aligning them to `Unity` / `Unity Debugger` would make two entries indistinguishable, which is worse for the user than the difference it removes. Keep our names, add `projectPath` to `initialConfigurations[0]`, and record the label/name pair in Task 12 as a **deliberate coexistence divergence** rather than a miss.
 
+**Use the existing constants rather than new literals.** `extension/src/productIdentity.ts` already holds `displayName: "Unity Debugger Pure"` and `defaultConfigurationName: "Attach to Unity Debugger Pure"` (verified — the file is 18 lines and carries `commandIds` for `refreshTargets`, `openLogs` and `copyDiagnostics`). Write the manifest's initial-configuration name and debug-type label from those values, not from a fresh string, so the three coexistence names cannot drift apart from each other. `settingIds` does **not** exist yet — Task 8 adds that block.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/extension && node --test tests/build/scaffold.test.mjs`
