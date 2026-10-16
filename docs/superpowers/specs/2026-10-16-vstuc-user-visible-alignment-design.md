@@ -122,6 +122,7 @@ Comparison with the current adapter
 | Target list | Editors **and** Players (local, Android via adb/`Mono.AndroidTools`, Apple via usbmuxd P/Invoke); background processes filtered by a setting; non-background first | players parsed then discarded (`editorDiscovery.ts:110-126`) | implement, but only for advertisements that carry a usable debugger port — see the port divergence below |
 | Item label | `Unity <displayType>, <projectName>, <machine>, <displayConnection>` joined with ", ". Observed live: `Unity Editor, sgproj, xiaolonghan, Port:56548 (VSTU)` | n/a | implement, with the three label divergences below recorded |
 | Exception filter conditions | Advertises `supportsCondition: true` with `conditionDescription: "List of exceptions ..."`, so the client offers a condition box and sends `filterOptions[].condition` | We will accept `filterId` and ignore `condition`; an exception-condition list a user types is not honoured | **divergent — recorded, not implemented in this plan** |
+| Unparseable `endPoint` | Answers `success:true` with no message for `localhost:1`, `unity-box.local:1`, or garbage, and never attaches; a missing port becomes `:0` | We reject a non-IP-literal host and a missing port with an explicit error | **divergent in our favour — deliberately stricter; never align to the silent no-op** |
 | Player `debug` gating | Lists an Android player whose advertisement carried `[Debug] 0` as `isValidForAttachment: true` | `playerAdvertisement.ts:52` maps `debug === "1"` to `allowDebugging`, and W2 filters on it, so we exclude that exact target | **divergent — recorded, not changed** |
 | Player debugger port | Reports `debuggerPort: 56322` for that player and obtains it by reaching the device (adb port forwarding / `/proc/net/tcp`; usbmuxd for iOS) | The advertisement carries `[Port] 55000`, which is the player-connection port; it carries no debugger port. Our parser yields `debuggerPort: 0` and W2 therefore does not offer the target | **divergent — recorded; `endPoint` is the supported player path** |
 | Connection label engine token | `Port:56548 (VSTU)` | will render `Port:<port> (Mono)` | **divergent — accepted cosmetic** |
@@ -186,6 +187,31 @@ Sending the shipped adapter a real `attach` for an unreachable endpoint returned
 
 So the reference reports `Failed to attach debugger to <host>:<port>`. Our adapter
 must produce the same text for an explicit-endpoint connection failure.
+
+### Observed `endPoint` handling — and a reference defect we will not copy
+
+One adapter process per case, each sent a real `attach`:
+
+| `endPoint` | reference result |
+| --- | --- |
+| `127.0.0.1:1` | `success:false` — `Failed to attach debugger to 127.0.0.1:1` |
+| `localhost:1` | **`success:true`, no message** |
+| `unity-box.local:1` | **`success:true`, no message** |
+| `not a valid endpoint` | **`success:true`, no message** |
+| `127.0.0.1` | `success:false` — `Failed to attach debugger to 127.0.0.1:0` |
+| `10.30.154.73:56322` | `success:false` — `Failed to attach debugger to 10.30.154.73:56322` |
+
+Two consequences:
+
+1. **The reference accepts IP literals only.** A host name is not resolved; a
+   missing port silently becomes `0`. So host-name support is **not** part of
+   alignment, and this plan does not add it.
+2. **The reference answers `success:true` for an endpoint it cannot parse**, and
+   then does nothing. That is a defect: a client reporting a live session that
+   will never attach is worse than a loud failure. Our adapter must **reject a
+   non-IP-literal host and a missing port with an explicit error** and must never
+   reproduce the silent no-op. This is a deliberate divergence from the reference,
+   recorded as such in the matrix, and it is the correct direction.
 
 The same probe sent `setExceptionBreakpoints` with the undiscovered id `uncaught`
 after that failed attach and **received no response**. That is inconclusive rather

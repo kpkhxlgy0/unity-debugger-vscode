@@ -144,11 +144,13 @@ git commit -m "fix: align initialize capabilities with the reference adapter"
 
 **Files:**
 - Modify: `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs`, `adapter/src/UnityDebugger.Adapter/Backend/MonoDebuggingBackend.cs:44-48`
-- Test: `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`
+- Test: `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`, and `tests/adapter/UnityDebugger.Adapter.Tests/Backend/MonoDebuggingBackendLifecycleTests.cs` (its `AttachRejectsANonLoopbackTargetBeforeCreatingAFacade` asserts exactly the behaviour this task removes)
 
 **Interfaces:**
 - Consumes: `__host` from the extension (Task 7 supplies it from `endPoint`).
-- Produces: `AttachArguments` accepts any non-empty host; `MonoDebuggingBackend` no longer rejects non-loopback hosts. A host that cannot be reached still surfaces the existing `DebuggerBackendException` path.
+- Produces: `AttachArguments` accepts a non-loopback **IP literal**; `MonoDebuggingBackend` no longer rejects non-loopback addresses. A reachable-but-refusing address still surfaces `DebuggerBackendException` carrying `Failed to attach debugger to {host}:{port}`.
+- Produces: a **non-IP** host, or a missing/zero port, is rejected with an explicit error.
+- **Out of scope: host names.** The reference resolves nothing — it answers `success:true` and attaches to nothing for `localhost:1`, `unity-box.local:1`, or garbage (see the spec's `endPoint` table). Do **not** add host-name resolution, do **not** change `AttachTarget` in `BackendModels.cs`, and do **not** add an `IPAddress` constructor overload. Rejecting a host name loudly is a deliberate divergence in our favour, recorded in the spec.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -156,15 +158,31 @@ git commit -m "fix: align initialize capabilities with the reference adapter"
 [Theory]
 [InlineData("127.0.0.1")]
 [InlineData("192.168.1.50")]
-[InlineData("unity-box.local")]
-public void AttachArgumentsAcceptsHost(string host)
+[InlineData("10.30.154.73")]
+public void AttachArgumentsAcceptsAnyIpLiteral(string host)
 {
     var arguments = AttachArguments.Parse(ValidJson(host: host, port: 56234));
     Assert.Equal(host, arguments.Host);
 }
 ```
 
-Add a second test asserting that an unreachable non-loopback host produces a `DebuggerBackendException` (not a hang and not a silent success) by pointing `MonoDebuggingBackend` at a closed port with a short timeout and asserting the thrown type **and** its message: the reference was observed answering an unreachable endpoint with `Failed to attach debugger to 127.0.0.1:1`, so the message must be exactly `` $"Failed to attach debugger to {host}:{port}" ``.
+Add three more tests:
+
+```csharp
+[Theory]
+[InlineData("unity-box.local")]   // a host name is NOT resolved, matching the reference
+[InlineData("not a valid endpoint")]
+[InlineData("")]
+public void AttachArgumentsRejectsANonIpHost(string host)
+{
+    Assert.Throws<ArgumentException>(
+        () => AttachArguments.Parse(ValidJson(host: host, port: 56234)));
+}
+```
+
+and one asserting that an unreachable **non-loopback** address produces a `DebuggerBackendException` (not a hang, and never a silent success) by pointing `MonoDebuggingBackend` at a closed port with a short timeout, asserting the thrown type **and** that the message is exactly `` $"Failed to attach debugger to {host}:{port}" ``. Add the zero/missing-port rejection as the fourth.
+
+Do not reproduce the reference's silent no-op: with an endpoint it cannot parse, the reference returns `success:true` and attaches to nothing. Failing loudly here is intentional.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -173,19 +191,24 @@ Expected: FAIL — non-loopback hosts are rejected today, and the failure messag
 
 - [ ] **Step 3: Implement**
 
-In `AttachArguments.cs`, replace the loopback assertion with a non-empty/format check. In `MonoDebuggingBackend.cs:44-48`, remove the loopback rejection, and make the connection-failure path throw with the observed message format. Keep every other validation and retry behaviour unchanged.
+In `AttachArguments.cs`, replace the loopback assertion with a check that the host parses as an `IPAddress` and the port is non-zero, throwing `ArgumentException` otherwise, and keep the existing `AttachArguments` → `AttachTarget` conversion untouched so `BackendModels.cs` needs no change. In `MonoDebuggingBackend.cs:44-48`, remove the loopback rejection, and make the connection-failure path throw with the observed message format. Keep every other validation and retry behaviour unchanged. Then update `MonoDebuggingBackendLifecycleTests.AttachRejectsANonLoopbackTargetBeforeCreatingAFacade` to the new behaviour — retarget it rather than deleting it, since "no facade is created before validation passes" is worth keeping.
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `dotnet test UnityDebugger.sln -c Release --no-restore --filter "FullyQualifiedName~AttachArgumentsTests"`
-Expected: PASS.
+Expected: PASS. Then run the full adapter suite once before committing.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs adapter/src/UnityDebugger.Adapter/Backend/MonoDebuggingBackend.cs tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs
+git add adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs \
+        adapter/src/UnityDebugger.Adapter/Backend/MonoDebuggingBackend.cs \
+        tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs \
+        tests/adapter/UnityDebugger.Adapter.Tests/Backend/MonoDebuggingBackendLifecycleTests.cs
 git commit -m "feat: accept a non-loopback attach endpoint"
 ```
+
+Every changed file must be staged. Check `git status --short` afterwards and confirm nothing of yours is left uncommitted.
 
 ---
 
