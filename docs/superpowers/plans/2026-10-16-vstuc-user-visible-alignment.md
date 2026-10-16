@@ -1633,6 +1633,21 @@ Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberatel
     - **Why these matter more than their size, and why they belong in CI rather than in a checklist.** All three are *negative* claims — the absence of a dependency — which is exactly the kind that cannot be noticed by reading code and cannot be preserved by good intentions. Every verification of them this session was a manual grep I ran by hand, and a manual grep is a check that stops existing the moment nobody remembers to run it. **Two of the three invariants the goal names currently rest on my memory of this conversation.**
     - **The sanitized-diagnostics guard has the same defect and for the same reason** — item 43 records that it survives on review rather than structure. Putting these three in the suite does not fix item 43, but it does establish the pattern that an invariant worth naming in a goal is worth an assertion, and it removes the largest remaining block of "verified by remembering" from the branch.
     - **Do not add these to the adapter's xunit project or to a new file.** They are manifest and source-tree facts, `tests/build` already owns both, and a second home for the same claim is the "two copies disagree" class this plan keeps closing.
+47. **Re-derive this task's `extension.ts` citations — six are already stale, before Task 11b touches the file.** The items above cite roughly fifty `file:line` locations, and I checked the six that point into `extension/src/extension.ts`. **Every one is wrong**, drifted by 13 to 55 lines as Tasks 9, 10 and 11 edited that file:
+
+    | Item | Cited | **Actual** | What it is |
+    | --- | --- | --- | --- |
+    | 28 | `:40` | **`:53`** | `const DISPLAY_BACKGROUND_PROCESSES_SETTING = "displayBackgroundProcesses";` |
+    | 29 | `:41-42` | **`:53`** | The same literal, duplicated with `debugConfigurationProvider.ts:83` (that half of the citation is correct) |
+    | 30 | `:86` | **`:99`** | `await dependencies.startDebugging(folder, {` — the discarded boolean |
+    | 31 | `:154` | **`:185`** | `folder as unknown as vscode.WorkspaceFolder &#124; undefined` |
+    | 32 | `:254` | **`:309`** | `placeHolder: "Select a local Unity or Tuanjie Editor"` |
+    | 35 | `:143-145`, `:127` | **`:152`**, **`:135`** | The `warn` call, and the `try` whose `catch` returns `undefined` at `:163` |
+
+    - **Task 11b will move them again**, since it inserts an activation-time call into this file. So the numbers above are correct **as of this revision and not afterwards** — which is the point of the item rather than a caveat on it.
+    - **Every one of the six is a location you are meant to edit, which makes a stale line the difference between finding the code and not.** The instruction reads "fix the literal at `extension.ts:40`"; if line 40 now holds an unrelated `import type` and the literal has moved to `:53`, the failure mode is not a confusing error — it is **editing the wrong thing**, because a plausible line at the cited position is exactly what a careless reader accepts as confirmation. I made this concrete by checking, and found `:40` holding `import type { UnityDebuggerPureApiV1 } …`, `:86` holding a `showError` call, and `:254` holding an unrelated comment.
+    - **Re-derive rather than offset.** Do not add Task 11b's line count to each number: the insertion point will sit above some and below others, and a mechanical offset repeats the original mistake with more confidence. **Grep for the code each item describes** — the string literal, the discarded call, the double cast, the placeholder text — and cite where it is now. The items describe their subjects precisely enough for that to work, which is why the descriptions and not the numbers are the durable half.
+    - **This item exists because round 108 found three citations in Task 5's section stale by fifty lines, guarding a rule that was correct.** That paragraph's evidence was wrong while its instruction was right; here the *targets* are wrong, which is strictly worse — a stale rule gets discounted, but a stale target gets edited.
 
 
 - [ ] **Step 4: Verify and commit**
