@@ -829,11 +829,6 @@ namespace UnityDebugger.Adapter.Dap
             }
         }
 
-        private void NotImplemented(Response response)
-        {
-            SendErrorResponse(response, 2005, "Not implemented yet.");
-        }
-
         private void Subscribe(IDebuggerBackend value)
         {
             value.Stopped += OnStopped;

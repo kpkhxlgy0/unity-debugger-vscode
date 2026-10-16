@@ -168,8 +168,16 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Assert.True(
                     fixture.Backend.VariablesEnteredSignal.Wait(
                         TimeSpan.FromSeconds(1)));
-                fixture.Backend.RaiseReloadStarted();
-                fixture.Backend.RaiseReloadCompleted();
+                fixture.Backend.RaiseThreadChanged(
+                    new BackendThreadEventArgs(2, true));
+                fixture.Backend.RaiseModuleChanged(
+                    new BackendModuleChangedEventArgs(
+                        new BackendModule(
+                            "Assembly-CSharp.dll",
+                            "Assembly-CSharp.dll",
+                            null,
+                            false),
+                        true));
                 fixture.Backend.RaiseStopped(
                     new BackendStoppedEventArgs(
                         BackendStopReason.Breakpoint,

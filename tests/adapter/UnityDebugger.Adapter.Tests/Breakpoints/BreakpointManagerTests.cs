@@ -197,7 +197,7 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
         }
 
         [Fact]
-        public async Task Concurrent_condition_change_and_reload_keep_one_binding()
+        public async Task Concurrent_condition_changes_keep_one_binding()
         {
             var backend = new FakeDebuggerBackend();
             using (var manager = new BreakpointManager(backend))
@@ -226,13 +226,15 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                     CancellationToken.None,
                     TaskCreationOptions.LongRunning,
                     TaskScheduler.Default);
-                var reloadRebind = Task.CompletedTask;
+                var secondConditionChange = Task.CompletedTask;
                 try
                 {
                     Assert.True(removeEntered.Wait(TimeSpan.FromSeconds(2)));
 
-                    reloadRebind = Task.Factory.StartNew(
-                        manager.RebindAll,
+                    secondConditionChange = Task.Factory.StartNew(
+                        () => manager.ReplaceForSource(
+                            @"H:\fixture\Assets\Player.cs",
+                            new[] { new RequestedBreakpoint(12, "paused") }),
                         CancellationToken.None,
                         TaskCreationOptions.LongRunning,
                         TaskScheduler.Default);
@@ -244,35 +246,12 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
                 {
                     continueRemove.Set();
                     continueBind.Set();
-                    await Task.WhenAll(conditionChange, reloadRebind);
+                    await Task.WhenAll(
+                        conditionChange,
+                        secondConditionChange);
                 }
 
                 Assert.Single(backend.ActiveBreakpointIds);
-            }
-        }
-
-        [Fact]
-        public void RebindPending_preserves_id_and_retries_only_pending()
-        {
-            var backend = new FakeDebuggerBackend
-            {
-                RejectBreakpoint = true,
-            };
-            using (var manager = new BreakpointManager(backend))
-            {
-                var pending = manager.ReplaceForSource(
-                    @"H:\fixture\Assets\Player.cs",
-                    new[] { new RequestedBreakpoint(12, null) })[0];
-                backend.RejectBreakpoint = false;
-
-                manager.RebindPending();
-                var rebound = manager.ReplaceForSource(
-                    @"H:\fixture\Assets\Player.cs",
-                    new[] { new RequestedBreakpoint(12, null) })[0];
-
-                Assert.Equal(pending.Id, rebound.Id);
-                Assert.True(rebound.Verified);
-                Assert.Equal(2, backend.Bound.Count);
             }
         }
 

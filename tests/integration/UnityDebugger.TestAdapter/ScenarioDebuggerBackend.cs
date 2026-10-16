@@ -30,10 +30,6 @@ namespace UnityDebugger.TestAdapter
         public event EventHandler<BackendBreakpointChangedEventArgs>?
             BreakpointChanged;
         public event EventHandler<BackendOutputEventArgs>? Output;
-        public event EventHandler? ReloadStarted;
-        public event EventHandler? ReloadProgress;
-        public event EventHandler? ReloadCompleted;
-        public event EventHandler? ReconnectFailed;
         public event EventHandler? Terminated;
 #pragma warning restore CS0067
 

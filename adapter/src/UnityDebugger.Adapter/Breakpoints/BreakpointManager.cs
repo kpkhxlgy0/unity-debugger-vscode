@@ -91,7 +91,6 @@ namespace UnityDebugger.Adapter.Breakpoints
             changesDuringBind =
                 new Dictionary<long, BackendBoundBreakpoint>();
         private int bindsInProgress;
-        private bool preserveVerifiedWhileReloading;
         private bool disposed;
 
         public BreakpointManager(IDebuggerBackend backend)
@@ -226,86 +225,6 @@ namespace UnityDebugger.Adapter.Breakpoints
             }
             logicalId = 0;
             return false;
-        }
-
-        public void MarkAllPending(string reason)
-        {
-            ManagedBreakpoint[] changed;
-            lock (bindingLock)
-            {
-                ThrowIfDisposed();
-                changed = entries.Values
-                    .Select(
-                        entry =>
-                        {
-                            entry.Verified = false;
-                            entry.Message = reason;
-                            return Snapshot(entry);
-                        })
-                    .ToArray();
-            }
-            foreach (var breakpoint in changed)
-                RaiseChanged(breakpoint);
-        }
-
-        public void BeginReload(
-            bool preserveVerified,
-            string pendingReason)
-        {
-            lock (bindingLock)
-            {
-                ThrowIfDisposed();
-                preserveVerifiedWhileReloading = preserveVerified;
-            }
-            if (!preserveVerified)
-                MarkAllPending(pendingReason);
-        }
-
-        public void CompleteReload()
-        {
-            lock (bindingLock)
-            {
-                ThrowIfDisposed();
-                preserveVerifiedWhileReloading = false;
-            }
-        }
-
-        public void RebindAll()
-        {
-            Entry[] values;
-            lock (bindingLock)
-            {
-                ThrowIfDisposed();
-                values = entries.Values.ToArray();
-            }
-            foreach (var entry in values)
-            {
-                Bind(entry);
-                ManagedBreakpoint changed;
-                lock (bindingLock)
-                    changed = Snapshot(entry);
-                RaiseChanged(changed);
-            }
-        }
-
-        public void RebindPending()
-        {
-            Entry[] values;
-            lock (bindingLock)
-            {
-                ThrowIfDisposed();
-                values = entries.Values
-                    .Where(item => !item.Verified)
-                    .ToArray();
-            }
-            foreach (var entry in values)
-            {
-                Bind(entry);
-                ManagedBreakpoint changed;
-                lock (bindingLock)
-                    changed = Snapshot(entry);
-                RaiseChanged(changed);
-            }
         }
 
         public void Dispose()
@@ -491,15 +410,6 @@ namespace UnityDebugger.Adapter.Breakpoints
                                 ? "unity-debugger.breakpoint.manager.status.bound.unmapped"
                                 : "unity-debugger.breakpoint.manager.status.pending.unmapped");
                     }
-                    return;
-                }
-                if (
-                    preserveVerifiedWhileReloading &&
-                    entry.Verified &&
-                    !bound.Verified)
-                {
-                    InternalDebuggerLog.Write(
-                        "unity-debugger.breakpoint.manager.status.pending.suppressed");
                     return;
                 }
                 InternalDebuggerLog.Write(
