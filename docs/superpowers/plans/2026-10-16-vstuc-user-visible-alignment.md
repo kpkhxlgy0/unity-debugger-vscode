@@ -508,8 +508,10 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 ### Task 7: Attach configuration surface
 
 **Files:**
-- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`
-- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/build/scaffold.test.mjs`
+- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`, `extension/src/versionPolicy.ts`
+- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/versionPolicy.test.ts`, `tests/build/scaffold.test.mjs`
+
+`versionPolicy.ts` and its test file were added to this list after Task 6 escalated the version-gate finding described below; `model.ts` is **not** listed because no type change is needed unless you decide `VersionDecision` needs a new level, in which case say so in your report rather than widening the interface silently.
 
 **Interfaces:**
 - Consumes: `EditorCandidate.host: string` (Task 5).
@@ -523,6 +525,14 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 Why this is not optional: Task 5's implementer flagged the cross-task window directly. After Task 5 a Player target has `host: "192.168.1.77"` and is offered by discovery; if this task leaves the literal in place, selecting that Player resolves a configuration pointing at **loopback**, so the debugger attaches to whatever Editor is on the local machine instead of the Player the user chose — or fails, if none is listening. That is a silent wrong-host attach, the same failure class as the non-canonical IP defect closed in Task 2, and it would look like "Player support does not work" rather than like an address bug.
 
 **Add a test for it**, since nothing currently pins it: a Player candidate (`host: "192.168.1.77"`, `source: "player-advertisement"`) with **no** `endPoint` must resolve to `__host: "192.168.1.77"`. The existing `endPoint` test covers only the branch where the property is present, which is exactly the branch that already worked.
+
+**An unknown Editor version must not block attaching — this task owns that fix, and it was found by Task 6 escalating rather than overreaching.** Task 6 made the project-version read tolerant, so an Editor whose project has no `ProjectSettings\ProjectVersion.txt` is now discovered with `projectVersion: ""`. It then proved with a throwaway probe (deleted, not committed) that **attach still fails**: `classifyVersion("")` (`versionPolicy.ts:7-14`) tests `""` against `VERSION_PATTERN`, fails, and returns `level: "unsupported"` with the warning `Malformed or unsupported Editor version: ` — note the trailing space where the version should be. `applyCandidatePolicy` (`debugConfigurationProvider.ts:127-133`) rejects `unsupported` outright, so `resolveDebugConfiguration` returns `undefined`. The user sees a message about a malformed version they do not have.
+
+The rule to implement: **an absent version is not a malformed one.** `classifyVersion` must treat an empty version as *unknown* and return a level that does **not** block attaching — `compatible-unverified` is the natural fit, with a warning that says the version could not be determined rather than one that implies the version is wrong. Everything non-empty keeps its current behaviour exactly, including the two `unsupported` branches.
+
+Why this is Task 7's and not a rider on Task 6: it is a semantic change to the compatibility policy affecting **every** candidate, not just Editors with a missing file. Task 5's Player candidates carry `projectVersion: ""` **by design** — a Player's Editor version is genuinely unknown — so before this change every Player from the picker would be rejected at the gate too. Task 6's implementer declined to apply a `=== ""` bypass precisely because it would silently change Player behaviour, which was the right instinct and is why the change needs its own tests. `endPoint` is **not** affected either way: that path skips discovery entirely and never reaches `applyCandidatePolicy`.
+
+Tests to add, in `tests/extension/versionPolicy.test.ts`: `""` yields a non-blocking level; a whitespace-only string is **not** silently treated as absent (decide and state which, rather than letting `trim()` fall out by accident); and the existing malformed and out-of-policy cases still return `unsupported` unchanged — that last one matters most, because the cheap version of this fix loosens the gate for everything.
 - Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side reader is actually reachable. This is the only producer of that field. **The reader is `AttachArguments.ParseLogFile(JObject?)`, not an `AttachArguments.LogFile` member** — an earlier revision of this line named the latter, which does not exist; Task 3 kept it a static parser because parsed request values live on `AttachTarget` in a file it was forbidden to change. You are emitting a wire key (`__logFile`), so nothing here depends on the member name; the correction is so you do not go looking for a property that is not there.
 
 - [ ] **Step 1: Write the failing tests**
