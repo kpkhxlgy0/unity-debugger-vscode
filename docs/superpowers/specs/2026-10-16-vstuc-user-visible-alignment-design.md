@@ -129,7 +129,7 @@ Comparison with the current adapter
 | `endPoint` | `address + ":" + debuggerPort`; address is `127.0.0.1` or the docker host | loopback only, hardcoded | implement (policy change) |
 | Settings | 5 contributed; **`displayBackgroundProcesses` is the only one that changes debugger behaviour** | **0 contributed** | implement the debugger-relevant one |
 | Function-breakpoint warning | raised from `createDebugAdapterDescriptor` whenever any `vscode.FunctionBreakpoint` exists | absent | implement |
-| Attach errors | "Unity is not running for the current project"; "No Unity endPoint to connect to"; "No Process to attach to"; "No processes to attach to" | "No local debug-enabled Tuanjie or Unity Editor was found. Switch Code Optimization to Debug, then refresh." | align |
+| Attach errors | "Unity is not running for the current project"; "No Unity endPoint to connect to"; "No Process to attach to"; "No processes to attach to"; and, observed live for an unreachable endpoint, `Failed to attach debugger to <host>:<port>` | "No local debug-enabled Tuanjie or Unity Editor was found. Switch Code Optimization to Debug, then refresh." | align |
 | Unity API Reference | `vstuc.showUnityAPIReference` → opens `https://docs.unity3d.com/ScriptReference/30_search.html?q=<selection>` | absent | implement |
 | Output channel | one channel titled with the extension display name | absent | implement |
 | Deprecated-extension warning | warns when `unity.unity-debug` is active | absent | implement |
@@ -173,6 +173,26 @@ is `Automatic`; and `displayType` is what feeds the `Unity <displayType>` label
 prefix. Note `messagerPort` is `debuggerPort + 2`, confirming the UDP refresh
 channel, and that the reference reports `isValidForAttachment: true` for a player
 whose advertisement carried `debug: false` — the divergence recorded above.
+
+### Observed attach failure
+
+Sending the shipped adapter a real `attach` for an unreachable endpoint returned:
+
+```json
+{"type":"response","request_seq":2,"success":false,"command":"attach",
+ "message":"Failed to attach debugger to 127.0.0.1:1","body":{},"seq":2}
+```
+
+So the reference reports `Failed to attach debugger to <host>:<port>`. Our adapter
+must produce the same text for an explicit-endpoint connection failure.
+
+The same probe sent `setExceptionBreakpoints` with the undiscovered id `uncaught`
+after that failed attach and **received no response**. That is inconclusive rather
+than informative: with no attached session the handler evidently does not answer,
+so the reference's filter-id validation could not be observed without a live
+target. Our existing `2030` rejection for unknown ids is therefore **not** shown
+to be a divergence, and Task 1 keeps it for genuinely unknown ids while accepting
+`uncaught`.
 
 ## Scope
 

@@ -158,16 +158,16 @@ public void AttachArgumentsAcceptsHost(string host)
 }
 ```
 
-Add a second test asserting that an unreachable non-loopback host produces a `DebuggerBackendException` (not a hang and not a silent success) by pointing `MonoDebuggingBackend` at a closed port with a short timeout and asserting the thrown type.
+Add a second test asserting that an unreachable non-loopback host produces a `DebuggerBackendException` (not a hang and not a silent success) by pointing `MonoDebuggingBackend` at a closed port with a short timeout and asserting the thrown type **and** its message: the reference was observed answering an unreachable endpoint with `Failed to attach debugger to 127.0.0.1:1`, so the message must be exactly `` $"Failed to attach debugger to {host}:{port}" ``.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `dotnet test UnityDebugger.sln -c Release --no-restore --filter "FullyQualifiedName~AttachArgumentsTests"`
-Expected: FAIL — non-loopback hosts are rejected today.
+Expected: FAIL — non-loopback hosts are rejected today, and the failure message is not that text.
 
 - [ ] **Step 3: Implement**
 
-In `AttachArguments.cs`, replace the loopback assertion with a non-empty/format check. In `MonoDebuggingBackend.cs:44-48`, remove the loopback rejection. Keep every other validation unchanged.
+In `AttachArguments.cs`, replace the loopback assertion with a non-empty/format check. In `MonoDebuggingBackend.cs:44-48`, remove the loopback rejection, and make the connection-failure path throw with the observed message format. Keep every other validation and retry behaviour unchanged.
 
 - [ ] **Step 4: Run test to verify it passes**
 
