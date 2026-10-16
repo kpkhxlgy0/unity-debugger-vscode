@@ -560,10 +560,28 @@ user changes that instruction.
    the package.
 4. Real Editor: A/B runs on the acceptance project for the W1, W2, W6, W7, W10
    and W11 items, recorded as matrix rows. Any item that cannot be exercised is
-   recorded `not verified` with the reason; no row is marked `aligned` from
+   recorded `not yet verified` with the reason; no row is marked `aligned` from
    automated evidence alone.
-5. The final handoff states every `divergent` or `not verified` row explicitly.
-   A `not verified` row blocks a claim of reference compatibility.
+5. The final handoff states every `divergent` or `not yet verified` row
+   explicitly. A `not yet verified` row blocks a claim of reference
+   compatibility.
+
+**Status-term correction (round 51).** Verification 4 and 5 previously said
+`not verified`, which is a term neither the matrix nor `AGENTS.md` uses. The
+matrix's own vocabulary today is `aligned` (25 rows) and `not yet verified`
+(3 rows), and `AGENTS.md:41` declares the set as `reference-verified`,
+`aligned`, `divergent`, or `not yet verified`. Corrected here because this spec
+is Task 12's binding authority: leaving it would have reintroduced the wrong
+term into the matrix no matter what the task brief said, and a third spelling in
+a document whose purpose is precise status is worse than a missing row.
+
+Note also that **the boundary between `reference-verified` and `aligned` is not
+defined anywhere**, including here. `reference-verified` most plausibly means the
+reference's behaviour was established from its shipped artifacts (what the REA
+work did) while `aligned` means the same behaviour was observed in both
+extensions live — but that is an inference, not a recorded rule, and Task 12 is
+required to state which term it used for which rows rather than let the
+distinction be inferred later from inconsistent usage.
 
 ## Unresolved evidence
 
