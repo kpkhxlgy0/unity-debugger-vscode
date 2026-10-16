@@ -963,6 +963,52 @@ git commit -m "test: record VSTU alignment acceptance evidence"
 
 State the versions, build ids, VSIX and adapter SHA-256 values, the exact automated test counts, the Editor version actually used, and every matrix row still `divergent` or `not verified`. Claim "reference-compatible" only when no row is in either state.
 
+### Task 14: Consolidated minor pass
+
+Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberately **not** fixed per task: each fix round costs a full `dotnet test` cycle against whichever task is currently building, and two of these sit in code that a later task has not yet touched. This pass runs once, against a static tree, before the final whole-branch review.
+
+**Two of these are defects, not coverage nits, and are marked as such.** Do not downgrade them to "nice to have" because they are listed beside test-tidiness items — the list is grouped by area, not by severity.
+
+**Files:**
+- Modify: `tests/adapter/UnityDebugger.Adapter.Tests/Dap/ReferenceCapabilityTests.cs`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`, `adapter/src/UnityDebugger.Adapter/Diagnostics/DiagnosticLog.cs`, `tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/DiagnosticLogTests.cs`, `tests/integration/adapter.integration.test.ts`, `tests/integration/dapClient.ts`
+
+- [ ] **Step 1: Fix the two real defects**
+
+1. **`DiagnosticLog.cs:193` — lock ordering regression.** `FormatLine` now runs *outside* the `lock`, so the timestamp is sampled before lock acquisition and concurrent writers can emit non-monotonic timestamps in both files. The pre-Task-3 code formatted and wrote under the lock. Move `var line = FormatLine(...)` inside the `lock` so formatting and both writes are one critical section.
+2. **`DiagnosticLog.cs:219` → `:230` — an unhandled shutdown exception.** `Dispose` can throw from `previous.Dispose()` when a user-supplied path has gone away (network share dropped, disk full). `log.Dispose()` in `Program.cs:87` sits **outside** `SafeWrite`, so it escapes `Main`'s `finally` as an unhandled exception. Task 3 added a catch for the *open* path precisely so a bad `logFile` cannot cost the user their session; the dispose path needs the same treatment or that rule is only half-enforced. Swallow the secondary-dispose failure.
+
+- [ ] **Step 2: Close the coverage gaps**
+
+3. Pin that `0.0.0.0` is accepted — `[InlineData("0.0.0.0")]` in the acceptance theory. It is currently verified by inspection only, and it is the literal an earlier rejection theory used to cover.
+4. Pin a canonical IPv6 literal (`::1`), and one whitespace-padded host (`" 127.0.0.1"`), so the branch that rejects each is frozen. Keep the `::FFFF:127.0.0.1` casing behaviour as-is — rejecting it is deliberate.
+5. Pin the **replacement contract** for `OpenSecondary` with a *different* path: it must replace the sink (dispose and flush the previous writer) rather than leak it or add a second one. The idempotency test currently takes only the early-return branch, so `CloseSecondary()` inside `OpenSecondary` is never executed by a test.
+6. Cover the untested `logFile.redirectFailed` fallback with an unwritable path, asserting the attach still **succeeds** and the event lands in the primary log. That fallback carries the claim that a bad `logFile` cannot cost the user their session, so it should not be the one path with no test.
+7. Tighten the secondary-sink bypass test to assert the secondary's **line count**. Today it checks for absence of the secret value, so a value-less leak (a line like `expressionText=` with no value) would still pass.
+8. Assert the primary and secondary carry the **same** line, pinning the "written to both" contract rather than only spot-checking the primary for `event=attach`.
+9. Cover post-`Dispose` use (`ObjectDisposedException`), an empty path (`ArgumentException`), and a blank or non-string `__logFile`.
+
+- [ ] **Step 3: Close the test-structure gaps**
+
+10. `AttachArgumentsTests.cs:6,8` now imports the Backend namespaces and constructs `MonoDebuggingBackend`, so a backend-level assertion lives in the DAP parsing test file while `MonoDebuggingBackendLifecycleTests.cs` already owns the fake and `AttachTarget` plumbing. Move it.
+11. `ReferenceCapabilityTests.cs:54-126` pins the **filters'** exact key set but not the **body's**, so an accidentally added capability field would pass silently. Assert the body's exact property-name set, which also documents the four accepted absences and `supportsDelayedStackTraceLoading`. Replace the hard `(JArray)` cast at `:77` with `Assert.IsType<JArray>` so a missing property fails with a clear message rather than a null-reference on `.Count`.
+12. `ExceptionFilterIds` (`UnityDebugSession.cs:1133-1151`) input-shape matrix: add `filterOptions` with `filters` absent entirely, and a mixed request carrying ids in both shapes (precedence `all` > `unhandled`/`uncaught`). The mixed case is what a client sends with stale UI state.
+13. Close the `pid` gap: the committed test compares against the **test host's** PID because `DapTestProtocol.Run` drives an in-process session. Add a `child.pid` accessor to `DapClient` and assert against it in `tests/integration/adapter.integration.test.ts`, which already spawns the real adapter.
+14. Test tidiness: `DiagnosticLogTests.cs:182-199` is a near-verbatim copy of the fixture at `BuildIdentityTests.cs:52-69`. Hoist it into shared test support — graded Minor because the project already carries two per-file copies and no production logic is duplicated.
+
+- [ ] **Step 4: Verify and commit**
+
+Run: `dotnet test UnityDebugger.sln -c Release --no-restore` and `npm test` (or the brief's documented equivalents). Report before/after counts for both suites. The adapter suite should **gain** tests and lose none; if any existing test fails, the defect fix was wrong — restore and report rather than adjusting the test to match.
+
+Stage explicit paths only; the six `adapter/vendor/*/packages.lock.json` files stay uncommitted.
+
+```bash
+git commit -m "fix: close the review findings from tasks 1-3"
+```
+
+- [ ] **Step 5: Report**
+
+State: what changed for each numbered item, or why an item was deliberately left; the exact before/after counts for both suites; and any item you believe is wrong or not worth fixing, with your reasoning. A finding you disagree with is worth more reported than silently skipped — say so and leave it, rather than making a change you do not believe in.
+
 ---
 
 ## Notes for the executor
@@ -971,4 +1017,3 @@ State the versions, build ids, VSIX and adapter SHA-256 values, the exact automa
 - The working tree carries six pre-existing modifications under `adapter/vendor/*/packages.lock.json`. `dotnet restore --locked-mode` reports them consistent with the projects. Do not revert or commit them as part of these tasks unless a task explicitly requires it. They have no content diff (`git diff` is empty for them); the status is a CRLF-vs-LF artifact, so they never appear in a diff-based review package.
 - The REA reference evidence is retained in this session only. If a claim in the spec needs re-checking, the reference files are at `C:\Users\Admin\.cursor\extensions\local.vstuc-1.3.2`; the adapter can be probed directly with a framed DAP `initialize` on stdio, which is how the capability table above was produced. Three further probes are recorded in the spec and are cheap to repeat: the attach probe's `debuggerTargets` notification (run `bin\UnityAttachProbe.dll` with a live Editor's `app_contents_path`), the attach-failure response for an unreachable endpoint, and a listen on the Unity multicast group `225.0.0.222` for player advertisements.
 - `npm run test:adapter` skips the 21 real-Mono cases unless `UNITY_DEBUGGER_TEST_MONO` points at a `mono.exe`. Skipped is not coverage; say so in any report.
-- The REA reference evidence is retained in this session only. If a claim in the spec needs re-checking, the reference files are at `C:\Users\Admin\.cursor\extensions\local.vstuc-1.3.2`; the adapter can be probed directly with a framed DAP `initialize` on stdio, which is how the capability table above was produced.
