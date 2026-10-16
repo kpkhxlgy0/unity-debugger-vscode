@@ -1603,6 +1603,26 @@ Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberatel
     - One option that would close it without a redesign: make `writeSanitized` the only exported way to write, and have it be the consumer of a narrow internal channel. **Do not do that here** — Task 11's design is approved and re-signaturing it in a cleanup task is exactly the "two copies disagree" class. Record the gap and the option; decide later.
 44. **The guard is home-scoped, not workspace-scoped, and that is a deliberate limit rather than an oversight.** Task 11 documented it in code and in a test: a line naming any path *outside* the user's home — a workspace path on another drive, a build server path, a colleague's machine — passes the guard. That is consistent with the brief, which asked for "an absolute user path", and the producer (the adapter's `PathRedactor`) remains responsible for the rest. **Say so in the matrix or the code comment so the limit is not mistaken for coverage**, because "refuses absolute paths" and "refuses the user's home directory" are different claims and only the second is implemented.
 45. **No real VS Code host has exercised the in-place decoration.** `Object.assign(channel, …)` mutates the object VS Code actually returned, which the implementer chose over wrapping so that `dispose()` and the `context.subscriptions` entry keep reaching the right object — mutation B proves a wrap would fail the identity test. The residual risk, stated by the implementer, is that VS Code's channel is a proxy whose member behaviour is not ours to assume: it returns a plain unfrozen instance today, so the risk is low, but **it is unit-tested against doubles only**. Task 13's acceptance is where a real host would confirm it, and if acceptance cannot reach the output channel, record that as an explicit gap rather than assuming the doubles generalise.
+46. **Two of the three invariants the goal names are enforced by nothing, and the third only partly — add the tests.** Found this round by grepping for where each would fail:
+
+    | Invariant | Current enforcement |
+    | --- | --- |
+    | No C# Dev Kit | `scaffold.test.mjs:37` asserts `manifest.extensionDependencies === undefined` — **the whole of it** |
+    | — `extensionPack` | **no test** |
+    | — `dependencies` | **no test** (only `packages.lock.json` matched, which is unrelated) |
+    | — no `ms-dotnettools` / `csdevkit` | **no test** |
+    | No Unity-side package (`com.unity.ide.*`) | **no test** |
+    | No telemetry | **no test** |
+
+    **Add three cheap assertions**, in `tests/build/scaffold.test.mjs` beside the existing one, since that file already parses the manifest and is where the current single check lives:
+
+    - `extensionPack` is `undefined`, and `dependencies` is either absent or `{}` — the same shape as the existing `extensionDependencies` assertion.
+    - No `ms-dotnettools`/`csdevkit` string anywhere in `package.json`, and no `com.unity.ide.*` in the shipped source. **A whole-tree grep over `extension/src`, `adapter/src` and `package.json` is enough**, and `scripts/verify-third-party.mjs` already demonstrates the pattern for walking files.
+    - No `telemetry`/`appInsights`/`applicationinsights` identifier in the shipped source.
+
+    - **Why these matter more than their size, and why they belong in CI rather than in a checklist.** All three are *negative* claims — the absence of a dependency — which is exactly the kind that cannot be noticed by reading code and cannot be preserved by good intentions. Every verification of them this session was a manual grep I ran by hand, and a manual grep is a check that stops existing the moment nobody remembers to run it. **Two of the three invariants the goal names currently rest on my memory of this conversation.**
+    - **The sanitized-diagnostics guard has the same defect and for the same reason** — item 43 records that it survives on review rather than structure. Putting these three in the suite does not fix item 43, but it does establish the pattern that an invariant worth naming in a goal is worth an assertion, and it removes the largest remaining block of "verified by remembering" from the branch.
+    - **Do not add these to the adapter's xunit project or to a new file.** They are manifest and source-tree facts, `tests/build` already owns both, and a second home for the same claim is the "two copies disagree" class this plan keeps closing.
 
 
 - [ ] **Step 4: Verify and commit**
