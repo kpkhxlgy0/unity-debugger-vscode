@@ -1475,6 +1475,10 @@ Verified facts about this project, gathered before starting so they need not be 
 - `com.unity.ide.visualstudio` is **2.0.22**, which clears the reference's own stated requirement of `>= 2.0.20`. **A/B against the reference is therefore possible in this project** — if this were below 2.0.20 the reference could not attach and Step 5 would be impossible rather than merely unverified.
 - Its `.vscode/launch.json` currently contains exactly one configuration: `{"name": "Attach to Unity", "type": "vstuc", "request": "attach"}`.
 - No `Library\EditorInstance.json` process is alive (the recorded pid is dead), so nothing is discovered until the Editor is started.
+- **That file carries no port, so discovery derives one — and knowing the number is what lets you tell a working derivation from a silent fallback.** Verified this round: the `EditorInstance.json` files on this machine contain **only** `process_id`, `version`, `app_path` and `app_contents_path`. There is no `address` and no `debuggerPort`, even though the filename suggests an endpoint record.
+  - `editorDiscovery.ts:164` therefore calls `defaultEditorPort(instance.processId)` and labels the candidate `source: "derived-port"` (`:171`), a path with its own test coverage. The formula is `56000 + pid % 1000`.
+  - For the recorded pid **42260** that is **56260**. For the **running** Editor's pid **54548** — which is on `sgproj`, not the acceptance project — it is **56548**. So when the acceptance Editor starts, look for `Port:56260 (Mono)` in its picker label; **a different port means the derivation did not fire and something else supplied the endpoint.**
+  - Re-check the pid before you use that number: it comes from the file, and if the Editor is restarted the recorded pid changes and so does the port.
 
   **Two environment facts re-verified at round 52, both of which affect how you ask the user to do this:**
 
