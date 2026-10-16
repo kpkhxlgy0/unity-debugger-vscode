@@ -566,7 +566,32 @@ A Player candidate carries `projectVersion: ""`, and the `endPoint` path has no 
 
 **The fix, and why relaxing the adapter is the right half of it.** `AttachTarget.ProcessId` is **assigned and never read** — a repo-wide search finds it in exactly two places, `BackendModels.cs:16` (the assignment) and `:23` (the property declaration), with no consumer anywhere in the adapter. So the `<= 0` check guards a value that nothing uses, and it is currently blocking two features that have no other obstacle. Change it to accept **zero** while still rejecting negative values, and document `0` as "unknown process id" — which is already the convention Task 5 established for Players, so the two halves agree rather than inventing a second sentinel.
 
-Keep the presence requirement: a missing `__processId` is still an error. Keep rejecting negatives, which are always malformed. Add adapter tests for `0` accepted, negative rejected, and absent rejected, and update whatever currently asserts the old `<= 0` message.
+Keep the presence requirement: a missing `__processId` is still an error. Keep rejecting negatives, which are always malformed.
+
+**One existing test asserts the behaviour you are changing, and you must edit it deliberately rather than deleting it to go green.** `AttachArgumentsTests.cs:111-124` is a theory:
+
+```csharp
+[Theory]
+[InlineData("__processId", 0)]
+[InlineData("__port", 0)]
+[InlineData("__port", 65536)]
+public void Parse_rejects_invalid_numeric_fields(string property, int value)
+{
+    var json = ValidArguments();
+    json[property] = value;
+    Assert.Throws<AttachArgumentException>(() => AttachArguments.Parse(json));
+}
+```
+
+Remove **only** the `[InlineData("__processId", 0)]` row; the two `__port` rows must stay, because the port range is still enforced. Do not weaken the theory to an assertion on the message or the type in order to make it pass, and do not delete the test.
+
+Then add explicit coverage for the behaviour you introduce: `__processId: 0` is **accepted**; a negative `__processId` is rejected; an absent one is rejected. The last two are already covered (`:177-194` removes each field in turn, and negatives have no row yet — add one).
+
+**For `__projectVersion`, check what must *not* change before you touch anything.** Three existing tests pin the checks you are keeping, and all three must still pass unmodified: `Parse_rejects_malformed_version` (`:167-175`, `"latest"`), `Parse_rejects_unsupported_versions` (`:151-165`, `2021.3.45f1` and `2023.2.20f1`, asserting the exact policy message), and `Parse_accepts_unverified_compatible_versions` (`:136-149`, `2022.3.61f1` / `6000.0.50f1` / `6000.1.4f1`). If any of those three needs editing, your relaxation is wider than the empty case and that is a defect — stop and say so.
+
+Add only the new case: an **empty** `__projectVersion` is accepted.
+
+**A method note, because it cost me a wrong claim.** I previously recorded that no test covered the `<= 0` check, having grepped `tests/adapter` for the message `"must be a positive integer"` and found nothing. That was wrong — the theory above covers it and asserts only the **exception type**, so a message grep cannot find it. Grep for the *field name* when checking whether a validation is covered, not for its message.
 
 **And emit it explicitly on both paths, which is the other half.** Your provider must always send `__processId`: `candidate.processId` when there is a candidate, and `0` on the `endPoint` path. Do **not** fabricate a positive placeholder — a made-up pid is worse than an honest "unknown", and it would be indistinguishable from a real one in a log.
 
