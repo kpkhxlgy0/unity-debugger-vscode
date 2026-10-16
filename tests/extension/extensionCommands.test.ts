@@ -58,7 +58,7 @@ const editor: EditorCandidate = {
 const player: EditorCandidate = {
   processId: 0,
   projectName: "头号禁区",
-  workspaceRoot: "H:\\sgproj",
+  workspaceRoot: "H:\\sgproj-remote",
   host: "10.30.154.73",
   port: 56322,
   projectVersion: "",
@@ -105,12 +105,15 @@ describe("configuration-flow picker", () => {
 
 describe("attach command", () => {
   it("starts one attach session at the chosen target's endpoint", async () => {
+    // The Player is first and therefore the item the picker accepts, so every
+    // value in the started configuration has to come from that candidate: a
+    // hard-coded loopback endpoint or workspace root fails here.
     const picker = new AutoAcceptPicker();
     const startDebugging = vi.fn(async () => true);
     const displayBackgroundProcesses = vi.fn(() => false);
     const dependencies = attachDependencies({
       picker,
-      candidates: [editor, player],
+      candidates: [player, editor],
       startDebugging,
       displayBackgroundProcesses,
     });
@@ -119,9 +122,9 @@ describe("attach command", () => {
 
     expect(picker.title).toBe("Select Unity Instance");
     expect(labels(picker.items)).toEqual([
-      "Unity Editor, sgproj, xiaolonghan, Port:56234 (Mono)",
       "Unity Player, 头号禁区, samsung_SM-S9260@10.30.154.73, " +
         "Port:56322 (Mono)",
+      "Unity Editor, sgproj, xiaolonghan, Port:56234 (Mono)",
     ]);
     expect(displayBackgroundProcesses).toHaveBeenCalledTimes(1);
     expect(startDebugging).toHaveBeenCalledTimes(1);
@@ -135,8 +138,8 @@ describe("attach command", () => {
       name: "Attach to Unity Debugger Pure",
       type: "unity-debugger-pure",
       request: "attach",
-      endPoint: "127.0.0.1:56234",
-      projectPath: "H:\\sgproj",
+      endPoint: "10.30.154.73:56322",
+      projectPath: "H:\\sgproj-remote",
     });
   });
 
