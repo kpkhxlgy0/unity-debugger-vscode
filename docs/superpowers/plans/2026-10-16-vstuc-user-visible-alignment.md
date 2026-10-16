@@ -882,7 +882,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add extension/src/functionBreakpointWarning.ts extension/src/extension.ts tests/extension/functionBreakpointWarning.test.ts
+git add extension/src/functionBreakpointWarning.ts extension/src/outputChannel.ts extension/src/extension.ts tests/extension/functionBreakpointWarning.test.ts tests/extension/outputChannel.test.ts
 git commit -m "feat: warn about function breakpoint performance"
 ```
 
