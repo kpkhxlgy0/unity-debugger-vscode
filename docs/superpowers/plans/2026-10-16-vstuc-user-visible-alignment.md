@@ -745,6 +745,56 @@ and its player-attach section states that the default configuration attaches to 
 
 **Do not treat the security section as an alignment failure.** A keyword sweep of the reference README for `secur|warn|caution|note|auth|trust|expos|firewall|risk` returns nothing: the reference documents **no security posture whatsoever** for remote attach. Our statement is an intentional addition beyond the reference, and the matrix must record it that way rather than as a divergence to close.
 
+### The two authority clauses to amend, quoted
+
+These were read directly; use the existing wording's register and do not overstate what is permitted.
+
+**1. `AGENTS.md`** is 45 lines and needs its acceptance project and its reference identity updated in five places:
+
+- `:6` — `` `D:\Unity\TuanjieHub\Projects\MyGame` for real Unity/Tuanjie runs. `` → the acceptance project is `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`.
+- `:7`, `:9`, `:10`, `:17`, `:26` — the bare `MyGame` references that follow from it, including the `DevTools` preference at `:26-27`. Note the new acceptance project has **no `DevTools` fixture**, so that sentence needs rewording rather than a path swap: keep the reachability requirement and drop the claim that a verified fixture exists.
+- `:32` — `` - Treat the installed `zlorn.vstuc` debugger as the behavioral reference for `` → `visualstudiotoolsforunity.vstuc` **1.3.2**. Verify against `docs/reference-debugger-compatibility.md:3`, which names `zlorn.vstuc 1.2.1` and must be updated in the same pass, and check for any other `zlorn` or `1.2.1` reference with a repo-wide search rather than assuming these are the only two.
+
+**2. `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`** (303 lines). Three places:
+
+- `:50-51`, under the `:45` heading **"Permanently out of scope:"** — `` - Reusing, separating, decompiling, modifying, or redistributing proprietary binaries from the reference extension. ``
+- `:56` — `` The installed `zlorn.vstuc 1.2.1` debugger defines the expected user-visible and DAP-visible behavior. `` → 1.3.2.
+- `:78-80`, under the `:76` heading **"Legal and Dependency Boundary"** — `` The reference package contains proprietary Microsoft/SyntaxTree assemblies. Its license does not permit separating, reverse engineering, or redistributing those components. They are neither build inputs nor runtime dependencies. ``
+
+The recorded decision is that **analysing** the shipped binaries as behavioural evidence is permitted, while copying, linking, packaging, and redistributing remain prohibited. Amend accordingly, and do it carefully:
+
+- Split `:50-51` rather than deleting it. Keep prohibited: reuse, separating, modifying, and redistributing the binaries. Add what is now permitted: **observing the shipped software as a black box** (running the adapter and reading the DAP/JSON-RPC it emits) and **static analysis of its IL for behavioural evidence**, which is how the capability table and the `endPoint` table in this plan's spec were produced.
+- **Do not claim the license permits reverse engineering.** `:79` is a statement about the licence and it remains true. The honest framing is that we do not do the prohibited things; we observe behaviour and record what it emits, and no reference bytes reach our build or package. If a sentence would read as a legal opinion, make it narrower, not broader.
+- Keep the closing guarantee that they are neither build inputs nor runtime dependencies, and state that no reference artifact is included in the VSIX — the task's packaging audit proves that mechanically.
+- Add a pointer to the evidence trail: this plan's spec records the observed `initialize` body, the `debuggerTargets` payload, the attach-failure response, and the `endPoint` table, so a future reader can see exactly what observing the reference produced.
+
+### Complete sweep — the brief's earlier two-file list was incomplete
+
+A repo-wide `git grep` for `zlorn` and `1\.2\.1` found the stale identity in **six tracked documents**, not two. Apply these rules:
+
+**Rule A — live authority statements must name 1.3.2.** These are the ones a reader would take as current, and every one must change:
+
+- `AGENTS.md:32`
+- `docs/reference-debugger-compatibility.md:3` (the matrix header) and `:255` (the debug configuration it records)
+- `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md:56` — the "defines the expected user-visible and DAP-visible behavior" sentence
+- `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md:14` — "is the sole authority for observable debugger behavior"
+
+**Rule B — historical observations keep their 1.2.1 attribution.** Do **not** silently rewrite what was observed against 1.2.1 into 1.3.2; that would make the record false. Instead leave the observation and add a short parenthetical or note that the authority was later re-targeted to `visualstudiotoolsforunity.vstuc` 1.3.2. This applies to:
+
+- `docs/reference-debugger-compatibility.md:151` (a decompilation record), `:633`
+- `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md:7`, `:13`
+- `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md:5`, `:128`, `:935`
+
+**Rule C — prohibited-acts clauses must be amended for consistency, not deleted.** `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md:18` currently reads:
+
+> Do not reuse, separate, decompile, modify, link, or redistribute any proprietary binary from `C:\Users\Admin\.vscode\extensions\zlorn.vstuc-1.2.1`.
+
+That forbids decompiling outright, which now contradicts the recorded decision permitting analysis as behavioural evidence. Amend it the same way as the parity spec's `:50-51`: keep reuse, separation, modification, linking, and redistribution prohibited; permit observation and static analysis for behavioural evidence; never claim the licence permits more than it does.
+
+**Rule D — exclude noise.** `package-lock.json` matches `1.2.1`/`1.2.10` dozens of times (`define-properties`, `ieee754`, `source-map-js`, `rolldown`). Those are npm dependency versions and must **not** be touched. Confirm the final state with `git grep -n -E 'zlorn|vstuc 1\.2\.1' -- '*.md'`, which should return only Rule B's annotated historical mentions.
+
+
+
 Also add these three `divergent` rows, which are known and must not be silently absorbed:
 
 0. **Exception filter conditions.** The reference advertises `supportsCondition: true`, so the client offers an exception-condition box and sends `filterOptions[].condition`. Task 1 accepts `filterId` and ignores `condition`, so a typed condition list is not honoured. Reference and ours otherwise agree on the filters themselves.
