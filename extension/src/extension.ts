@@ -22,7 +22,12 @@ import {
   terminationMessageFromLog,
 } from "./diagnostics.js";
 import { EditorDiscovery } from "./editorDiscovery.js";
+import {
+  FUNCTION_BREAKPOINT_WARNING,
+  shouldWarnAboutFunctionBreakpoints,
+} from "./functionBreakpointWarning.js";
 import type { EditorCandidate } from "./model.js";
+import { createOutputChannel } from "./outputChannel.js";
 import { PRODUCT_IDENTITY } from "./productIdentity.js";
 import {
   UnityDebuggerPureApi,
@@ -105,6 +110,9 @@ export function activate(
     attachRequests,
   );
   const launcher = new AdapterLauncher();
+  const outputChannel = createOutputChannel((name, options) =>
+    vscode.window.createOutputChannel(name, options),
+  );
 
   const configurationRegistration =
     vscode.debug.registerDebugConfigurationProvider(
@@ -120,6 +128,21 @@ export function activate(
             const descriptor = launcher.createDescriptor(
               context.extensionPath,
             );
+            // The reference raises this at the same point, and only once its
+            // launcher has succeeded: a descriptor that throws already surfaces
+            // its own error, so a performance warning on top of that failure
+            // would land at the worst possible moment.
+            //
+            // `vscode.debug.breakpoints` is `readonly Breakpoint[]`, and only
+            // `FunctionBreakpoint` carries a `functionName`, so TypeScript's
+            // weak-type rule rejects the predicate's structural parameter
+            // without this assertion; the predicate re-checks at run time.
+            const breakpoints = vscode.debug.breakpoints as readonly {
+              functionName?: string;
+            }[];
+            if (shouldWarnAboutFunctionBreakpoints(breakpoints)) {
+              outputChannel.warn(FUNCTION_BREAKPOINT_WARNING);
+            }
             return new vscode.DebugAdapterExecutable(
               descriptor.command,
               [...descriptor.args],
@@ -220,6 +243,7 @@ export function activate(
 
   context.subscriptions.push(
     discovery,
+    outputChannel,
     configurationRegistration,
     descriptorRegistration,
     attachRegistration,
