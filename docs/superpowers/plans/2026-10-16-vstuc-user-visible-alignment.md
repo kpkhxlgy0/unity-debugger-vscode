@@ -500,6 +500,15 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 **Interfaces:**
 - Consumes: `EditorCandidate.host: string` (Task 5).
 - Produces: the provider accepts `endPoint` (`"host:port"`) and `projectPath` (string, `${workspaceFolder}` expanded) and emits `__host`/`__port` from `endPoint` when present.
+
+**`__host` must stop being the literal `"127.0.0.1"`, and this is the one requirement an earlier revision of this brief left implicit.** `toAttachConfiguration` (`debugConfigurationProvider.ts:154-172`) currently hardcodes `__host: "127.0.0.1"` at `:164`. Task 5 just made `EditorCandidate.host` a real per-target value — Editor candidates carry `127.0.0.1`, and Player candidates carry the advertised LAN address — so the correct rule is:
+
+1. `endPoint` present → `__host`/`__port` come from parsing it, as specified above.
+2. `endPoint` absent → `__host` comes from **`candidate.host`** and `__port` from `candidate.port`, not from a literal.
+
+Why this is not optional: Task 5's implementer flagged the cross-task window directly. After Task 5 a Player target has `host: "192.168.1.77"` and is offered by discovery; if this task leaves the literal in place, selecting that Player resolves a configuration pointing at **loopback**, so the debugger attaches to whatever Editor is on the local machine instead of the Player the user chose — or fails, if none is listening. That is a silent wrong-host attach, the same failure class as the non-canonical IP defect closed in Task 2, and it would look like "Player support does not work" rather than like an address bug.
+
+**Add a test for it**, since nothing currently pins it: a Player candidate (`host: "192.168.1.77"`, `source: "player-advertisement"`) with **no** `endPoint` must resolve to `__host: "192.168.1.77"`. The existing `endPoint` test covers only the branch where the property is present, which is exactly the branch that already worked.
 - Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side reader is actually reachable. This is the only producer of that field. **The reader is `AttachArguments.ParseLogFile(JObject?)`, not an `AttachArguments.LogFile` member** — an earlier revision of this line named the latter, which does not exist; Task 3 kept it a static parser because parsed request values live on `AttachTarget` in a file it was forbidden to change. You are emitting a wire key (`__logFile`), so nothing here depends on the member name; the correction is so you do not go looking for a property that is not there.
 
 - [ ] **Step 1: Write the failing tests**
