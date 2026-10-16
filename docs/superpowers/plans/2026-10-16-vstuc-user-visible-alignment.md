@@ -502,6 +502,19 @@ Expected: FAIL — `endPoint`/`projectPath` are ignored and `required` is `[name
 
 Add the properties to the manifest with `required: []` and `projectPath` defaulting to `${workspaceFolder}`; add `projectPath` to `initialConfigurations[0]`. In the provider, parse `endPoint` as `host:port` (reject and `showError` on a malformed value), skip discovery when present, use `projectPath` (after `${workspaceFolder}` expansion) as the discovery root, and pass `__logFile` through from `logFile` in `toAttachConfiguration` (`debugConfigurationProvider.ts:154-171`).
 
+**Where these properties go matters, and the reference settles it.** They are **not** settings — they are debug-configuration attributes under `contributes.debuggers[].configurationAttributes.attach.properties`. The reference's `contributes.configuration` holds only five unrelated settings (`enableMessageCompletion`, `unityMessageScope`, `refreshOnSave`, `enableCodeModel`, `displayBackgroundProcesses`), none of which are attach properties. Its verified `attach` shape is:
+
+- `required: []`
+- `projectPath`: string, default `${workspaceFolder}`, description `Project Path`
+- `logFile`: string, default ``, description `Path to the log file for the debugger`
+- `endPoint`: string, default ``, description `ip:port`
+
+and its `initialConfigurations[0]` is `{"name": "Unity Debugger", "type": "vstuc", "request": "attach", "projectPath": "${workspaceFolder}"}`.
+
+Use those description strings verbatim for the matching properties; they are the values the reference ships in its English NLS bundle. Note that `ip:port` is the reference's own description for `endPoint`, which independently corroborates the spec's ruling that `endPoint` takes an IP literal and not a host name.
+
+The reference localizes those strings through `package.nls*.json` (14 locales). We ship no localizations and this plan does not add any — recorded as a divergence for the user to decide on, not something to silently ignore or to expand this task into.
+
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/extension && node --test tests/build/scaffold.test.mjs`
@@ -795,7 +808,9 @@ That forbids decompiling outright, which now contradicts the recorded decision p
 
 
 
-Also add these three `divergent` rows, which are known and must not be silently absorbed:
+Also add these four `divergent` rows, which are known and must not be silently absorbed:
+
+-1. **No localization.** The reference ships 14 `package.nls*.json` locales and routes its command titles and property descriptions through them (`%commands.attachUnityDebugger.title%` → "Attach Unity Debugger", etc.). We ship **no** localizations, so every string is English-only even for a `zh-cn` user, who would otherwise see `附加 Unity 调试程序`. This plan does not add localization. **Flag it to the user as a scope decision** rather than treating it as closed: it is a real user-visible difference, and the fix is additive (add `package.nls.json` plus translations and switch the manifest to placeholders) rather than architectural.
 
 0. **Exception filter conditions.** The reference advertises `supportsCondition: true`, so the client offers an exception-condition box and sends `filterOptions[].condition`. Task 1 accepts `filterId` and ignores `condition`, so a typed condition list is not honoured. Reference and ours otherwise agree on the filters themselves.
 1. **Player advertisement `debug` gating.** The reference lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true`; our `playerAdvertisement.ts` treats `debug === "1"` as `allowDebugging` and Task 5 filters on it, so we would exclude that target. Neither behaviour is changed by this plan.
