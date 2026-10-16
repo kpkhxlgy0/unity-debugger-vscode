@@ -616,14 +616,35 @@ git commit -m "feat: add the attach Unity debugger command and picker"
 - Test: `tests/extension/functionBreakpointWarning.test.ts`
 
 **Interfaces:**
-- Produces: `shouldWarnAboutFunctionBreakpoints(breakpoints: readonly { type?: string }[]): boolean` and `FUNCTION_BREAKPOINT_WARNING` holding the reference text verbatim: `You are using function breakpoints. Even if they are fully supported, they have a major negative impact on debugging performance. Use them only when necessary.`
+- Produces: `shouldWarnAboutFunctionBreakpoints(breakpoints: readonly { functionName?: string }[]): boolean` and `FUNCTION_BREAKPOINT_WARNING` holding the reference text verbatim: `You are using function breakpoints. Even if they are fully supported, they have a major negative impact on debugging performance. Use them only when necessary.`
+
+**The parameter shape was wrong in an earlier revision of this brief, and the fix matters.** It said `readonly { type?: string }[]` with tests passing `{ type: "function" }`. But the call site is `createDebugAdapterDescriptor`, whose only source of breakpoints is `vscode.debug.breakpoints` — and `vscode.Breakpoint` has **no `type` property**. It is an abstract class with `id`, `enabled`, `condition?`, `hitCondition?`, `logMessage?`; `FunctionBreakpoint` adds `functionName: string` and `SourceBreakpoint` adds `location`. So a `{ type?: string }` predicate could not be fed from the real call site without an invented mapping layer, and the test would have been exercising a shape that never occurs in production.
+
+Use `functionName` instead. It is real, it is discriminative — only `FunctionBreakpoint` has it — and `readonly Breakpoint[]` is structurally assignable to `readonly { functionName?: string }[]`, so the real call site type-checks with no adapter:
+
+```ts
+export function shouldWarnAboutFunctionBreakpoints(
+  breakpoints: readonly { functionName?: string }[],
+): boolean {
+  return breakpoints.some(
+    (breakpoint) =>
+      typeof breakpoint.functionName === "string" &&
+      breakpoint.functionName.length > 0,
+  );
+}
+```
+
+Write the tests against that shape (`{ functionName: "Foo" }` for a function breakpoint, `{}` or `{ location: … }` for a source one), and say in your report which shape you settled on if you find a reason to differ. Do **not** reach for `instanceof vscode.FunctionBreakpoint`: it would make the predicate untestable outside a VS Code host, which is the whole reason this is a separate pure module.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 it("warns only when a function breakpoint exists", () => {
-  expect(shouldWarnAboutFunctionBreakpoints([{ type: "source" }])).toBe(false);
-  expect(shouldWarnAboutFunctionBreakpoints([{ type: "function" }])).toBe(true);
+  expect(shouldWarnAboutFunctionBreakpoints([{ location: sourceLocation }])).toBe(false);
+  expect(shouldWarnAboutFunctionBreakpoints([{ functionName: "Foo" }])).toBe(true);
+});
+it("ignores a function breakpoint with an empty name", () => {
+  expect(shouldWarnAboutFunctionBreakpoints([{ functionName: "" }])).toBe(false);
 });
 ```
 
@@ -634,7 +655,16 @@ Expected: FAIL — the module does not exist.
 
 - [ ] **Step 3: Implement**
 
-Add the module, then call it from `createDebugAdapterDescriptor` in `extension.ts` after the launcher succeeds, showing a warning message when it returns true.
+Add the module, then call it from `createDebugAdapterDescriptor` in `extension.ts` — that is line 49, inside the `:45-67` block the Files list names — **after the launcher succeeds**, showing the warning when it returns true:
+
+```ts
+const descriptor = launcher.createDescriptor(context.extensionPath);
+if (shouldWarnAboutFunctionBreakpoints(vscode.debug.breakpoints)) {
+  void vscode.window.showWarningMessage(FUNCTION_BREAKPOINT_WARNING);
+}
+```
+
+Two things to get right and to state in your report. First, warn **after** the launcher succeeds, not before: a descriptor that throws already shows an error message, and adding a performance warning on top of a failure would be noise at the worst moment. Second, this fires on **each** session start, so a user with a function breakpoint sees it every launch — that matches the reference's behaviour, and it is acceptable because the message is dismissible and the condition is rare. Do not add "don't show again" state: that is surface the reference does not have and it is not in this task's scope.
 
 - [ ] **Step 4: Run test to verify it passes**
 
