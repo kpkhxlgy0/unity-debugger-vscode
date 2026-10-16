@@ -379,8 +379,19 @@ performance. Use them only when necessary."
 
 Replace the single discovery failure message with the reference's distinct
 cases: Unity not running for the current project; no Unity endpoint to connect
-to; no process to attach to. Messages are localized through the same mechanism
-the rest of the extension uses.
+to; no process to attach to.
+
+**The messages are plain English string literals, and an earlier revision of this
+item said they were "localized through the same mechanism the rest of the
+extension uses" — that phrase was wrong and is corrected here.** The rest of the
+extension uses plain literals, and the user decided against localization for this
+work item, so "the same mechanism" and "localized" named two different things and
+the sentence could be read as requiring translations the reference ships and we
+are not adding. **It was the only occurrence of the word in this document**, which
+is why it survived: nothing contradicted it *inside the spec*, and the
+contradiction appears only when the spec is read against the recorded decision.
+The three strings remain exactly the reference's, verbatim and unlocalized;
+Task 12 records the no-localization choice as an approved divergence.
 
 ### W8 — Unity API Reference command
 
