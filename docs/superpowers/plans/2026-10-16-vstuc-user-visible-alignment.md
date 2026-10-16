@@ -551,6 +551,19 @@ Two of this work item's headline features therefore cannot attach as specified:
 1. **`endPoint`.** That path skips discovery entirely — your own test asserts `discover` is not called — so there is **no candidate** and therefore no `candidate.processId`. Whatever you do, the field must still be present and positive or the adapter throws. Omitting it gives `"__processId is required."`; sending `0` gives `"__processId must be a positive integer."`. Either way the feature fails at the adapter, after the UI has already accepted it.
 2. **Player targets.** Task 5 deliberately sets `processId: 0` for Player candidates, because a Player's process id on this machine is meaningless.
 
+**`__projectVersion` fails the same way, and relaxing only `__processId` would leave both features still broken.** The adapter does not merely parse the version, it **re-imposes the whole compatibility policy in C#** (`AttachArguments.cs:76-93`): `RequiredString(arguments, "__projectVersion")`, then `VersionPattern.IsMatch(projectVersion)` → `"__projectVersion is malformed."`, then a `2022.3.`/`6000.` prefix check → `"The Editor version is outside the version 0.3.2 compatibility policy."`.
+
+So the policy exists in **two** places, and they disagree about `""`:
+
+- `versionPolicy.ts` — the copy you are relaxing in this task, so it stops blocking an unknown version.
+- `AttachArguments.cs:76-93` — the copy that still rejects it.
+
+A Player candidate carries `projectVersion: ""`, and the `endPoint` path has no candidate to read a version from at all, so before this change the extension would wave the attach through and the **adapter** would then refuse it with `"__projectVersion is malformed."` — one layer later, with a worse message, and only after the UI had accepted the configuration. Relaxing one copy and not the other produces a feature that looks fixed in the TypeScript tests and fails in the product.
+
+**The fix for that half is the same shape as `__processId`:** accept an **empty** `__projectVersion` as "unknown" and skip both checks for it, while a non-empty value keeps **exactly** today's validation — pattern and policy prefix included. Do not delete the check; the defect is that the two copies disagree about what an absent value means, not that the adapter validates. And do not make the adapter accept an *out-of-policy* version, which is the cheap misreading of this instruction: only the empty case changes.
+
+**`__workspaceRoot` is a third field with no source on the `endPoint` path**, and unlike the other two it does not need the adapter relaxed — `RequiredString` plus a non-empty and valid-path check (`:56-74`) is reasonable, and the value is genuinely available: use the `projectPath` when supplied, otherwise the workspace folder. Just make sure you **emit** it, because `endPoint` skipping discovery means `candidate.workspaceRoot` has nothing behind it, and `RequiredString` throws on a missing field. Add it to the same test that pins `__processId: 0`.
+
 **The fix, and why relaxing the adapter is the right half of it.** `AttachTarget.ProcessId` is **assigned and never read** — a repo-wide search finds it in exactly two places, `BackendModels.cs:16` (the assignment) and `:23` (the property declaration), with no consumer anywhere in the adapter. So the `<= 0` check guards a value that nothing uses, and it is currently blocking two features that have no other obstacle. Change it to accept **zero** while still rejecting negative values, and document `0` as "unknown process id" — which is already the convention Task 5 established for Players, so the two halves agree rather than inventing a second sentinel.
 
 Keep the presence requirement: a missing `__processId` is still an error. Keep rejecting negatives, which are always malformed. Add adapter tests for `0` accepted, negative rejected, and absent rejected, and update whatever currently asserts the old `<= 0` message.
