@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Threading;
 using Mono.Debugger.Soft;
 
@@ -41,11 +40,6 @@ namespace UnityDebugger.Adapter.Backend
                 throw new InvalidOperationException(
                     "The debugger backend is already attached.");
             }
-            if (!IPAddress.IsLoopback(target.Address))
-            {
-                throw new DebuggerBackendException(
-                    "Only loopback Editor targets are allowed.");
-            }
 
             var createdFacade = facadeFactory();
             facade = createdFacade;
@@ -73,8 +67,11 @@ namespace UnityDebugger.Adapter.Backend
             catch (Exception exception)
             {
                 ReleaseFacade();
+                // The reference adapter reports an unreachable endpoint as
+                // "Failed to attach debugger to <host>:<port>".
                 throw new DebuggerBackendException(
-                    "Could not connect to the local Editor debugger.",
+                    $"Failed to attach debugger to " +
+                    $"{target.Address}:{target.Port}",
                     exception);
             }
         }

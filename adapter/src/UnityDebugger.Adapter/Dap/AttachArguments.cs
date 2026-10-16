@@ -24,6 +24,10 @@ namespace UnityDebugger.Adapter.Dap
                 throw new AttachArgumentException(
                     "__processId must be a positive integer.");
 
+            // The reference adapter attaches to any explicit endPoint, so a
+            // non-loopback address literal is accepted here. A host that is
+            // not an address literal is rejected: the reference answers
+            // success for an endpoint it cannot parse and attaches to nothing.
             IPAddress address;
             try
             {
@@ -33,11 +37,9 @@ namespace UnityDebugger.Adapter.Dap
             catch (FormatException)
             {
                 throw new AttachArgumentException(
-                    "__host must be a loopback IP address.");
+                    "__host must be an IP address literal, such as " +
+                    "192.168.1.50.");
             }
-            if (!IPAddress.IsLoopback(address))
-                throw new AttachArgumentException(
-                    "Only loopback Editor targets are allowed.");
 
             var port = RequiredInteger(arguments, "__port");
             if (port <= 0 || port > 65535)

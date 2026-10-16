@@ -1,8 +1,11 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using Newtonsoft.Json.Linq;
+using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
+using UnityDebugger.Adapter.Tests.Backend;
 using Xunit;
 
 namespace UnityDebugger.Adapter.Tests.Dap
@@ -35,10 +38,29 @@ namespace UnityDebugger.Adapter.Tests.Dap
         }
 
         [Theory]
-        [InlineData("192.168.1.10")]
-        [InlineData("8.8.8.8")]
-        [InlineData("0.0.0.0")]
-        public void Parse_rejects_non_loopback_hosts(string host)
+        [InlineData("127.0.0.1")]
+        [InlineData("192.168.1.50")]
+        [InlineData("10.30.154.73")]
+        public void Parse_accepts_any_address_literal_host(string host)
+        {
+            var target = AttachArguments.Parse(
+                ValidArguments(host: host, port: 56234));
+
+            Assert.Equal(host, target.Address.ToString());
+        }
+
+        // Deliberately stricter than the reference adapter, which answers
+        // success and silently attaches to nothing when endPoint is not an
+        // address literal.
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("unity-box.local")]
+        [InlineData("localhost")]
+        [InlineData("not a host")]
+        [InlineData("192.168.1.50:56234")]
+        public void Parse_rejects_a_host_that_is_not_an_address_literal(
+            string host)
         {
             var json = ValidArguments();
             json["__host"] = host;
@@ -46,10 +68,39 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var error = Assert.Throws<AttachArgumentException>(
                 () => AttachArguments.Parse(json));
 
-            Assert.Contains(
+            Assert.Contains("IP address", error.Message);
+            Assert.DoesNotContain(
                 "loopback",
                 error.Message,
                 StringComparison.OrdinalIgnoreCase);
+        }
+
+        // The reference adapter answers an unreachable endpoint with
+        // "Failed to attach debugger to <host>:<port>".
+        [Theory]
+        [InlineData("127.0.0.1", 1)]
+        [InlineData("192.0.2.10", 56234)]
+        [InlineData("198.51.100.7", 56000)]
+        public void Attach_reports_the_reference_message_for_an_unreachable_endpoint(
+            string host,
+            int port)
+        {
+            var target = AttachArguments.Parse(ValidArguments(host, port));
+            var facade = new FakeSoftDebuggerSessionFacade
+            {
+                ConnectException = new SocketException(
+                    (int)SocketError.ConnectionRefused),
+            };
+            using (var backend = new MonoDebuggingBackend(() => facade))
+            {
+                var error = Assert.Throws<DebuggerBackendException>(
+                    () => backend.Attach(target));
+
+                Assert.Equal(
+                    $"Failed to attach debugger to {host}:{port}",
+                    error.Message);
+                Assert.False(backend.IsAttached);
+            }
         }
 
         [Theory]
@@ -137,15 +188,20 @@ namespace UnityDebugger.Adapter.Tests.Dap
             }
         }
 
-        private static JObject ValidArguments()
+        private static JObject ValidArguments(
+            string host = "127.0.0.1",
+            int port = 56234)
         {
-            return JObject.Parse(@"{
+            var arguments = JObject.Parse(@"{
               '__processId': 1234,
               '__host': '127.0.0.1',
               '__port': 56234,
               '__workspaceRoot': 'H:\\fixture',
               '__projectVersion': '2022.3.62t11'
             }");
+            arguments["__host"] = host;
+            arguments["__port"] = port;
+            return arguments;
         }
     }
 }

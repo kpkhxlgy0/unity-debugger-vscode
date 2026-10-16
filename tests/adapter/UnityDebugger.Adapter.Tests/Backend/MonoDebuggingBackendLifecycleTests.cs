@@ -70,15 +70,10 @@ namespace UnityDebugger.Adapter.Tests.Backend
         }
 
         [Fact]
-        public void AttachRejectsANonLoopbackTargetBeforeCreatingAFacade()
+        public void AttachAcceptsANonLoopbackTarget()
         {
-            var facadeCreated = false;
-            using (var backend = new MonoDebuggingBackend(
-                () =>
-                {
-                    facadeCreated = true;
-                    return new FakeSoftDebuggerSessionFacade();
-                }))
+            var facade = new FakeSoftDebuggerSessionFacade();
+            using (var backend = new MonoDebuggingBackend(() => facade))
             {
                 var target = new AttachTarget(
                     123,
@@ -87,10 +82,31 @@ namespace UnityDebugger.Adapter.Tests.Backend
                     @"D:\Fixture",
                     "2022.3.62t12");
 
-                Assert.Throws<DebuggerBackendException>(
-                    () => backend.Attach(target));
-                Assert.False(facadeCreated);
+                backend.Attach(target);
+
+                Assert.True(backend.IsAttached);
+                Assert.Equal(
+                    IPAddress.Parse("192.0.2.10"),
+                    facade.ConnectAddress);
+                Assert.Equal(56000, facade.ConnectPort);
             }
+        }
+
+        [Fact]
+        public void AttachRejectsADisposedBackendBeforeCreatingAFacade()
+        {
+            var facadeCreated = false;
+            var backend = new MonoDebuggingBackend(
+                () =>
+                {
+                    facadeCreated = true;
+                    return new FakeSoftDebuggerSessionFacade();
+                });
+            backend.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(
+                () => backend.Attach(Target()));
+            Assert.False(facadeCreated);
         }
 
         [Fact]
