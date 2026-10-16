@@ -1139,6 +1139,19 @@ So: look up `unity.unity-debug`; **return if it is absent or not active**; other
 - **This must not add a dependency.** `extensionDependencies`/`extensionPack`/`dependencies` stay `[]`, and no `ms-dotnettools` or `com.unity.ide.*` reference is introduced. `vscode.extensions.getExtension` creates no dependency; declaring one would break the invariant.
 - **Check whether `activationEvents` needs anything** rather than assuming — the warning runs at activation, and Task 10 had to add an event for its command. If nothing needs to change, say so explicitly.
 
+**Rule 11 files — expect these to break, and fix them in the same commit.** Reading `vscode.extensions.getExtension(...)` at activation means every double that runs `activate()` must now provide an `extensions` registry. **I checked, and none of them does**, so this is a prediction rather than a warning:
+
+| File | `activate()` calls | Provides `extensions`? |
+| --- | --- | --- |
+| `tests/extension/outputChannel.test.ts` | 8 | **no** |
+| `tests/extension/functionBreakpointWarning.test.ts` | 3 | **no** |
+| `tests/build/extension-entry.test.mjs` | 2 | **no** — and this one runs **real** activation, so it will throw rather than silently pass |
+| `tests/extension/unityApiReference.test.ts` | 1 | **no** |
+| `tests/extension/extensionCommands.test.ts` | 0 | — (activates indirectly; check it) |
+
+- **Add a minimal registry to each**: an object with `getExtension` returning `undefined` is enough for the absent branch, and one test should supply a fake extension object to exercise the active branch. **Give the fake a `packageJSON.displayName`, since the message interpolates it** — an object without one produces `undefined` in the middle of a user-visible string, which is the kind of defect a mocked test will happily accept.
+- **This is the fourth time this exact pattern has bitten this work item**, and the first time it has been predicted rather than discovered. Task 9's `tests/build` stub lacked `window.createOutputChannel` and `activate()` threw, taking the suite to 19/20; Task 10 broke `scaffold.test.mjs`'s two hardcoded command arrays; Task 11 broke `unityApiReference.test.ts`'s `vi.fn()` factory that returned `undefined`. **A factory or namespace added to the activation path invalidates every double in the repository, and no brief lists them** — so this note names them, and Step 2's "fails for the right reason" check should now read "fails on the assertion, not on a missing stub member".
+
 - [ ] **Step 1: Write the failing test** — the three branches (absent, present-but-inactive, present-and-active) plus a `toBe` pinning the verbatim string, **split at a different point from the production literal** so a typo in either is caught rather than both drifting together.
 - [ ] **Step 2: Run it and confirm it fails for the right reason** — not module resolution alone.
 - [ ] **Step 3: Implement**, wiring the call into activation.
