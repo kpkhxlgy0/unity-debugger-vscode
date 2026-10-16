@@ -700,8 +700,27 @@ An earlier revision staged the whole `tests/extension` and `tests/build` directo
 
 **Files:**
 - Create: `extension/src/attachTargetPicker.ts`
-- Modify: `extension/src/productIdentity.ts`, `extension/src/extension.ts`, `extension/src/model.ts`, `extension/src/editorDiscovery.ts`, `package.json`
-- Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`, `tests/extension/editorDiscovery.test.ts`, `tests/extension/attachRequestRegistry.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`
+- Modify: `extension/src/productIdentity.ts`, `extension/src/extension.ts`, `extension/src/model.ts`, `extension/src/editorDiscovery.ts`, `package.json`, `adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs`
+- Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`, `tests/extension/editorDiscovery.test.ts`, `tests/extension/attachRequestRegistry.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/UnityDebugSessionLifecycleTests.cs`
+
+**Like Task 7, this task spans both languages — because of defect (i) below, which is C#.** Run **both** suites: `npx vitest run tests/extension` and `dotnet test UnityDebugger.sln -c Release --no-restore` (building first). Baselines on the current tree: `tests/extension` **131 passed / 11 files**, adapter **Failed 0, Passed 206, Skipped 5, Total 211**, `tests/build` 20/20, `tests/integration` 9/9, `tsc` exit 0.
+
+**Two user-visible defects Task 7 found and correctly declined to fix, both yours.** Task 7 was scoped to enumerable adapter validations; it flagged these instead of widening itself, which was right. They are yours because Task 8 either owns the code or owns the label format, and because **Task 13 would otherwise record both as observed behaviour** — it exercises the `endPoint` path and the picker explicitly.
+
+**(i) `UnityDebugSession.cs:125-136` misidentifies the target and renders a double space.** The warning is emitted whenever the version differs from the baseline:
+
+```csharp
+$"Editor {target.ProjectVersion} is unverified; " +
+```
+
+With an empty version — which is now reachable on **two** paths Task 7 unblocked, a Player candidate and any `endPoint` attach — that renders `Editor  is unverified; …` with two spaces and no version. Worse than the spacing: it says **"Editor" for a Player**, and it claims a version it does not have. Fix by giving the unknown-version case its own target-neutral wording rather than by interpolating an empty string, and make it say plainly that the version could not be determined while still stating the supported baseline and the policy URL. Keep it an `OutputEvent` on `console`. The existing `Attach_unverified_version_emits_exactly_one_warning` test must still pass — the reference behaviour it pins is *one warning*, not one specific string.
+
+- Why this is not cosmetic: a Player attach is now a headline feature, and the first thing a user sees on a successful Player attach would be a message calling their Player an Editor and naming a version that does not exist. That is precisely the class of thing this work item exists to remove.
+
+**(ii) `extension.ts:153-155` renders a broken label for Players.** The configuration-flow picker builds `` `${projectName} — PID ${processId} — ${projectVersion} — port ${port}` ``, and a Player has `processId: 0` and `projectVersion: ""`, so it renders `PID 0 —  — port N`. Reachable only now, because Task 5 is what made Players discoverable.
+
+- **Fix it by using `formatTargetLabel` from (1) rather than by guarding this one string.** You are already writing that function, it already produces the reference's `Unity <type>, <projectName>, <machine>, <connection>` format, and a Player has a real `machine` and a real `connection` — so one label format serves both the command's picker and the configuration-flow picker, and the second one stops being an ad-hoc string that drifts. That is strictly better than special-casing zero and empty, and it removes the duplicate format rather than patching it.
+- This makes the config-flow picker **reference-aligned as a side effect**, which is a small bonus: the reference shows one label style everywhere, and after this we will too. Note the change in your report so Task 12 can record that the config-flow picker's old `PID … — port …` format is gone rather than diverging.
 
 **`isBackground` is a new *required* field, and an earlier revision of this file list named almost none of what it breaks.** Step 3 adds it to `EditorCandidate`, which is the same shape of change as Task 5's `machine` — and it touches the *same set of files*, for the same reason. Enumerated by grep rather than assumed, because this is the fourth time in this plan a required-field addition has had an incomplete file list:
 
