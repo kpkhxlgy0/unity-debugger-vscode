@@ -222,7 +222,7 @@ The reference declares `logFile` and never reads it. We implement it: the adapte
 
 **Interfaces:**
 - Produces: `DiagnosticLog.OpenSecondary(string path)` — opens an additional append stream; every subsequent allowlisted line is written to both the default file and the secondary file; idempotent for the same path.
-- Produces: `AttachArguments.LogFile` (nullable `string`), read from the `__logFile` attach key.
+- Produces: `AttachArguments.ParseLogFile(JObject?)` returning a nullable `string`, read from the `__logFile` attach key. **As delivered** — the brief originally named this `AttachArguments.LogFile`, but parsed request values live on `AttachTarget` in `Backend/BackendModels.cs`, which this task's file list excludes and which an earlier ruling forbids changing, so the implementer kept it a static parser in `AttachArguments`. Accepted: it solves the same problem without contradicting a standing ruling. Task 7 consumes the **`__logFile` wire key**, not a member name, so nothing downstream depends on the literal.
 
 - [ ] **Step 1: Write the failing test**
 
