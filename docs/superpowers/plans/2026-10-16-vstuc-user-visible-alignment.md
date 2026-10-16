@@ -317,7 +317,7 @@ Do **not** use `git add -A` here: the six pre-existing `adapter/vendor/*/package
 
 **Files:**
 - Modify: `extension/src/model.ts:18`, `:29`, `extension/src/editorDiscovery.ts:110-126`, `extension/src/playerAdvertisement.ts`
-- Test: `tests/extension/editorDiscovery.test.ts`, `tests/extension/playerAdvertisement.test.ts`
+- Test: `tests/extension/editorDiscovery.test.ts`, `tests/extension/playerAdvertisement.test.ts`, `tests/extension/attachRequestRegistry.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`
 
 **Interfaces:**
 - Produces: `EditorCandidate.host: string` and `UnityAttachConfiguration.__host: string` (was the literal `"127.0.0.1"`).
@@ -389,7 +389,17 @@ Expected: FAIL — the first two because players are dropped, the third only if 
 
 - [ ] **Step 3: Implement**
 
-In `playerAdvertisement.ts`, parse `machine` from `[Id]` per the rule in Interfaces. The rule was verified against the live record: `AndroidPlayer(11,samsung_SM-S9260@10.30.154.73)` yields `samsung_SM-S9260@10.30.154.73`, exactly the reference's `machine`, and an `[Id]` with no parentheses correctly fails to match and falls back to the advertised `ip`. Widen `host`/`__host` to `string` in `model.ts` and add `machine: string` to `EditorCandidate`. In `discover`, set `machine: os.hostname()` (import `node:os`) on Editor candidates — **use `os.hostname()`, which returns `xiaolonghan` here and matches the reference's label exactly; do not use `process.env.COMPUTERNAME`, which is upper-cased to `XIAOLONGHAN` and would not match** — then append one candidate per remaining advertisement (those not consumed as the current Editor's port source) that has `allowDebugging === true` and a positive `debuggerPort`, with `source: "player-advertisement"`, `machine` from the advertisement, `workspaceRoot` set to the first root, `processId: 0`, and `projectVersion: ""`. Adding a required field to `EditorCandidate` breaks every existing literal. Update the fixtures in `tests/extension/editorDiscovery.test.ts`, `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/publicApi.test.ts`, and any other construction site before running the suite. Change the dedupe key from `${processId}:${port}` to `${host}:${port}`.
+In `playerAdvertisement.ts`, parse `machine` from `[Id]` per the rule in Interfaces. The rule was verified against the live record: `AndroidPlayer(11,samsung_SM-S9260@10.30.154.73)` yields `samsung_SM-S9260@10.30.154.73`, exactly the reference's `machine`, and an `[Id]` with no parentheses correctly fails to match and falls back to the advertised `ip`. Widen `host`/`__host` to `string` in `model.ts` and add `machine: string` to `EditorCandidate`. In `discover`, set `machine: os.hostname()` (import `node:os`) on Editor candidates — **use `os.hostname()`, which returns `xiaolonghan` here and matches the reference's label exactly; do not use `process.env.COMPUTERNAME`, which is upper-cased to `XIAOLONGHAN` and would not match** — then append one candidate per remaining advertisement (those not consumed as the current Editor's port source) that has `allowDebugging === true` and a positive `debuggerPort`, with `source: "player-advertisement"`, `machine` from the advertisement, `workspaceRoot` set to the first root, `processId: 0`, and `projectVersion: ""`. Adding a required field to `EditorCandidate` breaks every existing literal. The **complete** set was enumerated by grep before dispatch, so use this list rather than searching for one:
+
+| Site | Needs |
+| --- | --- |
+| `tests/extension/editorDiscovery.test.ts:69,96,111,158,181` | add `machine` to five literals |
+| `tests/extension/attachRequestRegistry.test.ts:5,84` | add `machine` to two literals |
+| `tests/extension/debugConfigurationProvider.test.ts:8` | add `machine` |
+| `tests/extension/publicApi.test.ts:21` | add `machine` |
+| `extension/src/attachRequestRegistry.ts:36` | **no change needed** — it builds its scoped candidate with `...candidate` and overrides only `workspaceRoot`, so a new required field flows through. Do not edit it, and do not widen `PublicEditorTarget` to carry `machine`: Task 8's label function takes an `EditorCandidate`, which the picker already has |
+
+Update those five test files' literals before running the suite. Change the dedupe key from `${processId}:${port}` (`editorDiscovery.ts:75`) to `${host}:${port}`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -399,9 +409,14 @@ Expected: PASS, including the pre-existing `editorDiscovery` and `debugConfigura
 - [ ] **Step 5: Commit**
 
 ```bash
-git add extension/src/model.ts extension/src/editorDiscovery.ts tests/extension/editorDiscovery.test.ts
+git add extension/src/model.ts extension/src/editorDiscovery.ts extension/src/playerAdvertisement.ts \
+        tests/extension/editorDiscovery.test.ts tests/extension/playerAdvertisement.test.ts \
+        tests/extension/attachRequestRegistry.test.ts tests/extension/debugConfigurationProvider.test.ts \
+        tests/extension/publicApi.test.ts
 git commit -m "feat: surface Unity player targets from discovery"
 ```
+
+**An earlier revision of this step staged only three of those eight paths**, omitting `playerAdvertisement.ts` — which holds the `machine` parsing this task's own Interfaces promise, and which Task 8 consumes — plus four test files. That would have committed a tree that does not satisfy its own requirements. Run `git status --short` after staging and confirm nothing you edited is left unstaged; the six `adapter/vendor/*/packages.lock.json` files are the only entries that should remain, and they must stay uncommitted.
 
 ---
 
