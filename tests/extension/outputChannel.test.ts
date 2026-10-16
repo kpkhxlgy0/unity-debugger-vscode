@@ -234,16 +234,78 @@ describe("writeSanitized", () => {
     // `C:\Users\Administrator` and `C:\Users\Admin2` merely *contain*
     // `C:\Users\Admin`. `PathRedactor` may match them because it rewrites what
     // it matches; this guard drops, so an over-broad match would cost a
-    // diagnostic that leaks nothing.
+    // diagnostic that leaks nothing. `Admin-old` is here for the same reason
+    // from the other side: `-` continues a segment name, so this line is
+    // written too, and the boundary is not "a path, then punctuation".
     channel.writeSanitized("opened C:\\Users\\Administrator\\logs");
     channel.writeSanitized("opened C:\\Users\\Admin2\\logs");
+    channel.writeSanitized("opened C:\\Users\\Admin-old\\logs");
     channel.writeSanitized("opened C:\\Users\\Admin\\logs");
 
     expect(loggedLines()).toEqual([
       "opened C:\\Users\\Administrator\\logs",
       "opened C:\\Users\\Admin2\\logs",
+      "opened C:\\Users\\Admin-old\\logs",
       CHANNEL_REFUSED_LINE,
     ]);
+  });
+
+  it("refuses a line whose home path ends at a quote", () => {
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    // A path quoted inside a message is a leak the moment the quote closes it.
+    // A guard that tests *terminators* — `/` or the end of the string — reads
+    // `"` as "the path ended here" and writes this line; the path ends at the
+    // quote, and the quote is not a character a segment name continues with.
+    channel.writeSanitized('opened "C:\\Users\\Admin"');
+
+    expect(loggedLines()).toEqual([CHANNEL_REFUSED_LINE]);
+  });
+
+  it("refuses a line whose home path ends at a field separator", () => {
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    // `event=<name> key=value key=value` is the adapter's own line shape, so a
+    // producer that prints the home as a value and carries on with the next
+    // field is the forgetful producer this backstop is for. The space ends the
+    // path exactly as a separator would; a terminator test calls the line
+    // path-free and writes it.
+    channel.writeSanitized("home=C:\\Users\\Admin attempt=1");
+
+    expect(loggedLines()).toEqual([CHANNEL_REFUSED_LINE]);
+  });
+
+  it("refuses a home path ended by any punctuation or whitespace", () => {
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    // The same boundary from the other end: `;` and `)` end a path inside a
+    // sentence, and the `\r` a file read leaves behind ends one at the end of
+    // a line. None of the three is `/`, so all three are written by a guard
+    // that tests terminators instead of continuations.
+    channel.writeSanitized("opened C:\\Users\\Admin;");
+    channel.writeSanitized("(C:\\Users\\Admin)");
+    channel.writeSanitized("opened C:\\Users\\Admin\r");
+
+    expect(loggedLines()).toEqual([
+      CHANNEL_REFUSED_LINE,
+      CHANNEL_REFUSED_LINE,
+      CHANNEL_REFUSED_LINE,
+    ]);
+  });
+
+  it("refuses a home path that ends the line", () => {
+    const channel = createOutputChannel(mocks.createOutputChannel);
+
+    // The plainest boundary of all, and the only shape the suite did not
+    // already put on the wire: every other refused line continues after the
+    // home with a separator. End of line has to refuse on its own, because the
+    // alternative spelling of this predicate — testing the terminator
+    // characters that appear *in* a line — is easy to write in a way that
+    // forgets the empty string, and a line that ends at the home leaks exactly
+    // as much as one that continues with `/logs`.
+    channel.writeSanitized("event=attach home=C:\\Users\\Admin");
+
+    expect(loggedLines()).toEqual([CHANNEL_REFUSED_LINE]);
   });
 
   it("takes the user path from the home directory rather than a literal", () => {
