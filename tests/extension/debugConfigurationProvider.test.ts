@@ -1,9 +1,12 @@
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   DebugConfigurationProvider,
   type ConfigurationUi,
 } from "../../extension/src/debugConfigurationProvider.js";
+import { EditorDiscovery } from "../../extension/src/editorDiscovery.js";
 import type { EditorCandidate } from "../../extension/src/model.js";
 
 const candidate: EditorCandidate = {
@@ -254,7 +257,41 @@ describe("DebugConfigurationProvider", () => {
       configurationProvider.resolveDebugConfiguration(folder, attach),
     ).resolves.toBeUndefined();
     expect(configurationUi.showNoEditor).toHaveBeenCalledOnce();
+    expect(configurationUi.showNoEditor).toHaveBeenCalledWith(
+      "Unity is not running for the current project",
+    );
     expect(discover).toHaveBeenCalledOnce();
+  });
+
+  it("reports Unity not running for a folder that is not a Unity project", async () => {
+    // Review Focus 2: a folder that is not a Unity project must reach the same
+    // message without rejecting. The real discovery runs against a real
+    // directory that has no Library/EditorInstance.json, so the folder
+    // genuinely is not a project; advertisements are stubbed to keep the test
+    // off the network.
+    const workspaceRoot = await mkdtemp(
+      path.join(os.tmpdir(), "unity-debugger-not-a-project-"),
+    );
+    const configurationUi = ui();
+    const configurationProvider = new DebugConfigurationProvider(
+      new EditorDiscovery({ collectAdvertisements: async () => [] }),
+      configurationUi,
+      (currentFolder) => [currentFolder],
+    );
+
+    try {
+      await expect(
+        configurationProvider.resolveDebugConfiguration(
+          { uri: { fsPath: workspaceRoot } },
+          attach,
+        ),
+      ).resolves.toBeUndefined();
+      expect(configurationUi.showNoEditor).toHaveBeenCalledWith(
+        "Unity is not running for the current project",
+      );
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
   });
 
   it("performs exactly one additional discovery after Refresh", async () => {
@@ -285,7 +322,7 @@ describe("DebugConfigurationProvider", () => {
     ).resolves.toBeUndefined();
     expect(discover).toHaveBeenCalledTimes(2);
     expect(configurationUi.showError).toHaveBeenCalledWith(
-      "No local debug-enabled Editor was found after refresh.",
+      "Unity is not running for the current project",
     );
   });
 

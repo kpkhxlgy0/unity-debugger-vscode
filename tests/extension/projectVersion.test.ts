@@ -42,3 +42,41 @@ describe("parseProjectVersion", () => {
     }
   });
 });
+
+describe("readProjectVersion", () => {
+  it("survives a project with no ProjectVersion.txt", async () => {
+    const workspaceRoot = await mkdtemp(
+      path.join(os.tmpdir(), "unity-debugger-version-"),
+    );
+
+    try {
+      await expect(readProjectVersion(workspaceRoot)).resolves.toBe("");
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("survives a project directory that does not exist", async () => {
+    await expect(readProjectVersion("H:\\fixture")).resolves.toBe("");
+  });
+
+  it("survives a ProjectVersion.txt without m_EditorVersion", async () => {
+    const workspaceRoot = await mkdtemp(
+      path.join(os.tmpdir(), "unity-debugger-version-"),
+    );
+
+    try {
+      const projectSettings = path.join(workspaceRoot, "ProjectSettings");
+      await mkdir(projectSettings);
+      await writeFile(
+        path.join(projectSettings, "ProjectVersion.txt"),
+        "m_EditorVersionWithRevision: 2022.3.62t11 (b1a0a2c)\n",
+        "utf8",
+      );
+
+      await expect(readProjectVersion(workspaceRoot)).resolves.toBe("");
+    } finally {
+      await rm(workspaceRoot, { recursive: true, force: true });
+    }
+  });
+});

@@ -18,6 +18,15 @@ export async function readProjectVersion(
     "ProjectSettings",
     "ProjectVersion.txt",
   );
-  const contents = await readFile(versionFile, "utf8");
-  return parseProjectVersion(contents);
+
+  try {
+    const contents = await readFile(versionFile, "utf8");
+    return parseProjectVersion(contents);
+  } catch {
+    // A missing ProjectVersion.txt — or one without m_EditorVersion — is not
+    // fatal to attaching: the Editor is already known to be alive and its
+    // debugger port is known, so discovery reports the target and the caller
+    // treats "" as an unknown version.
+    return "";
+  }
 }

@@ -12,6 +12,16 @@ export const COPY_DIAGNOSTICS_COMMAND =
 export const NO_SANITIZED_DIAGNOSTICS =
   "No sanitized Unity debugger diagnostics are available yet.";
 
+/**
+ * The reference extension's attach-failure strings, copied verbatim from its
+ * English bundle (`out/nls.bundle.json`). Do not paraphrase them; the wording
+ * is the user-visible contract this alignment exists to keep.
+ */
+export const UNITY_NOT_RUNNING_MESSAGE =
+  "Unity is not running for the current project";
+export const NO_UNITY_ENDPOINT_MESSAGE = "No Unity endPoint to connect to";
+export const NO_PROCESSES_MESSAGE = "No Process to attach to";
+
 const LOG_FILE_PATTERN = /^adapter-.*\.log$/;
 
 export function getLogDirectory(

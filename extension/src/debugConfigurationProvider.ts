@@ -1,3 +1,4 @@
+import { UNITY_NOT_RUNNING_MESSAGE } from "./diagnostics.js";
 import type {
   EditorCandidate,
   UnityAttachConfiguration,
@@ -95,19 +96,14 @@ export class DebugConfigurationProvider {
     const roots = this.listWorkspaceRoots(folder.uri.fsPath);
     let candidates = await this.discovery.discover(roots);
     if (candidates.length === 0) {
-      const action = await this.ui.showNoEditor(
-        "No local debug-enabled Tuanjie or Unity Editor was found. " +
-          "Switch Code Optimization to Debug, then refresh.",
-      );
+      const action = await this.ui.showNoEditor(UNITY_NOT_RUNNING_MESSAGE);
       if (action !== "refresh") {
         return undefined;
       }
 
       candidates = await this.discovery.discover(roots);
       if (candidates.length === 0) {
-        await this.ui.showError(
-          "No local debug-enabled Editor was found after refresh.",
-        );
+        await this.ui.showError(UNITY_NOT_RUNNING_MESSAGE);
         return undefined;
       }
     }
