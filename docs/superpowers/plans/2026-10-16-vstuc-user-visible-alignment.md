@@ -951,7 +951,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add extension/src/unityApiReference.ts extension/src/productIdentity.ts extension/src/extension.ts package.json tests/extension/unityApiReference.test.ts
+git add extension/src/unityApiReference.ts extension/src/productIdentity.ts extension/src/extension.ts package.json tests/extension/unityApiReference.test.ts tests/build/scaffold.test.mjs
 git commit -m "feat: add the Unity API reference command"
 ```
 
@@ -1228,6 +1228,8 @@ git commit -m "test: record VSTU alignment acceptance evidence"
 - [ ] **Step 7: Report**
 
 State the versions, build ids, VSIX and adapter SHA-256 values, the exact automated test counts, the Editor version actually used, and every matrix row still `divergent` or `not verified`. Claim "reference-compatible" only when no row is in either state.
+
+---
 
 ### Task 14: Consolidated minor pass
 
