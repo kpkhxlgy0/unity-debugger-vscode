@@ -470,10 +470,10 @@ git commit -m "feat: add endPoint and projectPath attach properties"
 - Test: `tests/extension/attachTargetPicker.test.ts`, `tests/build/scaffold.test.mjs`
 
 **Interfaces:**
-- Produces: `formatTargetLabel(candidate: EditorCandidate): string` returning `Unity <type>, <projectName>, <machine>, <connection>` with empty parts omitted, joined by `", "`.
-  - `<type>` is `Editor` when `source` is `"advertisement"` or `"derived-port"`, and `Player` when `source` is `"player-advertisement"`.
-  - `<machine>` is `localhost` when `host` is `127.0.0.1`, otherwise `host`.
-  - `<connection>` is `` `${host}:${port}` ``.
+- Produces: `formatTargetLabel(candidate: EditorCandidate, machineName: string): string` returning `Unity <type>, <projectName>, <machine>, <connection>` with empty parts omitted, joined by `", "`. `machineName` is injected so the label is testable without touching the host.
+  - `<type>` is `Editor` when `source` is `"advertisement"` or `"derived-port"`, and `Player` when `source` is `"player-advertisement"` (the reference's `displayType` values, observed as `"Editor"` and `"Player"`).
+  - `<machine>` is the injected `machineName` (`os.hostname()`) for Editor targets, and the advertised `ip` for Player targets. The reference reports a device-specific machine label such as `samsung_SM-S9260@10.30.154.73` for a network player; a Unity advertisement carries no such name, so Task 12 records the difference rather than inventing one.
+  - `<connection>` is `` `Port:${port} (Mono)` ``, matching the reference's observed format `Port:<debuggerPort> (<debuggerEngine>)`, e.g. `Port:56548 (VSTU)` for its local Editor. Our engine token differs; Task 12 records that as an accepted cosmetic divergence.
 - Produces: `selectTarget(candidates, options): Promise<EditorCandidate | undefined>` where `options` carries `displayBackgroundProcesses` and the QuickPick factory, so the picker is testable without VS Code.
 - Produces: `PRODUCT_IDENTITY.commandIds.attachUnityDebugger = "unity-debugger-pure.attachUnityDebugger"` and `PRODUCT_IDENTITY.settingIds.displayBackgroundProcesses = "unity-debugger-pure.displayBackgroundProcesses"`.
 
@@ -481,8 +481,8 @@ git commit -m "feat: add endPoint and projectPath attach properties"
 
 ```ts
 it("formats a label like the reference", () => {
-  expect(formatTargetLabel({ ...candidate, projectName: "MyGame" }))
-    .toBe("Unity Editor, MyGame, localhost, 127.0.0.1:56234");
+  expect(formatTargetLabel({ ...candidate, projectName: "sgproj" }, "xiaolonghan"))
+    .toBe("Unity Editor, sgproj, xiaolonghan, Port:56234 (Mono)");
 });
 
 it("hides background processes unless the setting is on", async () => {
@@ -672,7 +672,13 @@ git commit -m "feat: add the extension output channel"
 
 - [ ] **Step 1: Add the matrix rows**
 
-Add one row per line of the spec's two diff tables to `docs/reference-debugger-compatibility.md`, using the existing `| ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |` shape and the existing status vocabulary. Reference the observed `initialize` body and the REA evidence ids where they apply. Status is `aligned` only for items verified by running both extensions; everything implemented but not yet A/B-run is `not verified`.
+Add one row per line of the spec's two diff tables to `docs/reference-debugger-compatibility.md`, using the existing `| ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |` shape and the existing status vocabulary. Reference the observed `initialize` body, the observed `debuggerTargets` payload, and the REA evidence ids where they apply. Status is `aligned` only for items verified by running both extensions; everything implemented but not yet A/B-run is `not verified`.
+
+Also add these three `divergent` rows, which are known and must not be silently absorbed:
+
+1. **Player advertisement `debug` gating.** The reference lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true`; our `playerAdvertisement.ts` treats `debug === "1"` as `allowDebugging` and Task 5 filters on it, so we would exclude that target. Neither behaviour is changed by this plan.
+2. **Connection label engine token.** The reference renders `Port:56548 (VSTU)`; we render `Port:<port> (Mono)`. Same format, different engine name.
+3. **Machine label for network players.** The reference reports `samsung_SM-S9260@10.30.154.73`; a Unity advertisement carries no device name, so Task 8 uses the advertised `ip`.
 
 - [ ] **Step 2: Update the reference identity**
 

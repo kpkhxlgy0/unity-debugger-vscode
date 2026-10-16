@@ -58,8 +58,10 @@ All reference claims in this document are `observed` and come from one of:
   limitation is recorded, not hidden.
 - **Runtime** — the capability block below was obtained by launching the shipped
   adapter and issuing a real DAP `initialize` request, then reading the framed
-  response. This is a live observation of the shipped artifact, not a
-  reconstruction.
+  response. The target list schema was obtained by launching the shipped
+  attach probe (`bin\UnityAttachProbe.dll`) against a live Editor's
+  `app_contents_path` and reading the framed JSON-RPC notification it emits on
+  stdout. Both are live observations of shipped artifacts, not reconstructions.
 
 ## Reference capability diff (runtime-observed)
 
@@ -118,7 +120,10 @@ Comparison with the current adapter
 | --- | --- | --- | --- |
 | Attach command | `vstuc.attachUnityDebugger` → QuickPick titled "Select Unity Instance", placeholder "Detecting... press any key to filter", `busy: true` | only `refreshTargets` (current workspace, editors only) | implement |
 | Target list | Editors **and** Players (local, Android via adb/`Mono.AndroidTools`, Apple via usbmuxd P/Invoke); background processes filtered by a setting; non-background first | players parsed then discarded (`editorDiscovery.ts:110-126`) | implement |
-| Item label | `Unity <displayType>, <projectName>, <machine>, <displayConnection>` joined with ", " | n/a | implement |
+| Item label | `Unity <displayType>, <projectName>, <machine>, <displayConnection>` joined with ", ". Observed live: `Unity Editor, sgproj, xiaolonghan, Port:56548 (VSTU)` | n/a | implement, with the three label divergences below recorded |
+| Player `debug` gating | Lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true` | `playerAdvertisement.ts:52` maps `debug === "1"` to `allowDebugging`, and W2 filters on it | **divergent — recorded, not changed** |
+| Connection label engine token | `Port:56548 (VSTU)` | will render `Port:<port> (Mono)` | **divergent — accepted cosmetic** |
+| Machine label for network players | `samsung_SM-S9260@10.30.154.73` | Unity advertisements carry no device name; we use the advertised `ip` | **divergent — recorded** |
 | Attach properties | `projectPath` (default `${workspaceFolder}`), `logFile`, `endPoint`; `required: []` | `name`/`type`/`request` only | implement |
 | `endPoint` | `address + ":" + debuggerPort`; address is `127.0.0.1` or the docker host | loopback only, hardcoded | implement (policy change) |
 | Settings | 5 contributed; **`displayBackgroundProcesses` is the only one that changes debugger behaviour** | **0 contributed** | implement the debugger-relevant one |
@@ -132,6 +137,41 @@ Comparison with the current adapter
 | Engine routing | `DebuggerEngine.CoreCLR` (delegates to the `coreclr` debug type with `processId`) or `VSTU` (Mono, with `endPoint`) | Mono only | keep Mono |
 | Telemetry | `@vscode/extension-telemetry` with an `aiKey`; launch/end/project events | none | keep none |
 | Concord | writes `%USERPROFILE%\.dotnet\vsdbg-extensions\<id>.link` at activation | absent | not applicable (vsdbg/CoreCLR only) |
+
+## Observed target-list payload
+
+Captured live from `bin\UnityAttachProbe.dll` (JSON-RPC over stdio, notification
+`debuggerTargets`), against a running Editor. One local Editor entry:
+
+```json
+{"processId":54548,"address":"127.0.0.1","machine":"xiaolonghan","projectName":"sgproj",
+ "information":"","profilerPort":0,"debuggerPort":56548,"messagerPort":56550,
+ "unityPlayer":null,"type":"Editor","discoveryType":"Automatic","debuggerEngine":"VSTU",
+ "isBackground":false,"isProcessDetection":true,"displayType":"Editor",
+ "displayConnection":"Port:56548 (VSTU)","isValidForAttachment":true}
+```
+
+and one network player, which resolves three questions the static analysis left open:
+
+```json
+{"processId":0,"address":"10.30.154.73","machine":"samsung_SM-S9260@10.30.154.73",
+ "projectName":"\u5934\u53F7\u7981\u533A","information":null,"profilerPort":55000,
+ "debuggerPort":56322,"messagerPort":0,
+ "unityPlayer":{"ip":"10.30.154.73","port":55000,"processId":0,
+   "flags":"RequestImmediateConnect, SupportsProfile, AutoConnectProfiler",
+   "guid":3598034322,"editorId":2737672203,"version":1048832,"id":"AndroidPlayer",
+   "debug":false,"debuggerPort":56322,"machine":"samsung_SM-S9260@10.30.154.73",
+   "packageName":"AndroidPlayer","projectName":"\u5934\u53F7\u7981\u533A"},
+ "type":"Player","discoveryType":"Automatic","debuggerEngine":"VSTU",
+ "isBackground":false,"isProcessDetection":false,"displayType":"Player",
+ "displayConnection":"Port:56322 (VSTU)","isValidForAttachment":true}
+```
+
+This resolves: the `ProcessType` values are `Editor` and `Player`; `DiscoveryType`
+is `Automatic`; and `displayType` is what feeds the `Unity <displayType>` label
+prefix. Note `messagerPort` is `debuggerPort + 2`, confirming the UDP refresh
+channel, and that the reference reports `isValidForAttachment: true` for a player
+whose advertisement carried `debug: false` — the divergence recorded above.
 
 ## Scope
 
@@ -410,10 +450,10 @@ user changes that instruction.
 
 Recorded so later work does not re-derive it:
 
-- The exact `ProcessType` / `DiscoveryType` enum string values in the reference
-  bundle are not pinned, so the literal `Unity <type>` label prefix for a local
-  Editor is inferred. A runtime QuickPick capture, or the enum initializer region
-  at bundle offset ~212380, would settle it.
+- ~~The exact `ProcessType` / `DiscoveryType` enum string values are not pinned,
+  so the literal `Unity <type>` label prefix for a local Editor is inferred.~~
+  **Resolved** by the live probe capture above: `Editor` / `Player`, `Automatic`,
+  and `displayType` drives the label prefix.
 - Which lines of `out/extension.js` changed between 1.3.1 and 1.3.2 is not
   determined; REA's JavaScript semantic graph is partial for both and the
   reference ships no source map. The adapter itself is a pure version-bump
