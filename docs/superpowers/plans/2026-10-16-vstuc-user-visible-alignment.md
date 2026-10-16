@@ -1239,6 +1239,19 @@ In `AGENTS.md`, replace `zlorn.vstuc` with `VisualStudioToolsForUnity.vstuc` 1.3
 
 Rewrite "Security and privacy" for non-loopback `endPoint` (including the plain statement that Unity's managed debug transport has no authentication, so attaching to a remote endpoint trusts whoever controls it). Remove "remote Player attach" from "Currently excluded". Add the new features and correct the domain-reload wording at `README.md:52` to say the mature session owns rebinding.
 
+**`README.md` is not the only shipped file that is now wrong — two others ship in the VSIX, are user-visible, and no step in this task mentioned them. Both were found this round by asking which files `.vscodeignore` lets through:**
+
+**(a) `SECURITY.md` contains a directly false sentence, and it is the more serious of the two.** Its final line reads:
+
+> Version `0.3.2` supports loopback Editor attach only and does not provide remote-transport authentication.
+
+**"Loopback Editor attach only" is exactly what this work removes.** Non-loopback `endPoint` and Player attach are the headline deliverables, so that sentence becomes false the moment Task 2 lands — and `SECURITY.md` is the canonical place a security-conscious user looks. Update it to match the README rewrite, in the same terms and with the same plain statement that Unity's managed debug transport has no authentication. **The two files must not disagree**: a README saying "remote attach is supported, unauthenticated, opt-in by explicit `endPoint`" next to a security policy saying "loopback only" is worse than either alone, because a reader cannot tell which one is current.
+
+**(b) `CHANGELOG.md` has no entry for any of this.** Its `## 0.3.2 - 2026-09-24` section lists four backend fixes and nothing about Player targets, `endPoint`, the two new commands, the picker, the `displayBackgroundProcesses` setting, the `endPoint`/`projectPath` attach properties, the function-breakpoint warning, or the output channel — all of which are user-visible additions. Add an entry describing them.
+
+- **Do not bump the version.** `package.json` is `0.3.2` and that string is hardcoded in **four** places outside it — the `dist/unity-debugger-pure-0.3.2.vsix` path in `verify:vsix`, the same path plus `v0.3.2` in `verify:release-artifact`, the `--out` path in `package`, and `scripts/stage-adapter.mjs:6`'s `const version = "0.3.2"`. A version bump is a release decision outside this work item's scope, and doing it here would break four script paths and the artifact-name assertion in one step. Add the entry under the existing version heading, or under a clearly-labelled `Unreleased` heading — and say which you chose and why.
+- **How these two were missed is worth recording, because it is a repeat.** Both files are in `verify-vsix.mjs`'s required list, so the packaging machinery has been treating them as first-class shipped artefacts all along, and both are excluded from nothing in `.vscodeignore`. The task's Step 3 was written by listing files I was already thinking about — README, AGENTS.md, the matrix — rather than by asking **which shipped files this change makes false**. That is the same enumeration-versus-derivation mistake as the seven missing divergences in round 65, and the check that found it is the same one: read what actually ships, not what you remember shipping.
+
 **Two further stale spots I found this round while reading the sections you are rewriting — they are not in the list above because I had not read the whole page before.** Both are the same defect as the three you are already fixing: a sentence that was true when written and is now false.
 
 - **`:74` says `- local Editor attach;`** — no longer the whole story. This work adds Player targets and a non-loopback `endPoint`, so "local" is now a restriction the product does not have. Say what is actually supported: a discovered local Editor, a discovered Player via its advertisement, and an explicit `host:port` endpoint.
