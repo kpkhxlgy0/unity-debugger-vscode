@@ -508,10 +508,12 @@ An earlier revision staged the whole `tests/extension` directory. Name the two t
 ### Task 7: Attach configuration surface
 
 **Files:**
-- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`, `extension/src/versionPolicy.ts`
-- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/versionPolicy.test.ts`, `tests/build/scaffold.test.mjs`
+- Modify: `package.json:66-106`, `extension/src/debugConfigurationProvider.ts:39-127`, `extension/src/versionPolicy.ts`, `adapter/src/UnityDebugger.Adapter/Dap/AttachArguments.cs`
+- Test: `tests/extension/debugConfigurationProvider.test.ts`, `tests/extension/versionPolicy.test.ts`, `tests/build/scaffold.test.mjs`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`
 
-`versionPolicy.ts` and its test file were added to this list after Task 6 escalated the version-gate finding described below; `model.ts` is **not** listed because no type change is needed unless you decide `VersionDecision` needs a new level, in which case say so in your report rather than widening the interface silently.
+**This task spans TypeScript and C#, and you must run both suites** (`npx vitest run tests/extension` and `dotnet test UnityDebugger.sln -c Release --no-restore`). That is deliberate and explained below; it is the only task in this plan that does so.
+
+`versionPolicy.ts` and its test file were added to this list after Task 6 escalated the version-gate finding described below; `AttachArguments.cs` and its test file were added because `endPoint` cannot work without it. `model.ts` is **not** listed because no type change is needed unless you decide `VersionDecision` needs a new level, in which case say so in your report rather than widening the interface silently.
 
 **Interfaces:**
 - Consumes: `EditorCandidate.host: string` (Task 5).
@@ -533,6 +535,29 @@ The rule to implement: **an absent version is not a malformed one.** `classifyVe
 Why this is Task 7's and not a rider on Task 6: it is a semantic change to the compatibility policy affecting **every** candidate, not just Editors with a missing file. Task 5's Player candidates carry `projectVersion: ""` **by design** — a Player's Editor version is genuinely unknown — so before this change every Player from the picker would be rejected at the gate too. Task 6's implementer declined to apply a `=== ""` bypass precisely because it would silently change Player behaviour, which was the right instinct and is why the change needs its own tests. `endPoint` is **not** affected either way: that path skips discovery entirely and never reaches `applyCandidatePolicy`.
 
 Tests to add, in `tests/extension/versionPolicy.test.ts`: `""` yields a non-blocking level; a whitespace-only string is **not** silently treated as absent (decide and state which, rather than letting `trim()` fall out by accident); and the existing malformed and out-of-policy cases still return `unsupported` unchanged — that last one matters most, because the cheap version of this fix loosens the gate for everything.
+
+**`__processId` blocks both new attach paths, and this is the most consequential thing in your task. Read this section before writing any code.**
+
+An earlier revision of this brief **never mentioned `__processId` at all**. It is emitted in exactly one place — `toAttachConfiguration`, `debugConfigurationProvider.ts:159`, as `__processId: candidate.processId` — and the adapter requires it to be a **positive** integer (`AttachArguments.cs:25-28`):
+
+```csharp
+var processId = RequiredInteger(arguments, "__processId");
+if (processId <= 0)
+    throw new AttachArgumentException("__processId must be a positive integer.");
+```
+
+Two of this work item's headline features therefore cannot attach as specified:
+
+1. **`endPoint`.** That path skips discovery entirely — your own test asserts `discover` is not called — so there is **no candidate** and therefore no `candidate.processId`. Whatever you do, the field must still be present and positive or the adapter throws. Omitting it gives `"__processId is required."`; sending `0` gives `"__processId must be a positive integer."`. Either way the feature fails at the adapter, after the UI has already accepted it.
+2. **Player targets.** Task 5 deliberately sets `processId: 0` for Player candidates, because a Player's process id on this machine is meaningless.
+
+**The fix, and why relaxing the adapter is the right half of it.** `AttachTarget.ProcessId` is **assigned and never read** — a repo-wide search finds it in exactly two places, `BackendModels.cs:16` (the assignment) and `:23` (the property declaration), with no consumer anywhere in the adapter. So the `<= 0` check guards a value that nothing uses, and it is currently blocking two features that have no other obstacle. Change it to accept **zero** while still rejecting negative values, and document `0` as "unknown process id" — which is already the convention Task 5 established for Players, so the two halves agree rather than inventing a second sentinel.
+
+Keep the presence requirement: a missing `__processId` is still an error. Keep rejecting negatives, which are always malformed. Add adapter tests for `0` accepted, negative rejected, and absent rejected, and update whatever currently asserts the old `<= 0` message.
+
+**And emit it explicitly on both paths, which is the other half.** Your provider must always send `__processId`: `candidate.processId` when there is a candidate, and `0` on the `endPoint` path. Do **not** fabricate a positive placeholder — a made-up pid is worse than an honest "unknown", and it would be indistinguishable from a real one in a log.
+
+Add a TypeScript test that the `endPoint` path resolves to `__processId: 0`, since nothing currently pins the field's presence on that branch and that is exactly how this gap survived the plan.
 - Produces: the provider emits `__logFile` whenever the `logFile` property is present and non-empty, so Task 3's adapter-side reader is actually reachable. This is the only producer of that field. **The reader is `AttachArguments.ParseLogFile(JObject?)`, not an `AttachArguments.LogFile` member** — an earlier revision of this line named the latter, which does not exist; Task 3 kept it a static parser because parsed request values live on `AttachTarget` in a file it was forbidden to change. You are emitting a wire key (`__logFile`), so nothing here depends on the member name; the correction is so you do not go looking for a property that is not there.
 
 - [ ] **Step 1: Write the failing tests**
