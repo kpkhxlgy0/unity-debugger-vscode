@@ -772,13 +772,25 @@ Expected: PASS — the VSIX audit, runtime inventory, and third-party provenance
 
 Ask the user to open `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` in the Editor. Confirm discovery succeeds afterwards (the project currently has no `ProjectSettings\ProjectVersion.txt`); if the Editor does not create one, that path is exactly what Task 6 makes survivable, so attach must still work.
 
+Verified facts about this project, gathered before starting so they need not be re-derived:
+
+- Unity version is **2022.3.23f1**, not the Tuanjie baseline, so the version-compatibility row is `compatible-unverified`, not `aligned`.
+- `com.unity.ide.visualstudio` is **2.0.22**, which clears the reference's own stated requirement of `>= 2.0.20`. **A/B against the reference is therefore possible in this project** — if this were below 2.0.20 the reference could not attach and Step 5 would be impossible rather than merely unverified.
+- Its `.vscode/launch.json` currently contains exactly one configuration: `{"name": "Attach to Unity", "type": "vstuc", "request": "attach"}`.
+- No `Library\EditorInstance.json` process is alive (the recorded pid is dead), so nothing is discovered until the Editor is started.
+- The project is outside this repository. Any edit you make under it (for example the launch configuration in Step 5) is **not** part of this repo's history — never `git add` it here.
+
 - [ ] **Step 4: Identify and prove a reachable breakpoint target**
 
 Pick a method in the project that is provably reached (an `Awake`/`Start` on an object in the active scene, or a bootstrap path), and record the evidence that it executes. Do not use an unproven candidate, and do not read a missed breakpoint as a debugger failure.
 
 - [ ] **Step 5: Run the A/B acceptance and record it**
 
-For each item implemented by Tasks 1, 2, 3, 5, 6, 7, 8, 9, 10, and 11, run the same action sequence with the reference extension (configured as `"type": "vstuc"`, already present in the project's `.vscode/launch.json`) and with Unity Debugger Pure, then set the row's status. Mark anything not exercised `not verified` with the reason.
+**First add the configuration this step needs.** The project ships only a `vstuc` configuration, so there is currently no way to start our debugger from it. Add a second entry to that project's `.vscode/launch.json` pointing at Unity Debugger Pure — `{"name": "Attach to Unity (Pure)", "type": "unity-debugger-pure", "request": "attach"}` — keeping the existing `vstuc` entry so both sides of every A/B run use the same action sequence from the same file. That edit lives in the acceptance project, not this repo.
+
+Also exercise the headline `endPoint`/player path explicitly, not only the discovered-Editor path: a non-loopback `endPoint` attach (Task 7) and the `Attach Unity Debugger` command (Task 8) have no equivalent in the default configuration, so a run that only uses the default config leaves them `not verified`.
+
+For each item implemented by Tasks 1, 2, 3, 5, 6, 7, 8, 9, 10, and 11, run the same action sequence with the reference extension (configured as `"type": "vstuc"`) and with Unity Debugger Pure, then set the row's status. Mark anything not exercised `not verified` with the reason.
 
 - [ ] **Step 6: Commit the evidence**
 
