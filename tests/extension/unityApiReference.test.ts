@@ -32,9 +32,10 @@ vi.mock("vscode", () => ({
     get activeTextEditor() {
       return mocks.activeTextEditor;
     },
-    // The extension builds this channel at activation and does not write to it
-    // until a debug session needs one, so activation only needs it to exist.
-    createOutputChannel: vi.fn(),
+    // The extension decorates the channel at activation — `writeSanitized` is
+    // attached to the object the factory returns — and writes to it at warn and
+    // info level, so the double has to be an object with those methods.
+    createOutputChannel: vi.fn(() => ({ info: vi.fn(), warn: vi.fn() })),
     createQuickPick: vi.fn(),
     showErrorMessage: vi.fn(),
     showInformationMessage: vi.fn(),

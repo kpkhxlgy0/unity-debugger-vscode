@@ -13,10 +13,14 @@ import {
   type ConfigurationUi,
 } from "./debugConfigurationProvider.js";
 import {
+  COPY_DIAGNOSTICS_COPIED_LINE,
   COPY_DIAGNOSTICS_COMMAND,
+  COPY_DIAGNOSTICS_UNAVAILABLE_LINE,
   getLogDirectory,
   NO_SANITIZED_DIAGNOSTICS,
   OPEN_LOGS_COMMAND,
+  OPEN_LOGS_OPENED_LINE,
+  OPEN_LOGS_UNAVAILABLE_LINE,
   readLatestSanitizedReport,
   REFRESH_TARGETS_COMMAND,
   terminationMessageFromLog,
@@ -210,12 +214,17 @@ export function activate(
     async () => {
       const directory = getLogDirectory();
       if (!directory) {
+        // The channel records the same outcome the user is told about, and
+        // names no path: the directory the other branch knows is an absolute
+        // user path, so it goes to the shell and never into a log line.
+        outputChannel.writeSanitized(OPEN_LOGS_UNAVAILABLE_LINE);
         await vscode.window.showInformationMessage(
           NO_SANITIZED_DIAGNOSTICS,
         );
         return;
       }
       await vscode.env.openExternal(vscode.Uri.file(directory));
+      outputChannel.writeSanitized(OPEN_LOGS_OPENED_LINE);
     },
   );
   const copyDiagnosticsRegistration = vscode.commands.registerCommand(
@@ -224,6 +233,11 @@ export function activate(
       const report = await readLatestSanitizedReport();
       await vscode.env.clipboard.writeText(
         report ?? NO_SANITIZED_DIAGNOSTICS,
+      );
+      outputChannel.writeSanitized(
+        report
+          ? COPY_DIAGNOSTICS_COPIED_LINE
+          : COPY_DIAGNOSTICS_UNAVAILABLE_LINE,
       );
       await vscode.window.showInformationMessage(
         report

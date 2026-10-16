@@ -13,6 +13,22 @@ export const NO_SANITIZED_DIAGNOSTICS =
   "No sanitized Unity debugger diagnostics are available yet.";
 
 /**
+ * The output-channel lines for the two diagnostics commands.
+ *
+ * They keep the adapter's allowlisted line shape — `event=<name>` as
+ * `DiagnosticLog.FormatLine` writes it — and name no path, because both
+ * commands handle absolute paths and a path is exactly what the channel's
+ * `writeSanitized` refuses.
+ */
+export const OPEN_LOGS_OPENED_LINE = "event=diagnostics.openLogs";
+export const OPEN_LOGS_UNAVAILABLE_LINE =
+  "event=diagnostics.openLogs.unavailable";
+export const COPY_DIAGNOSTICS_COPIED_LINE =
+  "event=diagnostics.copyDiagnostics";
+export const COPY_DIAGNOSTICS_UNAVAILABLE_LINE =
+  "event=diagnostics.copyDiagnostics.unavailable";
+
+/**
  * The reference extension's attach-failure strings, copied verbatim from its
  * English bundle (`out/nls.bundle.json`). Do not paraphrase them; the wording
  * is the user-visible contract this alignment exists to keep.
