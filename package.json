@@ -35,7 +35,8 @@
     "onCommand:unity-debugger-pure.refreshTargets",
     "onCommand:unity-debugger-pure.openLogs",
     "onCommand:unity-debugger-pure.copyDiagnostics",
-    "onCommand:unity-debugger-pure.attachUnityDebugger"
+    "onCommand:unity-debugger-pure.attachUnityDebugger",
+    "onCommand:unity-debugger-pure.showUnityApiReference"
   ],
   "contributes": {
     "commands": [
@@ -53,7 +54,11 @@
       },
       {
         "command": "unity-debugger-pure.attachUnityDebugger",
-        "title": "Attach Unity Debugger"
+        "title": "Unity Debugger Pure: Attach Unity Debugger"
+      },
+      {
+        "command": "unity-debugger-pure.showUnityApiReference",
+        "title": "Unity Debugger Pure: Unity API Reference"
       }
     ],
     "configuration": {

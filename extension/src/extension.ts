@@ -34,6 +34,10 @@ import {
   VscodeDebugSessionStarter,
 } from "./publicApi.js";
 import type { UnityDebuggerPureApiV1 } from "./publicApiTypes.js";
+import {
+  runShowUnityApiReference,
+  SHOW_UNITY_API_REFERENCE_COMMAND,
+} from "./unityApiReference.js";
 
 const ATTACH_UNITY_DEBUGGER_COMMAND =
   PRODUCT_IDENTITY.commandIds.attachUnityDebugger;
@@ -228,6 +232,18 @@ export function activate(
       );
     },
   );
+  const unityApiReferenceRegistration = vscode.commands.registerCommand(
+    SHOW_UNITY_API_REFERENCE_COMMAND,
+    () =>
+      runShowUnityApiReference({
+        // Read when the command runs, not when the extension activates: the
+        // editor with focus at palette time is the one being asked about.
+        activeEditor: vscode.window.activeTextEditor,
+        // `Uri.parse` keeps the URL opaque, so VS Code's own handler decides
+        // whether it is a documentation page it can open externally.
+        openExternal: (url) => vscode.env.openExternal(vscode.Uri.parse(url)),
+      }),
+  );
   const terminationRegistration =
     vscode.debug.onDidTerminateDebugSession(async (session) => {
       if (session.type !== PRODUCT_IDENTITY.debugType) {
@@ -250,6 +266,7 @@ export function activate(
     refreshRegistration,
     openLogsRegistration,
     copyDiagnosticsRegistration,
+    unityApiReferenceRegistration,
     terminationRegistration,
   );
 

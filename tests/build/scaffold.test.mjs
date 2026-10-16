@@ -102,6 +102,7 @@ test("manifest defines an independent attach-only debugger", () => {
       "unity-debugger-pure.openLogs",
       "unity-debugger-pure.copyDiagnostics",
       "unity-debugger-pure.attachUnityDebugger",
+      "unity-debugger-pure.showUnityApiReference",
     ],
   );
   assert.deepEqual(
@@ -110,7 +111,12 @@ test("manifest defines an independent attach-only debugger", () => {
       "Unity Debugger Pure: Refresh Local Editors",
       "Unity Debugger Pure: Open Sanitized Diagnostics",
       "Unity Debugger Pure: Copy Sanitized Diagnostics",
-      "Attach Unity Debugger",
+      // The reference's own two titles are bare (`Attach Unity Debugger`,
+      // `Unity API Reference`). Both extensions can be installed at once, and
+      // two identically titled palette entries would be indistinguishable, so
+      // every one of our commands carries the extension name instead.
+      "Unity Debugger Pure: Attach Unity Debugger",
+      "Unity Debugger Pure: Unity API Reference",
     ],
   );
   assert.ok(
@@ -118,6 +124,12 @@ test("manifest defines an independent attach-only debugger", () => {
       "onCommand:unity-debugger-pure.attachUnityDebugger",
     ),
     "the attach command must activate the extension",
+  );
+  assert.ok(
+    manifest.activationEvents.includes(
+      "onCommand:unity-debugger-pure.showUnityApiReference",
+    ),
+    "the Unity API reference command must activate the extension",
   );
   // The reference declares `vstuc.displayBackgroundProcesses` as a boolean
   // defaulting to false, with this description verbatim. Our id follows our own

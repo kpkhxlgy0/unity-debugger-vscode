@@ -12,6 +12,7 @@ export const PRODUCT_IDENTITY = {
     openLogs: "unity-debugger-pure.openLogs",
     copyDiagnostics: "unity-debugger-pure.copyDiagnostics",
     attachUnityDebugger: "unity-debugger-pure.attachUnityDebugger",
+    showUnityApiReference: "unity-debugger-pure.showUnityApiReference",
   },
   /**
    * A setting id is `<extensionName>.<settingName>`, which is why ours ends in
