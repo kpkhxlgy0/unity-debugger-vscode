@@ -707,12 +707,27 @@ Add one row per line of the spec's two diff tables to `docs/reference-debugger-c
 
 Also fix this stale reference the Task 1 review caught: `README.md:51` says "all-exception and uncaught-exception break modes", but the advertised filter id is now `unhandled`. Correct the wording, and make sure the W10 matrix rows exist and follow spec Verification 4/5 — no row marked `aligned` from automated evidence alone, and the conditions divergence recorded as `divergent`.
 
-Also add these four `divergent` rows, which are known and must not be silently absorbed:
+The reference README was read directly (`C:\Users\Admin\.cursor\extensions\local.vstuc-1.3.2\readme.md`, 4474 bytes) so these three README defects are quoted, not guessed:
+
+1. **`README.md:51`** — "all-exception and uncaught-exception break modes"; the id is now `unhandled`.
+2. **`README.md:81`** — "Currently excluded: remote Player attach, Android/iOS, IL2CPP, WebGL, …". Once Task 7 lands `endPoint`, "remote Player attach" is **no longer excluded** and this line becomes false. Remove that phrase, keep the genuinely excluded items (Android/iOS enumeration, IL2CPP, WebGL).
+3. **`README.md:85-90`** — the "## Security and privacy" section states that version `0.3.2` "automatically connects only to a discovered loopback address" and "does not accept … remote debug hosts … so future remote support will require explicit opt-in." After Tasks 2 and 7 this is false. Rewrite it to state the truth plainly: attaching to a non-loopback `endPoint` is supported, and Unity's managed debugger transport is **unauthenticated**, so anyone who can reach the debugger port can attach and the debugger can execute code in the target Editor or player; recommend loopback or a trusted network. Do not imply a guarantee we do not provide.
+
+For wording alignment, the reference's own command descriptions are:
+
+- `` `Attach Unity Debugger`: lists Unity Editors and Players available for debugger attachment. ``
+- `` `Unity API Reference`: opens the Unity documentation for the selected code construct. ``
+
+and its player-attach section states that the default configuration attaches to the Editor running the open project, that `Attach Unity Debugger` is how a Player is debugged, and that a known endpoint can be configured explicitly with `"endPoint": "127.0.0.1:56321"`.
+
+**Do not treat the security section as an alignment failure.** A keyword sweep of the reference README for `secur|warn|caution|note|auth|trust|expos|firewall|risk` returns nothing: the reference documents **no security posture whatsoever** for remote attach. Our statement is an intentional addition beyond the reference, and the matrix must record it that way rather than as a divergence to close.
+
+Also add these three `divergent` rows, which are known and must not be silently absorbed:
 
 0. **Exception filter conditions.** The reference advertises `supportsCondition: true`, so the client offers an exception-condition box and sends `filterOptions[].condition`. Task 1 accepts `filterId` and ignores `condition`, so a typed condition list is not honoured. Reference and ours otherwise agree on the filters themselves.
 1. **Player advertisement `debug` gating.** The reference lists an Android player whose advertisement carried `debug: false` as `isValidForAttachment: true`; our `playerAdvertisement.ts` treats `debug === "1"` as `allowDebugging` and Task 5 filters on it, so we would exclude that target. Neither behaviour is changed by this plan.
 2. **Connection label engine token.** The reference renders `Port:56548 (VSTU)`; we render `Port:<port> (Mono)`. Same format, different engine name.
-3. **Machine label for network players.** The reference reports `samsung_SM-S9260@10.30.154.73`; a Unity advertisement carries no device name, so Task 8 uses the advertised `ip`.
+3. **Withdrawn — do not add a machine-label row.** An earlier revision of this plan recorded that we could not reproduce the reference's machine label for a network player. That was wrong: the label is the second component inside the advertisement's `[Id]` field, e.g. `AndroidPlayer(11,samsung_SM-S9260@10.30.154.73)`, so Tasks 5 and 8 now parse it and match the reference exactly. Recording a divergence here would misreport working behaviour.
 
 - [ ] **Step 2: Update the reference identity**
 
