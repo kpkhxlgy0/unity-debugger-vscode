@@ -1008,22 +1008,27 @@ An earlier revision of this brief asserted on `appendLine` while declaring a `Lo
 
 - [ ] **Step 1: Write the failing test**
 
+**The snippets below passed a second argument in an earlier revision, and that would have failed the `tsc` gate — Task 9 caught it, verified against this repo's own `tsconfig.json`.** `createOutputChannel` is declared with **one** parameter above, all three snippets called it with two, and `tsconfig.json`'s `include` covers `tests/extension/**/*.ts` — so `Expected 1 arguments, but got 2` would have broken the build, not merely looked untidy at runtime. The home directory is now **derived inside the module** (`os.homedir()`), which is also the better design: the leak check needs to know what a user path looks like, and that is the module's business rather than its callers'.
+
 ```ts
 it("drops lines that would leak a user path", () => {
-  const channel = createOutputChannel(fakeFactory, "C:\\Users\\Admin");
+  const channel = createOutputChannel(fakeFactory);
   channel.writeSanitized("attached to C:\\Users\\Admin\\proj");
   expect(fakeChannel.info).not.toHaveBeenCalled();
   expect(fakeChannel.warn).not.toHaveBeenCalled();
 });
 it("passes through a sanitized line", () => {
-  const channel = createOutputChannel(fakeFactory, "C:\\Users\\Admin");
+  const channel = createOutputChannel(fakeFactory);
   channel.writeSanitized("event=attach");
   expect(fakeChannel.info).toHaveBeenCalledWith("event=attach");
 });
 it("creates a log channel named after the product", () => {
-  createOutputChannel(fakeFactory, "C:\\Users\\Admin");
+  createOutputChannel(fakeFactory);
   expect(fakeFactory).toHaveBeenCalledWith("Unity Debugger Pure", { log: true });
 });
+```
+
+**If you decide you genuinely need the home directory injected anyway, that is a re-signature of a module Task 9 built and Task 11 was told to consume — so report it rather than performing it.** Task 9 deliberately did not pre-add an optional second parameter for this. Note also that `outputChannel.test.ts` has no `vi.mock("vscode")` today: consumer-level tests added here will need the mock pattern `functionBreakpointWarning.test.ts` already demonstrates.
 ```
 
 The third test pins the two things the reference's own activation proves: the `{ log: true }` option, without which this is a plain `OutputChannel` and the level methods do not exist, and the name coming from the product identity rather than a loose literal.
