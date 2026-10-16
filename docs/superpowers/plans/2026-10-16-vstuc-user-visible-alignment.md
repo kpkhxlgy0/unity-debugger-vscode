@@ -724,20 +724,40 @@ git commit -m "feat: add the Unity API reference command"
 - Produces: `createOutputChannel(factory): LogOutputChannel` where `factory` is injected for testing; the channel name is `PRODUCT_IDENTITY.displayName`.
 - Produces: `OutputChannel.writeSanitized(line: string): void` that refuses any line containing an absolute user path (defence in depth for the allowlist constraint).
 
+**The reference's mechanism, read out of its bundle, and a correction to this brief.** The reference activates with:
+
+```js
+u = window.createOutputChannel(extension.packageJSON.displayName, { log: true });
+context.subscriptions.push(u);
+```
+
+So it is a **`LogOutputChannel`** — the `{ log: true }` option is what makes it one — and its logging is **level-based** (`logWarning`, `logError`, `logDebug` exist; `isDebugMode` gates debug output). **`appendLine` appears zero times in the reference bundle**, because a `LogOutputChannel` does not use it.
+
+An earlier revision of this brief asserted on `appendLine` while declaring a `LogOutputChannel`; those two are inconsistent, and with a log channel the tests must assert on the level methods instead. Write the tests against `info`/`warn`/`error`/`debug`.
+
+**Channel name:** the reference's `displayName` is the NLS key `%extension.displayName%`, which resolves to **`Unity`** — the same string in every locale including `zh-cn`. Ours is the literal `Unity Debugger Pure`, so our channel is `Unity Debugger Pure`. **Do not rename it to `Unity`**, for the same reason as the debug-type label: both extensions can be installed at once and two identically-named output channels would be indistinguishable. Drive the name from `PRODUCT_IDENTITY.displayName` rather than a fresh literal, and record the difference in Task 12 alongside the label. `writeSanitized` is our own addition — the reference has no equivalent — and it exists to keep the sanitized-diagnostics invariant enforceable at the channel boundary.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ts
 it("drops lines that would leak a user path", () => {
   const channel = createOutputChannel(fakeFactory, "C:\\Users\\Admin");
   channel.writeSanitized("attached to C:\\Users\\Admin\\proj");
-  expect(fakeChannel.appendLine).not.toHaveBeenCalled();
+  expect(fakeChannel.info).not.toHaveBeenCalled();
+  expect(fakeChannel.warn).not.toHaveBeenCalled();
 });
 it("passes through a sanitized line", () => {
   const channel = createOutputChannel(fakeFactory, "C:\\Users\\Admin");
   channel.writeSanitized("event=attach");
-  expect(fakeChannel.appendLine).toHaveBeenCalledWith("event=attach");
+  expect(fakeChannel.info).toHaveBeenCalledWith("event=attach");
+});
+it("creates a log channel named after the product", () => {
+  createOutputChannel(fakeFactory, "C:\\Users\\Admin");
+  expect(fakeFactory).toHaveBeenCalledWith("Unity Debugger Pure", { log: true });
 });
 ```
+
+The third test pins the two things the reference's own activation proves: the `{ log: true }` option, without which this is a plain `OutputChannel` and the level methods do not exist, and the name coming from the product identity rather than a loose literal.
 
 - [ ] **Step 2: Run test to verify it fails**
 
