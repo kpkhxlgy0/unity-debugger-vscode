@@ -445,10 +445,13 @@ Therefore: **delete the dead reload methods** rather than wiring them up, and
 correct `README.md:52` to describe the real mechanism. Add a matrix row
 re-verifying RLD-01 on the current build.
 
-The same cleanup applies to the unreferenced `Continued`/`ReloadStarted`/
-`ReloadProgress`/`ReloadCompleted`/`ReconnectFailed` events declared only by
-`UnavailableDebuggerBackend.cs:11-21` and the test scenario backend, and to the
-uncalled `UnityDebugSession.NotImplemented` helper.
+The same cleanup applies to the unreferenced `ReloadStarted`/`ReloadProgress`/`ReloadCompleted`/`ReconnectFailed` events declared only by `UnavailableDebuggerBackend.cs:18-21` and the test scenario backend, and to the uncalled `UnityDebugSession.NotImplemented` helper.
+
+**Correction — `Continued` is not part of this cleanup, and an earlier revision of this sentence wrongly grouped it.** Verified: `UnityDebugSession` subscribes to exactly five backend events (`Stopped`, `ThreadChanged`, `ModuleChanged`, `Output`, `Terminated`, now at `:834-838`), so `Continued` is indeed production-dead — it appears in `adapter/src` only as the declaration at `UnavailableDebuggerBackend.cs:11`, with no raiser and no subscriber.
+
+But it is a different kind of thing from the reload events, for two reasons that make it unsafe to sweep up by association. First, `Continued` is an **execution-control** concept, not a domain-reload one; this work item is about reload cleanup, and the event was only ever adjacent to it alphabetically in the declaration block. Second, and decisively, a test **names it as its subject**: `ExecutionControlTests.Synchronous_backend_continued_event_is_not_forwarded` sets `FakeDebuggerBackend.RaiseContinuedSynchronously` and asserts the session does not forward the event.
+
+That test is very likely **vacuous today**, because nothing subscribes — it would pass identically if the event never fired. That is worth knowing and worth deciding about, but it is a decision about a test and its scaffolding (`RaiseContinuedSynchronously` plus its use sites in `FakeDebuggerBackend`), not a free deletion. Deleting the event without deciding the test's fate would either break the build or silently leave a test asserting session behaviour that no longer has a subject. So `Continued` is deferred as its own item with the vacuity question attached, rather than folded into the reload sweep.
 
 ### W12 — Discovery robustness
 
