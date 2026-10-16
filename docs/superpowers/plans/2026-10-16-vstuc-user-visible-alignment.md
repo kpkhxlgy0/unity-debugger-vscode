@@ -1235,6 +1235,12 @@ Expected: PASS — build tests, extension tests, adapter tests, integration test
 Run: `npm run package`
 Expected: PASS — the VSIX audit, runtime inventory, and third-party provenance checks all succeed, and the audit reports no `SyntaxTree.*` or `Microsoft.VisualStudio.*` entry.
 
+**Which script enforces which part, verified this round — the sentence above names the right outcome but the wrong enforcer, and knowing the difference is what makes a PASS meaningful.** `scripts/verify-vsix.mjs` (279 lines) checks **structure**: ZIP path safety, duplicate entries, every file under the allowlisted VSIX root, five forbidden *path* patterns (`tests/`, `.git`, `src`, `adapter/vendor/`, anything matching `testadapter`), and an eleven-path required list. It contains **no** assembly-name check at all.
+
+- The forbidden **assembly** guarantee comes from **`npm run inventory:runtime` → `scripts/generate-runtime-inventory.mjs --verify`**, which compares the staged adapter against the pinned `third-party/runtime-assemblies.json` (4171 bytes) and throws ``No audited runtime origin for ${name}`` (`:88`) for anything not in that list. An assembly from either family would fail **there**, not in the VSIX audit.
+- So when you record the evidence, cite the runtime-inventory output for the assembly claim and the audit output for the path claim. Writing "the VSIX audit reports no `SyntaxTree.*` entry" would be a true-sounding statement about a check that does not exist, and a later reader trying to reproduce it would find nothing to run.
+- Two facts that make Step 2's chain work at all, both confirmed: `npm run package` is `build && stage:adapter && inventory:runtime && vsce package --out dist/unity-debugger-pure-0.3.2.vsix && verify:vsix && test:package`, and `verify-vsix.mjs` **requires** `extension/third-party/runtime-assemblies.json` to be present in the artifact — so a missing or stale inventory fails the audit rather than passing silently.
+
 - [ ] **Step 3: Get the Editor running on the acceptance project**
 
 Ask the user to open `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` in the Editor. Confirm discovery succeeds afterwards (the project currently has no `ProjectSettings\ProjectVersion.txt`); if the Editor does not create one, that path is exactly what Task 6 makes survivable, so attach must still work.
