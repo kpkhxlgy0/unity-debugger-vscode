@@ -569,13 +569,23 @@ describe("DebugConfigurationProvider", () => {
     expect(resolved).toMatchObject({ __logFile: "H:\\logs\\unity.log" });
   });
 
-  it.each([
-    ["absent", undefined],
-    ["empty", ""],
-  ])("emits no log field when logFile is %s", async (_label, logFile) => {
-    const resolved = await provider(async () => [candidate])
-      .resolveDebugConfiguration(folder, { ...attach, logFile });
+  it.each<[string, Record<string, unknown>]>([
+    // "absent" has to omit the key rather than carry `logFile: undefined`:
+    // spreading `{ ...attach, logFile: undefined }` still creates the property,
+    // so that row used to take the empty row's path and exercise nothing new.
+    ["absent", attach],
+    ["empty", { ...attach, logFile: "" }],
+    // Whitespace-only is the case the two layers disagreed about: the provider
+    // sent it and the adapter's `ParseLogFile` dropped it, so "present" meant
+    // one thing here and another there.
+    ["blank", { ...attach, logFile: "   " }],
+  ])(
+    "emits no log field when logFile is %s",
+    async (_label, configuration) => {
+      const resolved = await provider(async () => [candidate])
+        .resolveDebugConfiguration(folder, configuration);
 
-    expect(resolved).not.toHaveProperty("__logFile");
-  });
+      expect(resolved).not.toHaveProperty("__logFile");
+    },
+  );
 });

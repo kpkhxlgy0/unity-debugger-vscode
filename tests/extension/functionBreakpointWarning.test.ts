@@ -110,6 +110,17 @@ afterEach(() => {
 });
 
 describe("shouldWarnAboutFunctionBreakpoints", () => {
+  // These assertions are asymmetric in what proves them, and that is recorded
+  // rather than implied. The negative half is covered by Task 9's M0-M8
+  // battery: each of those mutations makes the predicate answer `true`, so
+  // every `toBe(false)` below fails. The positive half is covered by one
+  // further mutation, `some` -> `every` at `functionBreakpointWarning.ts:22` -
+  // run, not reasoned about - which fails exactly two tests: "warns when one of
+  // several breakpoints is a function breakpoint" (the intended one) and "stays
+  // silent when there are no breakpoints" (`[].every(...)` is `true`). "warns
+  // only when a function breakpoint exists" stays green under it, because both
+  // of its inputs are single-element lists. Reverting the mutation restores the
+  // file byte-for-byte, checked with `git diff --exit-code`.
   it("warns only when a function breakpoint exists", () => {
     expect(
       shouldWarnAboutFunctionBreakpoints([sourceBreakpoint]),
@@ -137,7 +148,12 @@ describe("shouldWarnAboutFunctionBreakpoints", () => {
   it("stays silent when there are no breakpoints", () => {
     expect(shouldWarnAboutFunctionBreakpoints([])).toBe(false);
   });
+});
 
+// The verbatim reference string is pinned in the describe named after it, not
+// under the predicate: it is a different subject, and a failure of it used to
+// report the predicate's name.
+describe("FUNCTION_BREAKPOINT_WARNING", () => {
   it("holds the reference's text verbatim", () => {
     expect(FUNCTION_BREAKPOINT_WARNING).toBe(
       "You are using function breakpoints. Even if they are fully " +

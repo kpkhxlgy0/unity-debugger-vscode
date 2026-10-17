@@ -78,8 +78,16 @@ describe("buildUnityReferenceUrl", () => {
     expect(buildUnityReferenceUrl("a\nb")).toBe(INDEX_URL);
   });
 
-  it("falls back to the index for an empty selection", () => {
+  it("falls back to the index with no text at all", () => {
     expect(buildUnityReferenceUrl(undefined)).toBe(INDEX_URL);
+  });
+
+  it("falls back to the index for an empty selection", () => {
+    // Deliberately a test of its own: folded together with the `undefined` case
+    // above, this was the only half that could fail — the mutation
+    // `guard -> text === undefined` leaves `undefined` green — so a single test
+    // reported two cases while discriminating one. Each half can now fail
+    // alone.
     expect(buildUnityReferenceUrl("")).toBe(INDEX_URL);
   });
 
@@ -87,15 +95,45 @@ describe("buildUnityReferenceUrl", () => {
     expect(buildUnityReferenceUrl("   ")).toBe(INDEX_URL);
   });
 
-  it("encodes symbols the reference would break on", () => {
-    // The reference interpolates the text raw, so each of these would produce a
-    // URL that searches for something else entirely.
-    expect(buildUnityReferenceUrl("Foo&Bar")).toBe(
-      `${INDEX_URL}/30_search.html?q=Foo%26Bar`,
-    );
+  it("encodes the two characters that would truncate the query", () => {
+    // The reference interpolates the text raw, so `#` truncates the query into
+    // a fragment and `&` starts a second parameter: both provably look
+    // something else up. A space is deliberately absent from this list — a
+    // browser percent-encodes it anyway, so the reference would most likely
+    // still search `Foo Bar` correctly, and an example that cannot be
+    // demonstrated the way these two can does not belong beside them.
     expect(buildUnityReferenceUrl("Foo#Bar")).toBe(
       `${INDEX_URL}/30_search.html?q=Foo%23Bar`,
     );
+    expect(buildUnityReferenceUrl("Foo&Bar")).toBe(
+      `${INDEX_URL}/30_search.html?q=Foo%26Bar`,
+    );
+  });
+
+  it("leaves an unreserved character byte-identical to the reference", () => {
+    // `.` is unreserved, so `encodeURIComponent` is the identity on it and
+    // `a.b` produces exactly the URL the reference's raw interpolation does.
+    // This is the property the encoding's rationale rests on — "no change for a
+    // plain C# identifier" — and the one an assertion has to hold, because the
+    // argument for keeping the encoding is that it costs nothing here.
+    expect(buildUnityReferenceUrl("a.b")).toBe(
+      `${INDEX_URL}/30_search.html?q=a.b`,
+    );
+  });
+
+  it("encodes a C# type form the reference would send raw", () => {
+    // `List<int>` reaches the query as `List%3Cint%3E`; `int?` and `int[]` are
+    // the same class (`%3F`, `%5B%5D`). Asserted so a later simplification that
+    // drops the encoding for "harmless" punctuation fails here instead of
+    // silently taking the `#`/`&` protection with it.
+    expect(buildUnityReferenceUrl("List<int>")).toBe(
+      `${INDEX_URL}/30_search.html?q=List%3Cint%3E`,
+    );
+  });
+
+  it("percent-encodes a space rather than dropping it", () => {
+    // Not one of the truncating cases, so this pins behaviour rather than a
+    // defect: the encoding is applied uniformly, and a space is not special.
     expect(buildUnityReferenceUrl("Foo Bar")).toBe(
       `${INDEX_URL}/30_search.html?q=Foo%20Bar`,
     );

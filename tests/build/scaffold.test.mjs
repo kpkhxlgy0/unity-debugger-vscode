@@ -1,6 +1,49 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
 import test from "node:test";
+
+/**
+ * The source this repository ships, walked rather than listed: build output
+ * (`obj`, `bin`) and dependencies are excluded, because the claim below is about
+ * what we wrote and a generated file is neither ours to fix nor present on a
+ * fresh checkout.
+ */
+function sourceFiles(directory) {
+  const files = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (
+      entry.name === "obj" ||
+      entry.name === "bin" ||
+      entry.name === "node_modules"
+    ) {
+      continue;
+    }
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...sourceFiles(entryPath));
+    } else if (entry.isFile()) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+const shippedFiles = [
+  "package.json",
+  ...sourceFiles("extension/src"),
+  ...sourceFiles("adapter/src"),
+];
+
+function assertAbsent(pattern, what) {
+  for (const file of shippedFiles) {
+    assert.doesNotMatch(
+      fs.readFileSync(file, "utf8"),
+      pattern,
+      `${file} ${what}`,
+    );
+  }
+}
 
 test("manifest defines an independent attach-only debugger", () => {
   const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -55,7 +98,13 @@ test("manifest defines an independent attach-only debugger", () => {
     debuggerContribution.configurationAttributes.attach.required,
     [],
   );
-  assert.deepEqual(
+  // `assert.deepEqual` from `node:assert/strict` is already an alias of
+  // `deepStrictEqual` (Node swaps the loose methods for the strict ones in
+  // strict mode), so this assertion already pinned `default: ""` — a mutation
+  // to `default: 0` failed here before the spelling changed. It is spelled out
+  // because the two names are indistinguishable at a glance and the strict one
+  // is the one the intent is.
+  assert.deepStrictEqual(
     debuggerContribution.configurationAttributes.attach.properties,
     {
       name: { type: "string" },
@@ -196,6 +245,49 @@ test("manifest defines an independent attach-only debugger", () => {
 test("packaging excludes nested repository worktrees", () => {
   const ignore = fs.readFileSync(".vscodeignore", "utf8");
   assert.match(ignore, /^\.worktrees\/\*\*$/m);
+});
+
+// The three invariants the goal names are all *negative* claims — the absence
+// of a dependency — which is the kind no code path can notice failing and no
+// intention preserves. `extensionDependencies` is already pinned by the manifest
+// test above; these are its two siblings and the source-tree halves.
+test("the manifest declares no extension pack and no runtime dependencies", () => {
+  const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+  // The shape is pinned rather than membership: an `extensionPack` entry is a
+  // second extension installed alongside this one, and it would pass any check
+  // that only looked for a forbidden name inside an array we had already
+  // accepted as present. Absent means `undefined`, and `dependencies` means
+  // absent or empty — not merely small.
+  assert.equal(manifest.extensionPack, undefined);
+  assert.deepStrictEqual(manifest.dependencies ?? {}, {});
+});
+
+test("the shipped tree depends on no C# Dev Kit integration", () => {
+  // This is the invariant the extension exists to keep: it must work with the
+  // Microsoft C# extensions absent, so no shipped file may name one — not as a
+  // dependency, not as an extension pack, and not as a string a future
+  // contributor could turn into one.
+  assertAbsent(/ms-dotnettools|csdevkit/i, "names a Microsoft C# Dev Kit id");
+});
+
+test("the shipped tree requires no Unity-side package", () => {
+  // The reference requires a `com.unity.ide.*` package in the project. Ours
+  // must not: requiring one would reintroduce exactly the dependency this
+  // extension removes, and it is the kind of requirement that appears as a
+  // string in a preflight check before it appears as a manifest entry.
+  assertAbsent(/com\.unity\.ide\b/i, "requires a Unity IDE package");
+});
+
+test("the shipped tree carries no telemetry identifier", () => {
+  // The reference initializes `@vscode/extension-telemetry` with an `aiKey`.
+  // Our invariant is that nothing here reports anything anywhere, so the
+  // identifier must not appear even in a comment or a disabled call: the
+  // package, the constant and the key name are all this pattern.
+  assertAbsent(
+    /telemetry|appinsights|applicationinsights/i,
+    "names a telemetry dependency",
+  );
 });
 
 test("adapter project targets net48 x64", () => {

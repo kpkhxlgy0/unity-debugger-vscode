@@ -41,8 +41,16 @@ export interface UnityApiReferenceDependencies {
  *
  * The one deliberate difference is the encoding. The reference interpolates the
  * text raw (`encodeURIComponent` appears nowhere in it), so a symbol containing
- * `#`, `&` or a space produces a URL that looks something else up. Encoding
- * changes nothing for a plain C# identifier and fixes those.
+ * `#` truncates the query into a fragment and one containing `&` becomes a
+ * second parameter — in both cases a URL that looks something else up. Encoding
+ * exists for those two and changes nothing else: `.` is unreserved and
+ * `encodeURIComponent` is the identity on it, so `a.b` produces output
+ * byte-identical to the reference's, and a plain C# identifier is unaffected.
+ *
+ * A space is deliberately *not* named among the inputs the reference breaks on.
+ * It would produce the same literal URL, and a browser normally percent-encodes
+ * it, so the reference would most likely still search `Foo Bar` correctly —
+ * an example that cannot be demonstrated the way the other two can.
  */
 export function buildUnityReferenceUrl(
   selectedText: string | undefined,
@@ -81,6 +89,13 @@ function isSearchable(text: string | undefined): text is string {
  * `commands.executeCommand("vscode.open", Uri.parse(url))`, which reaches the
  * same browser for an `https` URI; `vscode.env.openExternal` is the documented
  * API for opening one, and the extension already uses it for the log directory.
+ *
+ * The call is awaited with no `try`/`catch` and its boolean is discarded, which
+ * is deliberate and is the reference's own behaviour: `executeCommand` is
+ * fire-and-forget in its handler and reports neither a rejection nor a refusal.
+ * Reporting one here would be a new user-visible divergence for a case the
+ * reference leaves silent, so it needs approval of its own rather than being
+ * folded into a cleanup.
  */
 export async function runShowUnityApiReference(
   dependencies: UnityApiReferenceDependencies,

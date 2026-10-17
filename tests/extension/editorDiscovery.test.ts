@@ -396,11 +396,17 @@ describe("EditorDiscovery", () => {
 
     const found = await discovery.discover(["H:\\fixture"]);
 
-    expect(
-      found.filter(
-        (candidate) => candidate.source === "player-advertisement",
-      ),
-    ).toHaveLength(2);
+    const players = found.filter(
+      (candidate) => candidate.source === "player-advertisement",
+    );
+    expect(players).toHaveLength(2);
+    // The count alone would also pass if `host` were read from the wrong field
+    // of the advertisement — two rows is two rows either way — so the hosts are
+    // pinned and not only the number of them.
+    expect(players.map((candidate) => candidate.host)).toEqual([
+      "192.168.1.77",
+      "192.168.1.78",
+    ]);
   });
 
   it("does not offer an advertisement that carries no debugger port", async () => {

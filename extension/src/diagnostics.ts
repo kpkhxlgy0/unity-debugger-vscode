@@ -49,6 +49,21 @@ export const UNITY_NOT_RUNNING_MESSAGE =
 export const NO_UNITY_ENDPOINT_MESSAGE = "No Unity endPoint to connect to";
 export const NO_PROCESSES_MESSAGE = "No Process to attach to";
 
+/**
+ * The one user-visible string here that is ours rather than the reference's.
+ *
+ * The reference has no sentence for "no workspace folder": with no folder and
+ * no `endPoint` its `resolveDebugConfiguration` throws
+ * `No Unity endPoint to connect to`, which describes an endpoint where the
+ * user's actual problem is the missing folder. Ours names the fix instead.
+ *
+ * It is exported because two layers report this state — the attach command and
+ * the debug-configuration provider — and a byte-identical copy in each is a
+ * copy that agrees only until one of them is edited.
+ */
+export const NO_WORKSPACE_FOLDER_MESSAGE =
+  "Open a Unity or Tuanjie project folder before attaching.";
+
 const LOG_FILE_PATTERN = /^adapter-.*\.log$/;
 
 export function getLogDirectory(

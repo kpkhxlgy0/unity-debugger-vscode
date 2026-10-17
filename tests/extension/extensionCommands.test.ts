@@ -92,14 +92,20 @@ describe("configuration-flow picker", () => {
     await ui.selectCandidate([editor, player]);
 
     const calls = showQuickPick.mock.calls as unknown as Array<
-      [readonly TargetPickerItem[]]
+      [readonly TargetPickerItem[], { placeHolder: string }]
     >;
     expect(labels(calls[0][0])).toEqual([
       "Unity Editor, sgproj, xiaolonghan, Port:56234 (Mono)",
       "Unity Player, 头号禁区, samsung_SM-S9260@10.30.154.73, " +
         "Port:56322 (Mono)",
     ]);
-    expect(labels(calls[0][0])[1]).not.toContain("PID 0");
+    // The placeholder has to describe the list it sits above, and a Player row
+    // can appear in it. The exact label array above is what pins the Player's
+    // label, so the previous `not.toContain("PID 0")` here was subsumed by it
+    // and has been dropped rather than counted as coverage.
+    expect(calls[0][1].placeHolder).toBe(
+      "Select a Unity or Tuanjie Editor or Player",
+    );
   });
 });
 
@@ -204,6 +210,55 @@ describe("attach command", () => {
     );
     expect(discover).not.toHaveBeenCalled();
   });
+
+  it("reports a refused start instead of doing nothing", async () => {
+    // `startDebugging` refuses by resolving `false`, not by rejecting, so the
+    // command would otherwise end with no output at all — indistinguishable
+    // from one that never ran.
+    const startDebugging = vi.fn(async () => false);
+    const showError = vi.fn(async () => undefined);
+
+    await runAttachUnityDebugger(
+      folder,
+      attachDependencies({
+        picker: new AutoAcceptPicker(),
+        candidates: [editor],
+        startDebugging,
+        showError,
+      }),
+    );
+
+    expect(startDebugging).toHaveBeenCalledTimes(1);
+    expect(showError).toHaveBeenCalledWith(
+      "The Unity debug session could not be started.",
+    );
+  });
+
+  it("reports a discovery rejection instead of doing nothing", async () => {
+    const discover = vi.fn(async () => {
+      throw new Error("discovery failed");
+    });
+    const picker = new AutoAcceptPicker();
+    const startDebugging = vi.fn(async () => true);
+    const showError = vi.fn(async () => undefined);
+
+    await runAttachUnityDebugger(
+      folder,
+      attachDependencies({
+        picker,
+        candidates: [editor],
+        discover,
+        startDebugging,
+        showError,
+      }),
+    );
+
+    expect(showError).toHaveBeenCalledWith(
+      "The Unity debug session could not be started.",
+    );
+    expect(picker.items).toEqual([]);
+    expect(startDebugging).not.toHaveBeenCalled();
+  });
 });
 
 function attachDependencies(overrides: {
@@ -211,14 +266,16 @@ function attachDependencies(overrides: {
   readonly candidates: readonly EditorCandidate[];
   readonly startDebugging?: AttachCommandDependencies["startDebugging"];
   readonly displayBackgroundProcesses?: () => boolean;
+  readonly discover?: AttachCommandDependencies["discover"];
+  readonly showError?: AttachCommandDependencies["showError"];
 }): AttachCommandDependencies {
   return {
-    discover: vi.fn(async () => overrides.candidates),
+    discover: overrides.discover ?? vi.fn(async () => overrides.candidates),
     displayBackgroundProcesses:
       overrides.displayBackgroundProcesses ?? (() => false),
     createQuickPick: () => overrides.picker,
     startDebugging: overrides.startDebugging ?? vi.fn(async () => true),
-    showError: vi.fn(async () => undefined),
+    showError: overrides.showError ?? vi.fn(async () => undefined),
   };
 }
 

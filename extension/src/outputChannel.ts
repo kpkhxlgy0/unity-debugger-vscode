@@ -73,7 +73,23 @@ export interface SanitizedOutputChannel extends vscode.LogOutputChannel {
    *
    * Only the home directory is checked. A workspace path is redacted by the
    * adapter and is not visible to a channel built from nothing but a factory,
-   * so it cannot be part of this check.
+   * so it cannot be part of this check. The claim this guard supports is
+   * therefore "the user's own home directory is refused", **not** "absolute
+   * paths are refused": a workspace on another drive, a build-server path or a
+   * colleague's machine passes it, deliberately, and the producer stays
+   * responsible for those. Stated here so the narrower claim is not mistaken
+   * for the wider one.
+   *
+   * The guard is a boundary, not a guarantee. This interface extends
+   * `vscode.LogOutputChannel`, so `info`, `warn` and `error` remain reachable
+   * on the same object: any future producer that calls one of them directly
+   * writes whatever it likes and nothing in the type system objects. Today two
+   * consumer commands route through `writeSanitized` and two assertions pin
+   * them, which means the sanitized-diagnostics allowlist is held by review at
+   * least as much as by this type — a known and accepted limit rather than
+   * coverage. Closing it would mean making `writeSanitized` the only exported
+   * writer over a narrow internal channel; that is not done here, because it
+   * would re-signature the module the sanitized-diagnostics design approved.
    */
   writeSanitized(line: string): void;
 }
@@ -97,6 +113,12 @@ export function createOutputChannel(
   // object whose level methods are bound to it, and both `dispose` and the
   // `context.subscriptions` entry must keep reaching that exact object — which
   // is also why `createOutputChannel` returns it rather than a copy.
+  //
+  // Unverified against a real host, and recorded as a gap rather than assumed:
+  // every test of this decoration drives a double. VS Code returns a plain
+  // unfrozen instance today, so the risk is low, but whether its channel object
+  // is a proxy whose member behaviour is not ours to assume can only be settled
+  // by the acceptance run that exercises the output channel in a live editor.
   return Object.assign(channel, {
     writeSanitized: (line: string): void => {
       if (namesUserPath(line)) {

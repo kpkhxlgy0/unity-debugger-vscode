@@ -1,5 +1,8 @@
 import { isIPv4 } from "node:net";
-import { UNITY_NOT_RUNNING_MESSAGE } from "./diagnostics.js";
+import {
+  NO_WORKSPACE_FOLDER_MESSAGE,
+  UNITY_NOT_RUNNING_MESSAGE,
+} from "./diagnostics.js";
 import type {
   EditorCandidate,
   UnityAttachConfiguration,
@@ -79,9 +82,7 @@ export class DebugConfigurationProvider {
     configuration: Readonly<Record<string, unknown>>,
   ): Promise<UnityAttachConfiguration | undefined> {
     if (!folder) {
-      await this.ui.showError(
-        "Open a Unity or Tuanjie project folder before attaching.",
-      );
+      await this.ui.showError(NO_WORKSPACE_FOLDER_MESSAGE);
       return undefined;
     }
 
@@ -259,6 +260,18 @@ function toAttachConfiguration(
  * that still carries that variable is substituted against the open folder
  * here. A value that is absent, blank or not a string is not a project path
  * and falls back to the workspace folder, so the property is never required.
+ *
+ * A value that is relative, or that carries a variable this function does not
+ * know — `${workspaceFolder:name}` is the one a multi-root user writes — is
+ * passed on as written, and discovery then finds no project and reports
+ * `UNITY_NOT_RUNNING_MESSAGE`. That message is not ideal, and it is still the
+ * one to keep: it is the reference's own outcome for the same configuration,
+ * because its `SystemVariables.resolve` substitutes the names it defines and
+ * returns every other `${...}` match unchanged, so the same path reaches its
+ * `currentEditorProcess` and throws the same `unityNotRunningError`. Rejecting
+ * the value here with a message of our own would tell the user something the
+ * reference does not — a divergence to approve on its own merits rather than a
+ * cleanup to slip in.
  */
 function expandWorkspaceFolder(
   value: unknown,
@@ -274,12 +287,21 @@ function expandWorkspaceFolder(
 /**
  * `logFile` is an optional diagnostics mirror. An absent or empty value is
  * simply not a redirect target and must never block an attach.
+ *
+ * "Empty" is decided by `trim()`, which is what the adapter decides it with too
+ * (`AttachArguments.ParseLogFile` takes a value only when it is not
+ * `IsNullOrWhiteSpace`). A whitespace-only value is therefore dropped here
+ * rather than sent and dropped there, so both layers mean the same thing by
+ * "present" — the two-copies-agree rule this module keeps having to apply. The
+ * value is passed on untrimmed, because the adapter does not trim it either.
  */
 function logFileFrom(
   configuration: Readonly<Record<string, unknown>>,
 ): string | undefined {
   const value = configuration.logFile;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return typeof value === "string" && value.trim().length > 0
+    ? value
+    : undefined;
 }
 
 /**

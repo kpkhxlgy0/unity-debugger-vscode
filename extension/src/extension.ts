@@ -19,6 +19,7 @@ import {
   COPY_DIAGNOSTICS_UNAVAILABLE_LINE,
   getLogDirectory,
   NO_SANITIZED_DIAGNOSTICS,
+  NO_WORKSPACE_FOLDER_MESSAGE,
   OPEN_LOGS_COMMAND,
   OPEN_LOGS_OPENED_LINE,
   OPEN_LOGS_UNAVAILABLE_LINE,
@@ -33,7 +34,10 @@ import {
 } from "./functionBreakpointWarning.js";
 import type { EditorCandidate } from "./model.js";
 import { createOutputChannel } from "./outputChannel.js";
-import { PRODUCT_IDENTITY } from "./productIdentity.js";
+import {
+  DISPLAY_BACKGROUND_PROCESSES_SETTING,
+  PRODUCT_IDENTITY,
+} from "./productIdentity.js";
 import {
   UnityDebuggerPureApi,
   VscodeDebugSessionStarter,
@@ -47,13 +51,17 @@ import {
 const ATTACH_UNITY_DEBUGGER_COMMAND =
   PRODUCT_IDENTITY.commandIds.attachUnityDebugger;
 /**
- * VS Code addresses a contributed setting as `<section>.<key>`, so this is the
- * key inside the section named by our extension name — the same shape the
- * reference uses when it reads `displayBackgroundProcesses` from `vstuc`.
+ * A command run from the palette that reports nothing at all is
+ * indistinguishable from a command that never ran, and this is the one place
+ * the attach path could fail in silence: `startDebugging` refuses by returning
+ * `false` rather than by rejecting.
+ *
+ * The reference is silent here — it `await`s the same call and discards the
+ * result, with no `catch` — so this message is a deliberate divergence in the
+ * user's favour, not an alignment. Record it as one.
  */
-const DISPLAY_BACKGROUND_PROCESSES_SETTING = "displayBackgroundProcesses";
-const NO_WORKSPACE_FOLDER_MESSAGE =
-  "Open a Unity or Tuanjie project folder before attaching.";
+const ATTACH_START_FAILED_MESSAGE =
+  "The Unity debug session could not be started.";
 
 export interface WorkspaceFolderLike {
   readonly uri: { readonly fsPath: string };
@@ -88,22 +96,32 @@ export async function runAttachUnityDebugger(
     return;
   }
 
-  const candidates = await dependencies.discover(folder.uri.fsPath);
-  const candidate = await selectTarget(candidates, {
-    displayBackgroundProcesses: dependencies.displayBackgroundProcesses(),
-    createQuickPick: dependencies.createQuickPick,
-  });
-  if (!candidate) {
-    return;
-  }
+  // Discovery and the start are the command's two fallible steps. Neither is
+  // allowed to end in silence: a rejection from either one would otherwise
+  // leave a palette command that reports nothing at all.
+  try {
+    const candidates = await dependencies.discover(folder.uri.fsPath);
+    const candidate = await selectTarget(candidates, {
+      displayBackgroundProcesses: dependencies.displayBackgroundProcesses(),
+      createQuickPick: dependencies.createQuickPick,
+    });
+    if (!candidate) {
+      return;
+    }
 
-  await dependencies.startDebugging(folder, {
-    name: PRODUCT_IDENTITY.defaultConfigurationName,
-    type: PRODUCT_IDENTITY.debugType,
-    request: "attach",
-    endPoint: `${candidate.host}:${candidate.port}`,
-    projectPath: candidate.workspaceRoot,
-  });
+    const started = await dependencies.startDebugging(folder, {
+      name: PRODUCT_IDENTITY.defaultConfigurationName,
+      type: PRODUCT_IDENTITY.debugType,
+      request: "attach",
+      endPoint: `${candidate.host}:${candidate.port}`,
+      projectPath: candidate.workspaceRoot,
+    });
+    if (!started) {
+      await dependencies.showError(ATTACH_START_FAILED_MESSAGE);
+    }
+  } catch {
+    await dependencies.showError(ATTACH_START_FAILED_MESSAGE);
+  }
 }
 
 export function activate(
@@ -146,11 +164,31 @@ export function activate(
             // `FunctionBreakpoint` carries a `functionName`, so TypeScript's
             // weak-type rule rejects the predicate's structural parameter
             // without this assertion; the predicate re-checks at run time.
+            //
+            // `readonly (vscode.Breakpoint | { functionName?: string })[]` is
+            // the union that would remove the assertion — `Breakpoint`
+            // satisfies one member, so the weak-type rule never fires and the
+            // tests' `{ functionName: "Foo" }` / `{}` inputs still
+            // type-check. It is not taken, and should not be re-derived as an
+            // improvement: it buys nothing at run time and would put a VS Code
+            // type inside a module that is deliberately host-free, which is
+            // the property that makes the predicate testable without a host.
             const breakpoints = vscode.debug.breakpoints as readonly {
               functionName?: string;
             }[];
             if (shouldWarnAboutFunctionBreakpoints(breakpoints)) {
-              outputChannel.warn(FUNCTION_BREAKPOINT_WARNING);
+              // Emitted inside its own `try`, unlike the launcher above: this
+              // is a diagnostics call, and the `catch` that owns the launch
+              // must never be reachable from it. Without this, a `warn` that
+              // threw — a disposed channel, a host fault — would be caught
+              // below and reported as a failed launch with no adapter, so the
+              // diagnostic path would break the thing it diagnoses.
+              try {
+                outputChannel.warn(FUNCTION_BREAKPOINT_WARNING);
+              } catch {
+                // Nothing to do: the warning is a courtesy, and the launch it
+                // is attached to is still good.
+              }
             }
             return new vscode.DebugAdapterExecutable(
               descriptor.command,
@@ -183,7 +221,13 @@ export function activate(
             vscode.window.createQuickPick<TargetPickerItem>(),
           startDebugging: (folder, configuration) =>
             vscode.debug.startDebugging(
-              folder as unknown as vscode.WorkspaceFolder | undefined,
+              // A single assertion, not `as unknown as`: `WorkspaceFolderLike`
+              // is the deliberately host-free shape of the folder this closure
+              // is handed, and the value really is the `vscode.WorkspaceFolder`
+              // the command read from `vscode.workspace.workspaceFolders`. The
+              // single form still fails to compile if the two shapes drift
+              // apart, which is the one thing the double cast could hide.
+              folder as vscode.WorkspaceFolder | undefined,
               configuration as vscode.DebugConfiguration,
             ),
           showError: (message) => ui.showError(message),
@@ -319,7 +363,10 @@ export function createConfigurationUi(): ConfigurationUi {
         candidate,
       }));
       const selected = await vscode.window.showQuickPick(items, {
-        placeHolder: "Select a local Unity or Tuanjie Editor",
+        // Names both kinds of row: a Player advertisement is a candidate here
+        // too, and the copy that said only "Editor" described a list it no
+        // longer shows.
+        placeHolder: "Select a Unity or Tuanjie Editor or Player",
       });
       return selected?.candidate;
     },
