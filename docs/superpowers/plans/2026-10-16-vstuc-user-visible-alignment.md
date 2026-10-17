@@ -1168,7 +1168,9 @@ So: look up `unity.unity-debug`; **return if it is absent or not active**; other
 ### Task 12: Documentation — matrix, reference identity, security, amended scope
 
 **Files:**
-- Modify: `docs/reference-debugger-compatibility.md`, `AGENTS.md`, `README.md`, `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`
+- Modify: `docs/reference-debugger-compatibility.md`, `AGENTS.md`, `README.md`, `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`, `docs/release-checklist.md`
+
+**`docs/release-checklist.md` was missing from this list until it was checked, and the omission mattered more than it looks.** The body of this brief describes that file's three stale `MyGame` sites, its acceptance list, and two lines to leave alone — so the *work* was specified. **What was missing was the staging instruction**, and the commit protocol for this work item is keyed to this list: an implementer following it stages four files, the fifth edit sits unstaged, and the very next commit sweeps it up under an unrelated message. **A file can be described in a brief's prose and still be absent from its checklist**, and only the checklist is read at commit time.
 
 **Interfaces:**
 - Consumes: the spec's two diff tables and the observed `initialize` body.
