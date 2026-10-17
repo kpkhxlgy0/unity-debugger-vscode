@@ -496,24 +496,34 @@ Both must surface the W7 messages instead of silence.
 ## Invariants
 
 Unchanged. **An earlier revision of this heading read "Unchanged and enforced by
-existing tests", which was an over-claim: three of the five are not enforced by
-any test, and saying so is more useful than the reassurance was.** The honest
-per-invariant position:
+existing tests", which was an over-claim: at the time, three of the five were not enforced by
+any test, and saying so was more useful than the reassurance was.** **Corrected 2026-10-17.**
+The first three bullets below were written before Task 14 item 46 landed, and they labelled the
+enforcement as it stood then — against `tests/build/scaffold.test.mjs:37`, which was the `];`
+closing that file's input list and not an assertion. The labels are corrected here because a
+reader consulting this list is asking whether the invariants are guarded *now*; the position as
+written on 2026-10-16 is kept in the parenthetical after each one, so the change is visible
+rather than erased.
 
 - no C# Dev Kit dependency, and no `ms-dotnettools.*` runtime dependency;
-  — **partly enforced**: `tests/build/scaffold.test.mjs:37` asserts `manifest.extensionDependencies === undefined` and nothing else. `extensionPack`, `dependencies` and the `ms-dotnettools` string itself are unasserted.
+  — **enforced**: `tests/build/scaffold.test.mjs:117` asserts `manifest.extensionDependencies === undefined`, `:292` pins `extensionPack === undefined` and `dependencies ?? {}` as a shape rather than by membership, `:304` asserts that no shipped file names `ms-dotnettools` or `csdevkit`, and `scripts/verify-vsix.mjs:175` repeats the first of those against the packaged manifest. *(Written 2026-10-16 as "partly enforced": only `extensionDependencies` was asserted then, and `extensionPack`, `dependencies` and the `ms-dotnettools` string itself were unasserted.)*
 - no Unity-side package requirement;
-  — **not enforced**: no test mentions `com.unity.ide.*`.
+  — **enforced**: `tests/build/scaffold.test.mjs:312` asserts that no shipped file names `com.unity.ide.*`. *(Written 2026-10-16 as "not enforced".)*
 - no telemetry and no network egress other than the debug transport and the
   multicast discovery socket;
-  — **not enforced**: no test asserts the absence of either. `editorDiscovery.test.ts` exercises the discovery socket, which covers the "other than" clause rather than the prohibition.
+  — **partly enforced**: `tests/build/scaffold.test.mjs:320` asserts that no shipped file names a telemetry identifier, over the whole shipped source tree — `package.json`, `extension/src`, `adapter/src` and, since 2026-10-17, `adapter/vendor` — with the vendored DAP `Message.sendTelemetry` shape excused by file *and line* rather than by file. Network egress itself is still unasserted: `editorDiscovery.test.ts` exercises the discovery socket, which covers the "other than" clause rather than the prohibition. *(Written 2026-10-16 as "not enforced"; the walk then stopped at `adapter/src`, which is F2 of the final review.)*
 - no Microsoft/SyntaxTree binary in the VSIX (the package audit and runtime
   inventory continue to enforce this);
   — **enforced, and by construction rather than by an assertion about that family**: `scripts/generate-runtime-inventory.mjs` fails on any assembly absent from the pinned `third-party/runtime-assemblies.json`, so an unaudited binary cannot ship quietly. `scripts/verify-vsix.mjs` checks forbidden *paths*, not assembly names — the two are different scripts and only one of them can catch this.
 - the sanitized diagnostics allowlist stays closed.
   — **partly enforced**: the adapter's own `DiagnosticLogTests` cover the producer side; nothing covers the channel boundary, which is why `writeSanitized`'s scope is a live question rather than a settled one.
 
-**Three assertions in `tests/build/scaffold.test.mjs` close the first three**, and they are worth having because these are *negative* claims: an absent dependency cannot be noticed by reading the code and cannot be preserved by intent, so the only durable enforcement is a test that fails when someone adds one for an unrelated reason. Until then, verification of them rests on a person remembering to grep. See the plan's Task 14 item 46.
+**Five assertions in `tests/build/scaffold.test.mjs` now close the first three** (`:117`, `:292`,
+`:304`, `:312`, `:320`; this sentence read "three assertions" when only three of them existed), and they
+are worth having because these are *negative* claims: an absent dependency cannot be noticed by
+reading the code and cannot be preserved by intent, so the only durable enforcement is a test that
+fails when someone adds one for an unrelated reason — which is why, before they existed,
+verification of them rested on a person remembering to grep. See the plan's Task 14 item 46.
 
 Changed: the loopback-only attach restriction (W4).
 

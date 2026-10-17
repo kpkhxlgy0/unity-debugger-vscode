@@ -78,7 +78,9 @@ diagnostics log to a path you choose.
 - **Unity Debugger Pure: Unity API Reference**, which opens the Unity
   documentation for the selected code construct;
 - a `Unity Debugger Pure` output channel, and the
-  `unity-debugger-pure.displayBackgroundProcesses` setting;
+  `unity-debugger-pure.displayBackgroundProcesses` setting — contributed for
+  manifest compatibility, and inert until the adapter emits the background
+  classification it filters on;
 - sanitized local diagnostics with no telemetry.
 
 Version 0.3.2 exposes a versioned local extension API for trusted local

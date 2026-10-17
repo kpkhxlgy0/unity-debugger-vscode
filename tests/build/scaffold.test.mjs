@@ -34,15 +34,51 @@ const shippedFiles = [
   "package.json",
   ...sourceFiles("extension/src"),
   ...sourceFiles("adapter/src"),
+  // `adapter/vendor` is the fourth root of the shipped tree, and its absence
+  // from this list was the defect: the vendored sources are compiled into the
+  // packaged assemblies, so a telemetry identifier added to one of them passed
+  // the telemetry assertion below while the test's name claimed the shipped
+  // tree. The walk covers the whole tree so the three names are true of it.
+  ...sourceFiles("adapter/vendor"),
 ];
+
+/**
+ * The one reviewed exception, keyed by file and listing the exact lines it
+ * excuses — not the file itself, so that a *new* telemetry identifier under
+ * `adapter/vendor`, including one added to this same file, still fails.
+ *
+ * The excused lines are the DAP `Message` shape: the `sendTelemetry` field and
+ * the `telemetry` parameter that threads it through the constructor and
+ * `SendErrorResponse`, defaulting to `false`. It is the protocol's own message
+ * shape rather than a reporting path — nothing in `adapter/src` names it, so no
+ * call site can set it — and no telemetry client, key or endpoint is excused by
+ * this list.
+ */
+const reviewedAbsences = new Map([
+  [
+    path.join("adapter", "vendor", "vscode-mono-debug", "DebugSession.cs"),
+    new Set([
+      "public dynamic sendTelemetry { get; }",
+      "public Message(int id, string format, dynamic variables = null, " +
+        "bool user = true, bool telemetry = false)",
+      "this.sendTelemetry = telemetry;",
+      "public void SendErrorResponse(Response response, int id, " +
+        "string format, dynamic arguments = null, bool user = true, " +
+        "bool telemetry = false)",
+      "var msg = new Message(id, format, arguments, user, telemetry);",
+    ]),
+  ],
+]);
 
 function assertAbsent(pattern, what) {
   for (const file of shippedFiles) {
-    assert.doesNotMatch(
-      fs.readFileSync(file, "utf8"),
-      pattern,
-      `${file} ${what}`,
-    );
+    const excused = reviewedAbsences.get(file) ?? new Set();
+    const text = fs
+      .readFileSync(file, "utf8")
+      .split("\n")
+      .filter((line) => !excused.has(line.trim()))
+      .join("\n");
+    assert.doesNotMatch(text, pattern, `${file} ${what}`);
   }
 }
 
@@ -286,6 +322,12 @@ test("the shipped tree carries no telemetry identifier", () => {
   // Our invariant is that nothing here reports anything anywhere, so the
   // identifier must not appear even in a comment or a disabled call: the
   // package, the constant and the key name are all this pattern.
+  //
+  // The vendored DAP `Message` shape is the one exception, and it is excused by
+  // line rather than by file — see `reviewedAbsences`. This test's name claims
+  // the shipped tree, so the walk covers `adapter/vendor` too: before the final
+  // review's F2 it stopped at `adapter/src`, and adding a telemetry identifier
+  // to a vendored file left it green.
   assertAbsent(
     /telemetry|appinsights|applicationinsights/i,
     "names a telemetry dependency",
