@@ -26,8 +26,12 @@ execution control, stopped-state presentation, Hover, Locals, Watch, variable
 expansion, property getters, `ToString()`, and C# expression evaluation.
 
 An item is compatible only after the reference plugin and UnityDebuggerPure
-produce the same result in an A/B run against the same reachable MyGame code.
-Automated tests alone do not establish reference compatibility.
+produce the same result in an A/B run against the same reachable code in the
+acceptance project. Automated tests alone do not establish reference
+compatibility. (The acceptance project is
+`D:\workspace\sgproj1\sgproj_xiaolonghan_0003`, chosen by the user on
+2026-10-16; this design was written against `MyGame`, and the observations it
+records keep that attribution.)
 
 ## Scope
 
@@ -69,7 +73,7 @@ experience.
 
 For every affected behavior:
 
-1. run the scenario with the reference plugin in MyGame;
+1. run the scenario with the reference plugin in the acceptance project;
 2. record the visible result and available protocol/log evidence;
 3. encode the observed behavior in a failing test where automation can cover
    it;
@@ -302,13 +306,19 @@ Automated verification covers:
    assemblies are shipped and the rejected direct engine is absent from the
    runtime path.
 
-Real-editor acceptance uses the existing MyGame project at
+Real-editor acceptance used the existing MyGame project at
 `D:\Unity\TuanjieHub\Projects\MyGame`, the existing VS Code window opened from
 that project, the active `SampleScene`, and verified reachable code under
-`Assets/Scripts/GamePlay/Runtime/DevTools`.
+`Assets/Scripts/GamePlay/Runtime/DevTools`. **That path no longer exists.** The
+acceptance project moved to `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`
+(Unity `2022.3.23f1`) on 2026-10-16, and that project has no `DevTools` fixture,
+so a run there must prove the reachability of the method and line it selects
+rather than inheriting it from this paragraph. Every observation recorded in
+`docs/reference-debugger-compatibility.md` as a MyGame run keeps its own
+attribution.
 
 The user performs VS Code UI actions. Unity MCP controls and inspects the
-MyGame/Tuanjie instance, scene, Play Mode, runtime objects, and Console. No
+Editor instance, scene, Play Mode, runtime objects, and Console. No
 Computer Use is required unless the user explicitly changes that instruction.
 
 The reference and Pure runs use the same source line and action sequence and
