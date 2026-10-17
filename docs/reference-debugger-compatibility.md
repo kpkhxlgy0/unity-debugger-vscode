@@ -33,8 +33,9 @@ retired project keep their own attribution and their own line numbers.
 | BP-03 | Logpoint at `GamePrototypeRuntime.cs:214` | `Reference log status={_status}` outputs `Reference log status=等待登录` without stopping; no warning, expression error, or marker loss | Build `0.3.0+g8c6f030f7256` outputs `Pure log status=Pure set value test` without pausing and raises no warning, evaluation error, or marker loss | aligned | 2026-08-06 MyGame reference run; 2026-08-08 Pure run and Adapter log | Log interpolation and non-stopping continuation match the reference; differing literal prefix and runtime value are intentional test inputs |
 | BP-04 | Function breakpoint | Fully qualified `MyGame.Runtime.DevTools.GamePrototypeRuntime.EnsureStyles` is accepted and stops at the method definition around line 1069 | Build `0.3.0+g8c6f030f7256` accepts the fully qualified method and stops around line 1069 with the yellow marker and Variables | aligned | 2026-08-06 MyGame reference run; 2026-08-08 Pure run and Adapter log | Mature function-breakpoint binding matches the recorded reference behavior |
 | EX-01 | Caught/user-unhandled exception filters: default Play, then **User-Unhandled Exceptions** alone, then **All Exceptions** | Exposes unchecked `All Exceptions` and `User-Unhandled Exceptions`; default Play does not pause; User-Unhandled alone does not stop for the handled `TaskCanceledException`; All stops on user-code exceptions with a yellow marker and Variables, while source-less exceptions do not surface; subsequent valid exceptions also stop | Build `0.3.0+g0ecce4d08bfb` matched the filter defaults and stop presentation, filtered the source-less empty-Variables stop, and stopped on the same subsequent user-code exceptions as the reference — observed while that build still advertised the filter id `uncaught`. **Re-read 2026-10-16:** the current build advertises `unhandled` (CAP-15) and receives its ids through `filterOptions[]` rather than `filters[]` (CAP-12), a request path the 2026-08-10 run never exercised | not yet verified | 2026-08-06 and 2026-08-10 MyGame reference/Pure A/B runs and sanitized Adapter logs, attributed to `0.3.0+g0ecce4d08bfb`; 2026-10-16 re-read of `UnityDebugSession.cs:60-73` and `:418` against the observed reference body | The recorded A/B run stays true of the build it names, but Task 1 renamed the advertised id and changed which request field carries it, so the evidence no longer covers what ships now and the row is downgraded instead of left asserting verified equivalence for a behaviour that moved |
-| CTRL-01 | Pause, Continue, Step Out | `CauseBreak` suspends the target, enumerates every runtime thread in order, and reports one all-threads-stopped Pause event per thread; the event selected by VS Code may therefore have a displayable source frame and Variables or may be source-less; Continue and Step Out resume normally | Build `0.3.0+g10b1d65475b8` suspends once and reports every runtime thread in order without scanning for a preferred user-code frame; six rapid Pause/Continue cycles remained responsive with normal stopped views and no warning or error; Detach preserved Play and reattach hit normally | aligned | 2026-08-06 MyGame reference run; 2026-08-08 reference binary inspection, Pure red/green Adapter test, MyGame run, and Adapter logs | A yellow marker on Pause is permitted and is not itself a divergence; control flow and all-thread dispatch match the reference |
+| CTRL-01 | Pause, Continue, Step Out | `CauseBreak` suspends the target, enumerates every runtime thread in order, and reports one all-threads-stopped Pause event per thread; the event selected by VS Code may therefore have a displayable source frame and Variables or may be source-less; Continue and Step Out resume normally | Build `0.3.0+g10b1d65475b8` suspends once and reports every runtime thread in order without scanning for a preferred user-code frame; six rapid Pause/Continue cycles remained responsive with normal stopped views and no warning or error; Detach preserved Play and reattach hit normally | aligned | 2026-08-06 MyGame reference run; 2026-08-08 reference binary inspection, Pure red/green Adapter test, MyGame run, and Adapter logs; **2026-10-17 A/B on Editor `2022.3.23f1` confirming the per-thread Pause event on both sides** — the reference emitted **46** `stopped reason=pause` events for one Pause and ours 56–60, so the shape this row describes is the reference's own behaviour and not a defect of ours | A yellow marker on Pause is permitted and is not itself a divergence; control flow and all-thread dispatch match the reference |
 | CTRL-02a | Step Into Target | Enters `EnsureStyles()` at line 1070 with the yellow marker; subsequent stepping remains responsive and preserves the marker | Build `0.3.0+g19772c378d36` enters `EnsureStyles()` at line 1070; two immediate Step Over operations stop normally with the marker preserved | aligned | 2026-08-06 MyGame reference run; 2026-08-07 Pure run and Adapter log | Unfiltered specific breakpoint plus dispatch-time request/thread matching reproduces the reference result |
+| STACK-01 | Call stack after a Pause stop, and the scopes, variables and evaluation it feeds | `stackTrace` on the stopped thread returns a real managed stack: **13 frames** on Editor `2022.3.23f1`, headed `System.Threading.WaitHandle:WaitMultiple` then `WaitAny` then `BlockingCollection`1:TryTakeFromAnyCoreSlow` | **Times out on every thread tried in Play Mode, and answers `0 frames` once then times out in edit mode** | divergent | 2026-10-17 A/B against pid 91740 at `127.0.0.1:56740`: reference launched as its own bundle does (`dotnet bin/UnityDebugAdapter.dll`, `{ projectPath, endPoint }`), ours as the extension does; same Editor, same sequence, minutes apart; matrix Evidence Log entry of the same date | **Observed, not inferred, and it is ours.** The reference walked a 13-frame managed stack at the same kind of stop where ours produced nothing, and because `stackTrace` is what feeds scopes, variables and evaluation the user-visible effect is that our debugger has nothing to inspect in this project. `tests/integration` asserts exactly this stack against `ScenarioDebuggerBackend`, a fake that returns its own frame — so the suite passed while the real Editor returned nothing. **Approval requested 2026-10-17: this row is recorded as observed and no ruling has been given yet**, which is the one place in this matrix where a `divergent` row does not yet cite one. |
 | CTRL-02b | Jump to Cursor and Set Next Statement | Jump to Cursor stops at line 1076; Set Next Statement immediately moves the yellow marker to line 1076; no warning or marker loss, and subsequent Step Over works | Build `0.3.0+g8c6f030f7256` matches both commands at an ordinary cursor column; the yellow marker moves to line 1076 without a notification, and the following Step Over works | aligned | 2026-08-06 MyGame reference run; 2026-08-08 Pure run and Adapter log | Resolved locations, requested-thread SetIP, reference one-shot completion, and column-independent target matching reproduce the recorded reference sequence |
 | EVAL-05a | Inspection immediately after Step Into Target | Watches, Hover, Locals, and Scopes remain responsive; no request error or user notification appears | Variables had content; Hover `_titleStyle` and `this` returned values; Watches refreshed with invalid expressions inline only; no notification appeared; Step Over remained immediate | aligned | 2026-08-06 MyGame reference run; 2026-08-07 Pure run and Adapter log | Five automatic Watch requests completed together, followed by Scopes/Variables without the former one-second serialization |
 | EVAL-05b | Inspection immediately after ordinary F11 Step In | Watches, Hover, Locals, and Scopes remain responsive; no request error or user notification appears | Build `0.3.0+g8c6f030f7256` enters `EnsureStyles()` through ordinary F11; Variables has content, Hover `_titleStyle` and `this` returns values, Watches refresh with invalid expressions inline only, no notification appears, and subsequent Step Over remains immediate | aligned | 2026-08-06 MyGame reference run; 2026-08-08 Pure run and Adapter log | Ordinary and targeted Step In inspection paths now both match the recorded reference behavior |
@@ -638,6 +639,51 @@ release decision should not be taken on the assumption that a stack walk is fine
 **The next run that would settle it, and it is one command.** The open question is whether the
 managed main thread appears once the Editor is in Play Mode with a battle — the path a user actually
 takes — and whether a stack then walks. Edit mode is where every observation above was taken.
+
+### 2026-10-17 - The reference adapter run against the same Editor, and what it settles
+
+**The A/B was run, and it divides the three observations into two shared behaviours and one defect
+that is ours.** The reference was driven the way its own bundle launches it rather than by guesswork:
+`createRunCommand(DotNetProject.debugAdapter)` yields `{ cmd: <acquired dotnet>, args:
+["UnityDebugAdapter.dll"], cwd: <extension>/bin }`, `createDebugAdapterDescriptor` passes no extra
+arguments, and `resolveDebugConfiguration` sets **`endPoint = address + ":" + debuggerPort`** — so the
+attach arguments are the launch configuration itself, `{ projectPath, endPoint }`. Both adapters were
+pointed at **pid 91740 / `127.0.0.1:56740`**, the same Editor, minutes apart, with the same sequence:
+`initialize` → `attach` → `threads` → `pause` → `stackTrace { startFrame: 0, levels: 20 }`.
+
+| Observed | Reference | Ours |
+| --- | --- | --- |
+| `attach` | success | success |
+| `threads` count | 46 | 56 |
+| threads named for a main thread | **0** | **0** |
+| `pause` → `stopped` | `reason=pause`, `allThreadsStopped=true` | same |
+| `stopped` events for one pause | **46** | 56–60 |
+| **`stackTrace` on the stopped thread** | **OK, 13 frames** | **timeout, or 0 frames** |
+| thread identity | raw Mono pointers (`686898752`) | small sequential integers |
+
+- **The missing "main thread" name is Unity's and Mono's, not a defect of ours** — the reference's
+  own list has no such name either, and its names are the same `Burst-CompilerThread-N`,
+  `Timer-Scheduler`, `Thread Pool Worker` and `Thread #N` strings ours reports. **The earlier entry's
+  leading hypothesis is withdrawn on that evidence.**
+- **The per-thread `stopped` flood is also shared** — the reference emitted **46 events for one
+  pause**, the same shape as ours. A client sees dozens of stops either way, so this is **aligned
+  behaviour and not a divergence**, and it should not be filed as one.
+- **`stackTrace` is the one real divergence, and it is ours.** On the same Editor, at the same kind
+  of stop, the reference returned **13 frames** beginning
+  `System.Threading.WaitHandle:WaitMultiple` → `WaitAny` → `BlockingCollection…TryTakeFromAny` — a
+  real managed stack — while ours timed out in Play Mode and returned `0 frames` in edit mode. Since
+  `stackTrace` is what feeds scopes, variables and evaluation, **the user-visible effect is that our
+  debugger has nothing to inspect in this project.** **This row is `divergent` and it is recorded as
+  observed, not inferred.**
+- **The thread-id difference is minor and in our favour** — the reference exposes raw Mono pointers,
+  ours sequential DAP ids — recorded for completeness rather than as a defect.
+
+**And the reason our own suite never caught it is worth its own line.** `tests/integration` asserts a
+13-frame-equivalent stack — `stack.body.stackFrames[0]` matching `FixtureBehaviour.Update` — against
+`ScenarioDebuggerBackend`, which returns `new[] { new BackendThread(1, "Main Thread") }` and frames of
+its own construction. **The assertion passes against the fake and the real Editor returns nothing**,
+so a green integration test was never evidence that a stack walks in Unity. That is the strongest
+argument in this log for the real-Editor acceptance existing at all.
 
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
