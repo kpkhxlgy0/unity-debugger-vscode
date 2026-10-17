@@ -28,7 +28,14 @@ expansion, property getters, `ToString()`, and C# expression evaluation.
 An item is compatible only after the reference plugin and UnityDebuggerPure
 produce the same result in an A/B run against the same reachable code in the
 acceptance project. Automated tests alone do not establish reference
-compatibility. (The acceptance project is
+compatibility. **Where the subject has no action sequence to run — a manifest
+key, a wire field, a string constant, or a pure function of its inputs — reading
+both implementations is the complete comparison, and the run requirement above
+governs runtime-behaviour rows only.** This sentence was added on 2026-10-17,
+when a matrix reconciliation had correctly classified 44 `aligned` rows as 22
+run-verified and 22 read-verified and the rule authorising the second class
+existed in no document; the same distinction now appears in the 2026-10-16
+alignment design's Goal. (The acceptance project is
 `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`, chosen by the user on
 2026-10-16; this design was written against `MyGame`, and the observations it
 records keep that attribution.)
