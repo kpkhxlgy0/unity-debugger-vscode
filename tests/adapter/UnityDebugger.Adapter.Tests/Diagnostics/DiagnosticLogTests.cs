@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using UnityDebugger.Adapter.Diagnostics;
+using UnityDebugger.Adapter.Tests.Support;
 using Xunit;
 
 namespace UnityDebugger.Adapter.Tests.Diagnostics
@@ -109,17 +110,67 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
                         }));
                 log.Dispose();
 
-                Assert.Contains("event=attach", writer.ToString());
+                var primary = writer.ToString().TrimEnd('\r', '\n');
                 var secondary = File.ReadAllLines(secondaryPath);
-                Assert.Contains(
-                    secondary,
-                    line => line.Contains("event=attach"));
-                Assert.Contains(
-                    secondary,
-                    line => line.Contains("<workspace>"));
-                Assert.DoesNotContain(
-                    secondary,
-                    line => line.Contains("secret"));
+                Assert.Contains("event=attach", primary);
+                Assert.Contains("<workspace>", primary);
+                Assert.DoesNotContain("secret", primary);
+                // A rejected field reaches neither sink, and the count is what
+                // proves it: checking only for the secret value would pass a
+                // value-less leak such as a line reading "expressionText=".
+                Assert.Single(secondary);
+                // "Written to both" is a content contract, so pin the line
+                // rather than spot-checking one event name in the primary. The
+                // two files carry the same text, timestamp included.
+                Assert.Equal(primary, secondary[0]);
+            }
+        }
+
+        // The idempotency test below takes OpenSecondary's early return, so a
+        // different path is the only input that executes the replacement. The
+        // replacement must release the previous writer rather than leak it or
+        // mirror into two sinks at once.
+        [Fact]
+        public void OpenSecondary_replaces_the_sink_for_a_different_path()
+        {
+            using (var directory = new TemporaryDirectory())
+            using (var writer = new StringWriter())
+            using (var log = new DiagnosticLog(
+                writer,
+                new PathRedactor(@"C:\Users\alice", null)))
+            {
+                var firstPath = Path.Combine(
+                    directory.Path,
+                    "first.log");
+                var secondPath = Path.Combine(
+                    directory.Path,
+                    "second.log");
+                log.OpenSecondary(firstPath);
+                log.Write(
+                    "first.event",
+                    new Dictionary<string, object>());
+                log.OpenSecondary(secondPath);
+                log.Write(
+                    "second.event",
+                    new Dictionary<string, object>());
+                log.Dispose();
+
+                var first = File.ReadAllLines(firstPath);
+                var second = File.ReadAllLines(secondPath);
+                Assert.Single(first);
+                Assert.Contains("event=first.event", first[0]);
+                Assert.Single(second);
+                Assert.Contains("event=second.event", second[0]);
+                // Opening the replaced file exclusively succeeds only once its
+                // writer was disposed, so a leaked sink fails here even though
+                // both files still hold exactly one line.
+                using (new FileStream(
+                    firstPath,
+                    FileMode.Open,
+                    FileAccess.ReadWrite,
+                    FileShare.None))
+                {
+                }
             }
         }
 
@@ -145,6 +196,72 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
                 var secondary = File.ReadAllLines(secondaryPath);
                 Assert.Single(secondary);
                 Assert.Contains("event=attach", secondary[0]);
+            }
+        }
+
+        // Disposal is final for both entry points: a late writer is told
+        // rather than silently accepted into a released sink.
+        [Fact]
+        public void Write_after_dispose_throws_ObjectDisposedException()
+        {
+            using (var writer = new StringWriter())
+            {
+                var log = new DiagnosticLog(
+                    writer,
+                    new PathRedactor(@"C:\Users\alice", null));
+                log.Dispose();
+
+                Assert.Throws<ObjectDisposedException>(
+                    () => log.Write(
+                        "late.event",
+                        new Dictionary<string, object>()));
+                Assert.DoesNotContain("late.event", writer.ToString());
+            }
+        }
+
+        [Fact]
+        public void OpenSecondary_after_dispose_throws_ObjectDisposedException()
+        {
+            using (var directory = new TemporaryDirectory())
+            using (var writer = new StringWriter())
+            {
+                var log = new DiagnosticLog(
+                    writer,
+                    new PathRedactor(@"C:\Users\alice", null));
+                log.Dispose();
+
+                var secondaryPath = Path.Combine(
+                    directory.Path,
+                    "secondary.log");
+                Assert.Throws<ObjectDisposedException>(
+                    () => log.OpenSecondary(secondaryPath));
+                Assert.False(File.Exists(secondaryPath));
+            }
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void OpenSecondary_rejects_a_blank_path(string path)
+        {
+            using (var writer = new StringWriter())
+            using (var log = new DiagnosticLog(
+                writer,
+                new PathRedactor(@"C:\Users\alice", null)))
+            {
+                var error = Assert.Throws<ArgumentException>(
+                    () => log.OpenSecondary(path));
+
+                // The guard's own rejection, not the path parser's. A bare
+                // Throws assertion cannot tell the two apart here, because
+                // Path.GetFullPath rejects both of these inputs anyway and
+                // raises the same exception type: the message and the
+                // parameter name are the only observable difference, so they
+                // are what makes the guard's presence testable at all.
+                Assert.Equal("path", error.ParamName);
+                Assert.Contains(
+                    "Secondary diagnostic log path is required.",
+                    error.Message);
             }
         }
 
@@ -393,25 +510,6 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
             {
                 DisposeAttempted = true;
                 throw new IOException("LOGFILE_WENT_AWAY");
-            }
-        }
-
-        private sealed class TemporaryDirectory : IDisposable
-        {
-            public TemporaryDirectory()
-            {
-                Path = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(),
-                    "unity-debugger-pure-diagnostic-log-" +
-                    Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(Path);
-            }
-
-            public string Path { get; }
-
-            public void Dispose()
-            {
-                Directory.Delete(Path, true);
             }
         }
     }

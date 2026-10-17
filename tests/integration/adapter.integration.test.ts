@@ -335,6 +335,34 @@ describe("Unity debug adapter process", () => {
     await client.request("disconnect", {});
     await client.expectCleanExit(0);
   });
+  it("reports the spawned adapter's own process id in the initialize body", async () => {
+    const client = await start("normal");
+    const capabilities = await client.request("initialize", {
+      adapterID: "unity-debugger-pure",
+      linesStartAt1: true,
+      columnsStartAt1: true,
+      pathFormat: "path",
+    });
+
+    // The committed capability test asserts this field against the test
+    // host's id, because DapTestProtocol.Run drives the session in-process.
+    // Here the adapter is a real child process, so the reported id can be
+    // compared with the id the operating system gave that child, which is the
+    // whole of the claim. The last assertion rules out a body that reports a
+    // placeholder instead of its own id.
+    expect(client.pid).toBeDefined();
+    expect(capabilities.body.pid).toBe(client.pid);
+    expect(capabilities.body.pid).toBeGreaterThan(0);
+
+    // The attach is not part of this test's subject, but it is required: the
+    // test adapter returns exit code 3 unless its backend was created and
+    // disposed (Program.cs:42-46), so an initialize/disconnect pair without an
+    // attach cannot produce the clean exit asserted below. Do not delete it.
+    await client.waitForEvent("initialized");
+    await attach(client);
+    await client.request("disconnect", {});
+    await client.expectCleanExit(0);
+  });
 });
 
 async function start(scenario: string): Promise<DapClient> {

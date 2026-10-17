@@ -1,11 +1,8 @@
 using System;
 using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using Newtonsoft.Json.Linq;
-using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
-using UnityDebugger.Adapter.Tests.Backend;
 using Xunit;
 
 namespace UnityDebugger.Adapter.Tests.Dap
@@ -41,6 +38,14 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [InlineData("127.0.0.1")]
         [InlineData("192.168.1.50")]
         [InlineData("10.30.154.73")]
+        // The unspecified address is a literal an earlier version of the
+        // rejection theory below covered, so its acceptance was pinned by
+        // inspection alone: it round-trips through IPAddress.Parse and must
+        // stay accepted.
+        [InlineData("0.0.0.0")]
+        // A canonical IPv6 literal round-trips too, and "canonical" is the
+        // whole of the acceptance rule; nothing here is IPv4-specific.
+        [InlineData("::1")]
         public void Parse_accepts_any_address_literal_host(string host)
         {
             var target = AttachArguments.Parse(
@@ -65,6 +70,18 @@ namespace UnityDebugger.Adapter.Tests.Dap
         [InlineData("1")]
         [InlineData("010.1.1.1")]
         [InlineData("192.168.001.001")]
+        // The framework parser refuses the padding itself, so this row pins the
+        // FormatException branch rather than the round-trip guard: measured on
+        // this runtime, IPAddress.Parse(" 127.0.0.1") throws. A parser that
+        // learned to trim would otherwise let a host the user did not write
+        // through.
+        [InlineData(" 127.0.0.1")]
+        // Rejecting this one is deliberate and rests on casing alone. Measured:
+        // the parser accepts the literal and canonicalises the embedded IPv4
+        // form to "::ffff:127.0.0.1", which is not what the user wrote, so the
+        // round-trip guard is the branch that refuses it. Pinned so the
+        // behaviour is not later "fixed" into acceptance.
+        [InlineData("::FFFF:127.0.0.1")]
         public void Parse_rejects_a_host_that_is_not_a_canonical_address_literal(
             string host)
         {
@@ -78,34 +95,6 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 "__host must be an IP address literal, such as " +
                 "192.168.1.50.",
                 error.Message);
-        }
-
-        // The reference adapter answers an unreachable endpoint with
-        // "Failed to attach debugger to <host>:<port>".
-        [Theory]
-        [InlineData("127.0.0.1", 1)]
-        [InlineData("192.0.2.10", 56234)]
-        [InlineData("198.51.100.7", 56000)]
-        public void Attach_reports_the_reference_message_for_an_unreachable_endpoint(
-            string host,
-            int port)
-        {
-            var target = AttachArguments.Parse(ValidArguments(host, port));
-            var facade = new FakeSoftDebuggerSessionFacade
-            {
-                ConnectException = new SocketException(
-                    (int)SocketError.ConnectionRefused),
-            };
-            using (var backend = new MonoDebuggingBackend(() => facade))
-            {
-                var error = Assert.Throws<DebuggerBackendException>(
-                    () => backend.Attach(target));
-
-                Assert.Equal(
-                    $"Failed to attach debugger to {host}:{port}",
-                    error.Message);
-                Assert.False(backend.IsAttached);
-            }
         }
 
         // `__processId: 0` used to be a row here. Zero is now the "unknown
@@ -239,6 +228,47 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 json.Remove(property);
                 Assert.Throws<AttachArgumentException>(
                     () => AttachArguments.Parse(json));
+            }
+        }
+
+        // The reference extension declares `logFile` and never reads it, and
+        // the adapter treats it as an optional diagnostics mirror. So every
+        // value that is not a non-empty string means "no redirect": none of
+        // them may be read as a malformed request, because a diagnostics
+        // option must never be able to fail an attach.
+        [Fact]
+        public void ParseLogFile_returns_a_non_empty_string()
+        {
+            var json = ValidArguments();
+            json["__logFile"] = @"C:\logs\adapter-$PID.log";
+
+            Assert.Equal(
+                @"C:\logs\adapter-$PID.log",
+                AttachArguments.ParseLogFile(json));
+        }
+
+        [Fact]
+        public void ParseLogFile_treats_everything_else_as_absent()
+        {
+            Assert.Null(AttachArguments.ParseLogFile(null));
+
+            var json = ValidArguments();
+            Assert.Null(AttachArguments.ParseLogFile(json));
+
+            foreach (var token in new JToken[]
+            {
+                JValue.CreateNull(),
+                new JValue(42),
+                new JValue(true),
+                new JValue(string.Empty),
+                new JValue("   "),
+                new JValue("\t"),
+                new JArray(@"C:\logs\adapter.log"),
+                new JObject(),
+            })
+            {
+                json["__logFile"] = token;
+                Assert.Null(AttachArguments.ParseLogFile(json));
             }
         }
 

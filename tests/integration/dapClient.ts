@@ -78,6 +78,16 @@ export class DapClient {
     return client;
   }
 
+  /**
+   * The adapter process id the operating system assigned to the child this
+   * client spawned. A session driven in-process, as the committed adapter
+   * tests drive it, can only compare a reported `pid` against the test host's;
+   * this accessor is what lets a spawned process be checked against itself.
+   */
+  get pid(): number | undefined {
+    return this.child.pid;
+  }
+
   request(
     command: string,
     argumentsValue: object,

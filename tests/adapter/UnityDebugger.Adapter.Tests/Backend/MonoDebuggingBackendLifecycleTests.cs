@@ -1,5 +1,6 @@
 using System;
 using System.Net;
+using System.Net.Sockets;
 using UnityDebugger.Adapter.Backend;
 using Xunit;
 
@@ -183,6 +184,41 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 Assert.Equal(1, facade.StepOverCount);
                 Assert.Equal(1, facade.StepOutCount);
                 Assert.Equal(ExceptionBreakMode.Uncaught, facade.ExceptionMode);
+            }
+        }
+
+        // Moved here from AttachArgumentsTests: the assertion is entirely about
+        // what the backend reports, and the AttachTarget plumbing is this
+        // file's. The reference adapter answers an unreachable endpoint with
+        // "Failed to attach debugger to <host>:<port>".
+        [Theory]
+        [InlineData("127.0.0.1", 1)]
+        [InlineData("192.0.2.10", 56234)]
+        [InlineData("198.51.100.7", 56000)]
+        public void AttachReportsTheReferenceMessageForAnUnreachableEndpoint(
+            string host,
+            int port)
+        {
+            var facade = new FakeSoftDebuggerSessionFacade
+            {
+                ConnectException = new SocketException(
+                    (int)SocketError.ConnectionRefused),
+            };
+            using (var backend = new MonoDebuggingBackend(() => facade))
+            {
+                var error = Assert.Throws<DebuggerBackendException>(
+                    () => backend.Attach(
+                        new AttachTarget(
+                            123,
+                            IPAddress.Parse(host),
+                            port,
+                            @"D:\Fixture",
+                            "2022.3.62t12")));
+
+                Assert.Equal(
+                    $"Failed to attach debugger to {host}:{port}",
+                    error.Message);
+                Assert.False(backend.IsAttached);
             }
         }
 

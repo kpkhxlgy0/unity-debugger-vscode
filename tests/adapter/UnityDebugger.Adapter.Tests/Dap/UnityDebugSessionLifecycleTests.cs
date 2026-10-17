@@ -9,6 +9,7 @@ using UnityDebugger.Adapter.Backend;
 using UnityDebugger.Adapter.Dap;
 using UnityDebugger.Adapter.Diagnostics;
 using UnityDebugger.Adapter.Tests.Fakes;
+using UnityDebugger.Adapter.Tests.Support;
 using Xunit;
 
 namespace UnityDebugger.Adapter.Tests.Dap
@@ -85,6 +86,14 @@ namespace UnityDebugger.Adapter.Tests.Dap
                 Assert.Contains(
                     mirrored,
                     line => line.Contains("event=logFile.redirect"));
+                // "logFile.redirect" is a prefix of "logFile.redirectFailed",
+                // so the assertion above is also satisfied by the failure
+                // event — which means this test alone would still pass if the
+                // success branch reported the fallback it exists to avoid.
+                // Pin that this is the success branch.
+                Assert.DoesNotContain(
+                    mirrored,
+                    line => line.Contains("redirectFailed"));
                 Assert.DoesNotContain(
                     mirrored,
                     line => line.Contains(logFilePath));
@@ -93,6 +102,59 @@ namespace UnityDebugger.Adapter.Tests.Dap
             {
                 if (File.Exists(logFilePath))
                     File.Delete(logFilePath);
+            }
+        }
+
+        // The other half of the rule the mirror test above pins. A logFile the
+        // adapter cannot open must not cost the user their session: the
+        // fallback records logFile.redirectFailed in the primary log and the
+        // attach still succeeds, so a bad diagnostics option is never an
+        // attach failure. This is the only path in the redirect branch with a
+        // claim attached to it, and it had no test.
+        [Fact]
+        public void Attach_survives_an_unwritable_log_file_and_reports_the_fallback()
+        {
+            using (var directory = new TemporaryDirectory())
+            {
+                // A file where the sink's parent directory would go. The
+                // platform refuses to create a directory over an existing
+                // file, so the open fails deterministically without depending
+                // on filesystem permissions or on a path form that is invalid
+                // on one platform only.
+                var blocker = Path.Combine(directory.Path, "blocker");
+                File.WriteAllText(blocker, string.Empty);
+                var unwritablePath = Path.Combine(
+                    blocker,
+                    "secondary.log");
+
+                var backend = new FakeDebuggerBackend();
+                using (var writer = new StringWriter())
+                using (var log = new DiagnosticLog(
+                    writer,
+                    new PathRedactor(@"C:\Users\alice", null)))
+                {
+                    var arguments = ValidAttachArguments();
+                    arguments["__logFile"] = unwritablePath;
+                    var messages = Run(
+                        new UnityDebugSession(() => backend, log),
+                        Request("attach", arguments));
+
+                    Assert.True(Required<bool>(
+                        Response(messages, "attach")["success"]));
+                    Assert.Equal(1, backend.AttachCount);
+
+                    var text = writer.ToString();
+                    Assert.Contains(
+                        "event=logFile.redirectFailed",
+                        text);
+                    Assert.Contains("exceptionType=IOException", text);
+                    // "logFile.redirect" is a prefix of the failed event's
+                    // name, so the negative check carries the line terminator
+                    // to tell the two lines apart.
+                    Assert.DoesNotContain(
+                        "event=logFile.redirect" + Environment.NewLine,
+                        text);
+                }
             }
         }
 

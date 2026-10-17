@@ -68,13 +68,60 @@ namespace UnityDebugger.Adapter.Tests.Dap
             var body = DapTestProtocol.Response(
                 messages,
                 "initialize")["body"]!;
+
+            // The exact property set, not a sample of it: the per-field reads
+            // below cannot see a capability added by accident, and this list is
+            // also where the deliberate absences are recorded. The reference
+            // body additionally carries ten fields reported false, four empty
+            // arrays (completionTriggerCharacters, additionalModuleColumns,
+            // supportedChecksumAlgorithms, breakpointModes), and
+            // supportsDelayedStackTraceLoading; none of those is here, and
+            // supportsExceptionOptions was removed on purpose. Naming them in
+            // this comment rather than asserting their absence separately is
+            // what the exact set already does.
+            Assert.Equal(
+                new[]
+                {
+                    "exceptionBreakpointFilters",
+                    "pid",
+                    "supportsConditionalBreakpoints",
+                    "supportsConfigurationDoneRequest",
+                    "supportsDataBreakpoints",
+                    "supportsDisassembleRequest",
+                    "supportsEvaluateForHovers",
+                    "supportsExceptionConditions",
+                    "supportsExceptionFilterOptions",
+                    "supportsFunctionBreakpoints",
+                    "supportsGotoTargetsRequest",
+                    "supportsHitConditionalBreakpoints",
+                    "supportsInstructionBreakpoints",
+                    "supportsLogPoints",
+                    "supportsReadMemoryRequest",
+                    "supportsRestartRequest",
+                    "supportsSetVariable",
+                    "supportsSingleThreadExecutionRequests",
+                    "supportsStepBack",
+                    "supportsStepInTargetsRequest",
+                    "supportsSteppingGranularity",
+                    "supportsTerminateRequest",
+                    "supportsWriteMemoryRequest",
+                },
+                body.Children<JProperty>()
+                    .Select(property => property.Name)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToArray());
+
             Assert.Null(body["supportsExceptionOptions"]);
             Assert.True(body["supportsExceptionFilterOptions"]!.Value<bool>());
             Assert.True(body["supportsExceptionConditions"]!.Value<bool>());
             Assert.False(
                 body["supportsHitConditionalBreakpoints"]!.Value<bool>());
 
-            var filters = (JArray)body["exceptionBreakpointFilters"]!;
+            // Assert.IsType rather than a cast: a missing property otherwise
+            // fails as a null reference on .Count below, which reports a
+            // different reason than "the field is gone".
+            var filters = Assert.IsType<JArray>(
+                body["exceptionBreakpointFilters"]);
             Assert.Equal(2, filters.Count);
             var expectedFilterFields = new[]
             {

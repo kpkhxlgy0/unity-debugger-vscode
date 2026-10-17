@@ -211,6 +211,83 @@ namespace UnityDebugger.Adapter.Tests.Dap
             }
         }
 
+        // Two client shapes the tests above do not reach. FilterOptions above
+        // always sends `filters` as an empty array, so the branch that reads a
+        // request with no `filters` member at all is never taken; and a request
+        // carrying ids in both shapes is what a client with stale UI state
+        // sends while the selected filters move into filterOptions. The second
+        // shape is also where the precedence rule has to hold: `all` selects
+        // every exception whichever array it arrives in.
+        [Fact]
+        public void Filter_options_alone_and_both_shapes_resolve_by_precedence()
+        {
+            var backend = new FakeDebuggerBackend();
+            var session = AttachedSession(backend);
+
+            var messages = DapTestProtocol.Run(
+                session,
+                // No `filters` member at all.
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    new
+                    {
+                        filterOptions = new[]
+                        {
+                            new { filterId = "unhandled" },
+                        },
+                    }),
+                // `all` in the newer shape outranks `unhandled` in the older.
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    new
+                    {
+                        filters = new[] { "unhandled" },
+                        filterOptions = new[]
+                        {
+                            new { filterId = "all" },
+                        },
+                    }),
+                // `all` in the older shape outranks `unhandled` in the newer.
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    new
+                    {
+                        filters = new[] { "all" },
+                        filterOptions = new[]
+                        {
+                            new { filterId = "unhandled" },
+                        },
+                    }),
+                // The legacy id loses to `all` the same way.
+                DapTestProtocol.Request(
+                    "setExceptionBreakpoints",
+                    new
+                    {
+                        filters = new[] { "uncaught" },
+                        filterOptions = new[]
+                        {
+                            new { filterId = "all" },
+                        },
+                    }));
+
+            Assert.All(
+                DapTestProtocol.Responses(
+                    messages,
+                    "setExceptionBreakpoints"),
+                response => Assert.True(
+                    DapTestProtocol.Required<bool>(
+                        response["success"])));
+            Assert.Equal(
+                new[]
+                {
+                    ExceptionBreakMode.Uncaught,
+                    ExceptionBreakMode.All,
+                    ExceptionBreakMode.All,
+                    ExceptionBreakMode.All,
+                },
+                backend.ExceptionModes);
+        }
+
         // VS Code moves the selected filters into filterOptions (with an empty
         // filters array) once supportsExceptionFilterOptions is advertised.
         private static object FilterOptions(object option) =>

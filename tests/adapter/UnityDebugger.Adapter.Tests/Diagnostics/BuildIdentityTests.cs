@@ -1,5 +1,6 @@
 using System.IO;
 using UnityDebugger.Adapter.Diagnostics;
+using UnityDebugger.Adapter.Tests.Support;
 using Xunit;
 
 namespace UnityDebugger.Adapter.Tests.Diagnostics
@@ -46,25 +47,6 @@ namespace UnityDebugger.Adapter.Tests.Diagnostics
                 Assert.Equal(
                     "0.3.2+g0123456789ab",
                     BuildIdentity.ReadFromDirectory(directory.Path));
-            }
-        }
-
-        private sealed class TemporaryDirectory : System.IDisposable
-        {
-            public TemporaryDirectory()
-            {
-                Path = System.IO.Path.Combine(
-                    System.IO.Path.GetTempPath(),
-                    "unity-debugger-pure-build-identity-" +
-                    System.Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(Path);
-            }
-
-            public string Path { get; }
-
-            public void Dispose()
-            {
-                Directory.Delete(Path, true);
             }
         }
     }
