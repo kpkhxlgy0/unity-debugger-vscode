@@ -47,6 +47,13 @@ describes the artifact that was published and verified, so it is left as it was.
 - State the remote-attach security posture plainly — an explicit non-loopback
   `endPoint` is supported, and Unity's managed debug transport has no
   authentication.
+- Bound the adapter's stack walk so a Call Stack request is always answered. A
+  walk that could not complete previously left the client waiting forever — a
+  Call Stack panel that never finished loading, with no diagnostic at all — and
+  the scopes, variables and evaluation that are addressed against stack frames
+  went with it. The walk underneath is still as slow as the runtime makes it, so
+  a request that runs out of time now returns an empty frame list rather than
+  frames; that is a visible answer instead of a hang, not a faster walk.
 
 ## 0.3.2 - 2026-09-24
 

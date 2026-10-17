@@ -23,6 +23,15 @@ current release candidate.
   reproducible is the adapter binary and the 17-entry runtime inventory that the
   suites above check. So a checksum is an identity for one file, not a property of
   a tree — and a rebuild that fails to match it is not evidence of a wrong build.
+- **If adapter source changed, expect the runtime inventory check to refuse the
+  staged binary, and regenerate it deliberately.** `npm run package` runs
+  `inventory:runtime`, which compares the staged assemblies against the pinned
+  `third-party/runtime-assemblies.json` and stops with
+  `Runtime inventory differs from staged binaries` naming the expected and actual
+  hashes. That is the guard that keeps an unaudited assembly out of the package
+  working as designed, not a broken build: rebuild the adapter, then regenerate the
+  inventory explicitly with `node scripts/generate-runtime-inventory.mjs --write`
+  and review the diff, because the changed hash is a changed shipped binary.
 
 ## 2. Public repository
 
