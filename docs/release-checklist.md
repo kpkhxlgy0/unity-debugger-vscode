@@ -20,10 +20,9 @@ current release candidate.
 - **Compare that checksum against the downloaded artifact, never against a
   rebuild.** The VSIX is not byte-reproducible: the same tree has produced
   different archives because ZIP entry metadata varies between runs. What *is*
-  reproducible is the adapter binary and the 17-entry runtime inventory, which
-  section 4's pin covers. So a checksum is an identity for one file, not a
-  property of a tree — and a rebuild that fails to match it is not evidence of a
-  wrong build.
+  reproducible is the adapter binary and the 17-entry runtime inventory that the
+  suites above check. So a checksum is an identity for one file, not a property of
+  a tree — and a rebuild that fails to match it is not evidence of a wrong build.
 
 ## 2. Public repository
 
