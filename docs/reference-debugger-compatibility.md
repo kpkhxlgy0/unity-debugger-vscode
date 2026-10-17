@@ -317,6 +317,140 @@ project. Do not infer an unavailable UI capability.
 
 ## Evidence Log
 
+### 2026-10-17 - Task 13 automated gate, package audit, and breakpoint reachability (non-Editor steps)
+
+Non-Editor evidence for the 2026-10-16 alignment work item: Task 13 Steps 1, 2, 4 and 6. Steps 3 and
+5 — the Editor confirmation and the live A/B acceptance — were **not** run, so **no row status changes
+in this entry**, and every `not yet verified` row stays `not yet verified`. Nothing below is a
+runtime observation of either debugger.
+
+Baseline for the whole entry: branch `feature/vstuc-user-visible-alignment` at `47089f0` (docs-only
+over `ded5356`), working tree carrying only the six pre-existing `adapter/vendor/*/packages.lock.json`
+modifications. Gate logs were written outside the repository.
+
+**Step 1 - the automated gate is green, and reproduces every expected count.**
+
+- `npm run build` exit 0: esbuild `dist/extension.cjs` 43.2 kb; `dotnet build UnityDebugger.sln -c
+  Release` 0 errors and one pre-existing CS0168 warning in vendored `SoftDebuggerSession.cs:1713`.
+- `npx tsc --noEmit` exit 0 with no output.
+- `npm run test:build` (`node --test tests/build/*.test.mjs`): 20 tests, 20 pass, 0 fail.
+- `npm run test:extension` (`vitest run tests/extension`): 17 files, 190 tests, 190 pass.
+- `npm run test:adapter` (`dotnet test`, net48): Failed 0, Passed 207, Skipped 5, Total 212.
+- `npm run test:integration` (`vitest run tests/integration`): 1 file, 9 tests, 9 pass.
+- `npm run verify:third-party` exit 0, "Verified 3 pinned third-party sources."
+- `npm run build:extension` (esbuild) exit 0.
+
+No gate in the `npm test` chain is red, and no count differs from the accepted baseline.
+
+**Step 2 - the package gate is RED on two independent checks, and `npm test` cannot see either.**
+
+`npm run package` exits 1 and stops before `vsce package`. **No VSIX was produced for this branch, and
+`dist/unity-debugger-pure-0.3.2.vsix` was not rewritten.**
+
+1. `npm run inventory:runtime` (`generate-runtime-inventory.mjs --verify`) fails with
+   `Runtime inventory differs from staged binaries`:
+   `extension/adapter/win32-x64/UnityDebuggerPure.exe: expected
+   4c161cdc79ec41e649160ea9009475b6960bc98198818ecb36d61ac46e972297, actual
+   e9d5e5e9642e0aed72ff682e9d42be81a0775ece478874c8bec34cc38ded42f3`.
+   The pin in `third-party/runtime-assemblies.json` was last written by `f46985b` (2026-09-24);
+   seven adapter commits landed after it (`58565df`, `2bfc474`, `b90562d`, `7eb965d`, `1eb4dae`,
+   `ea0db8e`, `2777f88`), all touching `adapter/src`. The other sixteen assemblies still hash-match
+   their pins, so the build is reproducible and the delta is that source change rather than build
+   noise. No task brief in this work item assigns re-pinning the inventory, and nothing under `tests/`
+   reads `runtime-assemblies.json`, so `package` is the only gate that can catch it. The command that
+   would resolve it is `npm run inventory:runtime:write`, which re-pins an audited provenance record
+   and was deliberately left to review rather than done here.
+2. Even after that, the archive audit would fail on the same executable.
+   `verify-vsix.mjs:119-133` requires `configurationSnippets[0].body` and `initialConfigurations[0]`
+   to equal exactly `{name, type, request}`, but `package.json` carries a fourth key,
+   `projectPath: "${workspaceFolder}"`, added by `ea0db8e`. `tests/build/scaffold.test.mjs:81-97`
+   asserts the **four-key** object, so the source test and the archive verifier contradict each other;
+   `verify-vsix.mjs` was last modified by `f46985b` (2026-09-24), before that key existed. Confirmed
+   independently against a fresh archive: packaged exe `e9d5e5e9…` against packaged inventory
+   `4c161cdc…`, so `verify-vsix.mjs:209` would also raise `Runtime hash mismatch`.
+
+**Path and assembly evidence that the step did establish.** Because `package` stops at check 1, the
+audit was run against an archive of the current tree built to a temporary path,
+`%TEMP%\task13-audit-candidate.vsix` (33 files, 5,860,523 bytes, SHA-256
+`cc07224391293c84cb697e38bdea0e1d18ca94115bfc9ba40f0ade284dce8798`). `scripts/verify-vsix.mjs`
+passed every **path** check — ZIP path safety, duplicate detection, the allowlisted root, the five
+forbidden patterns (`tests/`, `.git`, `src`, `adapter/vendor/`, `testadapter`), the eleven required
+paths, the Adapter-subtree restriction, product identity and build identity — and failed only at
+line 130 on the `projectPath` key. The archive ships 17 assemblies, and neither the entry names nor
+any archive path matches `SyntaxTree`, `Microsoft.VisualStudio`, `csdevkit`, `MonoDevelop`, or the
+retired `unitycommunitydebug` executable. `inventory:runtime` had already enumerated the staged
+directory without raising `No audited runtime origin for <name>`, so every shipped assembly maps to an
+audited origin: the reference families are absent from the package, not merely absent from the pin.
+`dist/unity-debugger-pure-0.3.2.vsix` **is the published 0.3.2 release artifact** (SHA-256
+`4449c1f22385302fe4149fb1454749e9c1dfa0a800aa9914227bee299a1e2c5e`, the same bytes as the 2026-09-24
+and 2026-09-25 entries above) and was therefore **not** overwritten. Running `verify:vsix` against it
+prints `VSIX verification passed: 33 files, 17 runtime assemblies.` — a silent false PASS describing
+the superseded September state, exactly the failure mode the Step 2 note predicted.
+
+**Manifest invariants, in source and in the packaged manifest.** `extensionDependencies`,
+`extensionPack` and `dependencies` are absent from both `package.json` and the packaged
+`extension/package.json`; `devDependencies` is present with nine dev-only entries. Neither contains
+`ms-dotnettools`, `csdevkit`, `com.unity.ide.*`, `telemetry` or `appInsights`. **Only
+`extensionDependencies` is covered by a test** (`tests/build/scaffold.test.mjs:37`), plus the
+package-time check at `verify-vsix.mjs:170`; `extensionPack`, the `ms-dotnettools`/`csdevkit`
+strings, `com.unity.ide.*` and telemetry are enforced by **no** test, so this entry's evidence for
+them is the grep over source plus the archive inspection, and Task 14 item 46 is what adds those tests.
+
+**Step 4 - breakpoint reachability in the acceptance project. Evidence only; no Editor was driven.**
+
+Candidate: `CharacterDebug.cs:383`, `var value = FightUnitAttrUtils.GetAttrCurrValue(LogicEntity, attr);`
+inside `public void UpdateAttrInfo()` (`:366`), which is called only by `SafeUpdateAttrInfo()`
+(`:1611`, body `:1613`). Every line below was read, not assumed.
+
+- **Attachment hop: established in code, and not by any scene or prefab.** `CharacterDebug.cs.meta`
+  declares guid `112235e05c4553b4b94b9585047b7ce5`, and that guid occurs in **none** of the project's
+  227 `.unity` scenes, 21,297 `.prefab` files, or any `.asset`; its only occurrence anywhere in the
+  project is the `.meta` itself. The component is added at runtime instead:
+  `SGBattleView.UnitView.Link` (`UnitView.cs:240`) runs
+  `transform.GetOrAddComponent<CharacterDebug>().SceneDebugPanel = true;` at `:278`, inside
+  `#if UNITY_EDITOR && !BATTLE_LOGIC` (`:266`-`:279`), and `Link` is called from
+  `CreateEntityViewSystem.OnAddCharacter` at `CreateEntityViewSystem.cs:181`. `BATTLE_LOGIC` is defined
+  for no platform in `ProjectSettings.asset`, so the guard compiles in for the Editor on both Android
+  and Standalone. **Consequence: the method is reachable only in Play Mode with a battle running, and
+  only on a unit whose `UnitView` has been created.** There is no serialized attachment that would make
+  it reachable from an idle Editor, which is why the guideline's active-scene/prefab check cannot be
+  satisfied here and the code path carries the burden instead.
+- **All three call-site hops are present.** Route A: the `SceneView.duringSceneGui` handler
+  `OnSceneGUIForCharacterDebug` (`:1800`) → `DrawScenePanelGUI()` (`:1825`) → `:612`
+  `if (AttrInfoDebug) SafeUpdateAttrInfo();`, gated by `SceneDebugPanel` (`:1802`), Hierarchy selection
+  (`:1804`) and a `Layout` event (`:604`); `AttrInfoDebug` defaults to `false` (`:23`). Route B: the
+  scene-panel button "复制面板数据" (`:635`) → `CopyPanelDataToClipboard()` (`:1357`) → `:1361`,
+  unguarded by `AttrInfoDebug` but behind the same panel and the same selection. Route C (reflection):
+  `CharacterAttributeTestWindow.RefreshSnapshot()` (`CharacterAttributeTestWindow.cs:604`) →
+  `CharacterDebugSnapshotReader.Read` (`:53`) → `:567` `MatchCharacterEntity`, `:571` `SelectAllAttrs`,
+  `:575` `SafeUpdateAttrInfo`, and `:639` in its `finally`; the window opens from the menu
+  `便捷工具/属性快捷对比` (`:34`). All three are Editor-side, so they execute inside the attached
+  Editor process rather than a player.
+- **Short-session plausibility: only after entering Play Mode and reaching a battle.**
+  `CharacterDebugSnapshotReader.cs:58-66` returns the message `请进入战斗` whenever
+  `!Application.isPlaying`, which is direct source evidence of that requirement. Route C is the
+  cheapest of the three triggers because `SelectAllAttrs` (`:571`) guarantees a non-empty
+  `SelectedAttrs`, so `:383` is reached on the first attribute that has a `CData_UnitAttr` row; Route A
+  additionally needs the "Attrs" toggle flipped by hand.
+- **`EVAL-07` and `EVAL-08` share this one breakpoint** and need no second location: both are Watch
+  expressions evaluated at the same stop. `LogicEntity` is the public `WorldEntity` field at
+  `CharacterDebug.cs:18`, `(EFightUnitAttr)1033` is the *named* member `eMonsterArmor`
+  (`EUnitAttr.cs:56`; enum at `:7`, namespace `SGBattleCommon`), and `GetAttrCurrValue` has a single
+  overload, `FightUnitAttrUtils.cs:628 (WorldEntity, EFightUnitAttr)`, so the bare `1033` form tests
+  the int-to-enum conversion rather than overload selection.
+- If a breakpoint at `:383` does not fire, this entry is the reason to establish which trigger ran
+  before reading it as a debugger fault.
+
+**Acceptance-project environment read at 2026-10-17 11:18-11:37.**
+`ProjectSettings\ProjectVersion.txt` **exists** — 85 bytes, written 2026-10-17 10:30:49 — declaring
+`m_EditorVersion: 2022.3.23f1` and `m_EditorVersionWithRevision: 2022.3.23f1 (11dcd41583a0)`, so the
+design spec's "absent" is stale and Task 6's fallback is not the live path in this project.
+`Library\EditorInstance.json` (written 11:31:08) records pid 91740, `version 2022.3.23f1` with no
+revision suffix, and `app_path D:/Unity/Unity2022/Editor/Unity.exe`; pid 91740 is alive, and
+`Temp\UnityLockfile` is dated 10:18:37, that process's start time, so the derived attach port is still
+56740. The Editor version **actually exercised** by this entry is none: no attach, breakpoint,
+stepping or evaluation was performed, and Steps 3 and 5 remain outstanding.
+
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
 - The user completed the manual Visual Studio Marketplace upload. The public gallery API reports version 0.3.2
