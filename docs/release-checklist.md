@@ -7,12 +7,23 @@ current release candidate.
 
 - Confirm `master` is clean.
 - Run the complete dependency, build, test, third-party, package, runtime
-  inventory, and VSIX verification suites.
+  inventory, and VSIX verification suites. Build the candidate with
+  `npm run package:release`, not `npm run package`: only the former names the
+  version-named release path and then runs `verify:release-artifact` against it,
+  while the latter deliberately writes a commit-stamped name so that an ordinary
+  build cannot overwrite a retained release.
 - Confirm the release files are exactly
   `unity-debugger-pure-0.3.2.vsix` and
   `unity-debugger-pure-0.3.2.vsix.sha256`.
 - Confirm the checksum matches the exact VSIX accepted in
   `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`.
+- **Compare that checksum against the downloaded artifact, never against a
+  rebuild.** The VSIX is not byte-reproducible: the same tree has produced
+  different archives because ZIP entry metadata varies between runs. What *is*
+  reproducible is the adapter binary and the 17-entry runtime inventory, which
+  section 4's pin covers. So a checksum is an identity for one file, not a
+  property of a tree — and a rebuild that fails to match it is not evidence of a
+  wrong build.
 
 ## 2. Public repository
 
