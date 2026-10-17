@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
+import { attachConfiguration } from "./attach-configuration.mjs";
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -116,16 +117,16 @@ if (!debuggerContribution) {
     "Packaged manifest has no unity-debugger-pure debugger.",
   );
 }
-const expectedAttachConfiguration = {
-  name: "Attach to Unity Debugger Pure",
-  type: "unity-debugger-pure",
-  request: "attach",
-};
+// The reviewed shape — including `projectPath`, added by `ea0db8e` — lives in
+// `scripts/attach-configuration.mjs`, because `tests/build/scaffold.test.mjs`
+// asserts the same fact against the source manifest and the two gates must not
+// drift apart. This verifier rejects a wrong initial configuration; it does not
+// freeze the configuration at the shape it had before Task 7.
 if (
   JSON.stringify(debuggerContribution.configurationSnippets?.[0]?.body) !==
-    JSON.stringify(expectedAttachConfiguration) ||
+    JSON.stringify(attachConfiguration) ||
   JSON.stringify(debuggerContribution.initialConfigurations) !==
-    JSON.stringify([expectedAttachConfiguration])
+    JSON.stringify([attachConfiguration])
 ) {
   throw new Error(
     "Packaged manifest has the wrong initial debug configuration.",

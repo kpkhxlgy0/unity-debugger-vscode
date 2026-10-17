@@ -94,7 +94,7 @@
     },
     {
       "path": "extension/adapter/win32-x64/UnityDebuggerPure.exe",
-      "sha256": "4c161cdc79ec41e649160ea9009475b6960bc98198818ecb36d61ac46e972297",
+      "sha256": "69dac261b51d03bf2527fcaf8df3f4e40a0d37ce0b5902af226a79dc45be434e",
       "origin": "project",
       "license": "MIT"
     },
