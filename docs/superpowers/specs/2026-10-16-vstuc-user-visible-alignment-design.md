@@ -22,7 +22,11 @@ This document also **lifts one clause** of the previously approved parity design
 
 An item is aligned only when the reference extension and UnityDebuggerPure
 produce the same user-visible result for the same action on the same project.
-The maintained matrix at
+Where the subject has no action sequence to run — a manifest key, a wire field, a
+string constant, or a pure function of its inputs — reading both implementations
+is the complete comparison, and the run requirement governs runtime-behaviour
+rows only; `AGENTS.md`'s status vocabulary and the matrix's own Status vocabulary
+section state and classify that distinction. The maintained matrix at
 [`docs/reference-debugger-compatibility.md`](../../reference-debugger-compatibility.md)
 gains a row for every item below.
 

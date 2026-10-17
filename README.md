@@ -127,10 +127,11 @@ another machine.
 **Unity's managed debug transport has no authentication.** Anyone who can reach
 the debugger port can attach to that Editor or player, and an attached debugger
 can execute code in the target. An endpoint exposed on a network interface is
-therefore reachable by anyone who can route to it. Prefer loopback, and expose a
-remote endpoint only on a network you trust and control. The extension adds no
-authentication, and this section is not a guarantee that a remote endpoint is
-safe to expose.
+therefore reachable by anyone who can route to it. The port is derived
+deterministically from the Editor's process id (`56000 + pid % 1000`), so it is
+guessable rather than secret. Prefer loopback, and expose a remote endpoint only
+on a network you trust and control. The extension adds no authentication, and
+this section is not a guarantee that a remote endpoint is safe to expose.
 
 The extension has no telemetry — the reference debugger reports usage, and this
 one does not, by design. Diagnostics are written under
