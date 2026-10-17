@@ -685,6 +685,49 @@ its own construction. **The assertion passes against the fake and the real Edito
 so a green integration test was never evidence that a stack walks in Unity. That is the strongest
 argument in this log for the real-Editor acceptance existing at all.
 
+### 2026-10-17 - `STACK-01` root cause: `StackTrace` is the only inspection handler without a timeout
+
+**Reading the source after the A/B produced a specific cause rather than a suspicion, and it is one
+missing guard.** `UnityDebugSession.cs` gives four of its five inspection handlers a bounded wait:
+
+| Handler | Declared | Timeout applied |
+| --- | --- | --- |
+| `ExceptionInfo` | `:324` | yes, `:376` |
+| `Scopes` | `:652` | yes, `:665` |
+| `Variables` | `:689` | yes, `:704` |
+| `Evaluate` | `:756` | yes, `:793` |
+| **`StackTrace`** | **`:596`** | **none** |
+
+`GetTimeoutMilliseconds(request)` (`:1223-1230`) reads an optional per-request `timeout` and falls
+back to `DefaultInspectionTimeoutMilliseconds = 10000` (`:19`). **`StackTrace` — 55 lines, `:596` to
+`:651` — contains no timeout call and no `timeout` reference of any kind.**
+
+- **The blocking call is at the bottom of that path**: `UnityDebugSession` calls
+  `value.GetStackTrace(backendThreadId, startFrame, levels)`, and
+  `SoftDebuggerSessionFacade.GetStackTrace` (`Backend/SoftDebuggerSessionFacade.cs:248`) re-enumerates
+  the processes, matches `item.Id == threadId`, and then reads **`thread.Backtrace`** (`:262`) — a
+  Mono soft-debugger query with **no bound**. On this Editor it does not return.
+- **So the failure is not a wrong answer, it is no answer.** The four sibling handlers would have
+  replied with a timeout error; `StackTrace` simply never sends a response, which is why every
+  `stackTrace` attempt timed out on the client side and why the one that did answer had already got
+  its frames before blocking on a later call. **In VS Code that is a Call Stack panel that never
+  finishes loading**, and because frames are what `Scopes`, `Variables` and `Evaluate` are addressed
+  against, the rest of the inspection surface goes with it.
+- **And the reference answers the same question in well under a second**, which rules out the Editor
+  being unable to walk these threads and points at how we ask.
+
+**Two things I raised as leads and am withdrawing, so they do not get "fixed".** Our small sequential
+thread ids are **deliberate**: `Dap/State/ThreadIdMap.cs` maps backend `long` ids onto DAP `int` ids
+from 1 upward, with `TryGetBackendId` for the return trip — a design choice, not the bug, and the
+reference's raw pointers (including negatives such as `-881642304`) are simply a different choice.
+And the 10-second inspection default is **not** too short: the reference walks a 13-frame stack
+almost instantly on the same Editor, so a handler that had a timeout would have failed fast and
+visibly instead of hanging.
+
+**The aligned fix is one guard mirroring the four siblings**, and it is **not applied**: `AGENTS.md`
+requires the user's decision before a reference difference is preserved or designed around, and that
+ruling has been requested and not yet given.
+
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
 - The user completed the manual Visual Studio Marketplace upload. The public gallery API reports version 0.3.2
