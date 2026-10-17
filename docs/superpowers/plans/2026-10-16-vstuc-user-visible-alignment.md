@@ -1700,9 +1700,11 @@ Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberatel
 45. **No real VS Code host has exercised the in-place decoration.** `Object.assign(channel, …)` mutates the object VS Code actually returned, which the implementer chose over wrapping so that `dispose()` and the `context.subscriptions` entry keep reaching the right object — mutation B proves a wrap would fail the identity test. The residual risk, stated by the implementer, is that VS Code's channel is a proxy whose member behaviour is not ours to assume: it returns a plain unfrozen instance today, so the risk is low, but **it is unit-tested against doubles only**. Task 13's acceptance is where a real host would confirm it, and if acceptance cannot reach the output channel, record that as an explicit gap rather than assuming the doubles generalise.
 46. **Two of the three invariants the goal names are enforced by nothing, and the third only partly — add the tests.** Found this round by grepping for where each would fail:
 
-    | Invariant | Current enforcement |
+    > **Corrected 2026-10-17, after execution.** This table is the *instruction*, not the state, and every "**no test**" below is now false. Item 46 landed in `b891a0d` and the walk was widened in `174f281`; the assertions are `tests/build/scaffold.test.mjs:117` (`extensionDependencies === undefined`), and the four that closed this table at `:292` (`extensionPack` absent and `dependencies` strictly `{}`), `:304` (no C# Dev Kit identifier), `:312` (no `com.unity.ide.*`) and `:320` (no telemetry identifier). **The walk covers `package.json`, `extension/src`, `adapter/src` *and* `adapter/vendor`**, because the vendored sources are compiled into the shipped assemblies — a scope defect the final review found as F2, since asserting over three roots while the test's name said "the shipped tree" made the name false. The one reviewed exception is the DAP `Message.sendTelemetry` shape, excused by file **and the five exact lines**. The `scaffold.test.mjs:37` cited above is the `];` that closed the walk's list. **Kept rather than rewritten so that the finding and its answer sit together** — the same choice the design spec's invariant list records.
+
+    | Invariant | Enforcement when this was written |
     | --- | --- |
-    | No C# Dev Kit | `scaffold.test.mjs:37` asserts `manifest.extensionDependencies === undefined` — **the whole of it** |
+    | No C# Dev Kit | `scaffold.test.mjs:37` asserted `manifest.extensionDependencies === undefined` — **the whole of it** |
     | — `extensionPack` | **no test** |
     | — `dependencies` | **no test** (only `packages.lock.json` matched, which is unrelated) |
     | — no `ms-dotnettools` / `csdevkit` | **no test** |
