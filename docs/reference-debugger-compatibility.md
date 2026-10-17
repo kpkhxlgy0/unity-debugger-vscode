@@ -570,9 +570,31 @@ reported, `allThreadsStopped` is `true`, and the walk behind it produces nothing
 a VS Code session then that session has no call stack, no scopes and no evaluation**, which is why it
 is recorded here rather than left in a scratch log.
 
+> **Corrected 2026-10-17, after the run that followed.** The paragraph above is partly **my client's
+> fault and not the debugger's**, and the correction matters more than the original claim. Every
+> request in those runs omitted `startFrame`, and the integration test's working session passes
+> `{ threadId, startFrame: 0, levels: 20 }`. Re-run in that exact shape, **the first `stackTrace`
+> answered** — `thread 1 (<Thread Pool>): OK, 0 frame(s)` — where every earlier attempt had timed out.
+> So **"never answers" is wrong** and the observation it should have recorded is narrower: the
+> adapter answers **once, with zero frames, and then stops answering any thread at all**, timing out
+> on thread 1 again and on threads 3 and 7. A request that hangs when an optional field is absent is
+> still worth knowing, but it is not the same finding as a stack walk that does not work, and the
+> first version of this entry overstated it.
+
+**And the thread list contains no main thread, which is the more likely explanation for the zero
+frames.** Across four runs the adapter reported 42–50 threads named `Burst-CompilerThread-N`,
+`Thread #N`, `<Thread Pool>`, `Thread Pool I/O Selector`, `Timer-Scheduler` and `StreamingScene` —
+**and never one named for the managed main thread**, while the integration test's TestAdapter
+reports exactly `[{ id, name: "Main Thread" }]` and its stack walk succeeds. So every thread this
+Editor offers for inspection is a worker, `0 frames` is what a worker returns, and the `stopped`
+event names thread 1 — a pool or Burst thread — rather than a thread that can be walked. **That is
+the shape of the user-visible failure**: no call stack, and therefore no scopes and no evaluation.
+It is recorded as the leading hypothesis and not as a conclusion, because the reference side has not
+been run and cannot yet separate our thread selection from the Editor's thread set.
+
 **And a single `pause` emits one `stopped` event per thread** — 42 in one run, 50 in another, 42 in a
-third — every one of them `reason=pause`, `threadId=1`, `allThreadsStopped=true`. A client that takes
-`allThreadsStopped` at its word will show the user dozens of stops for one pause.
+third, 43 in a fourth — every one of them `reason=pause`, `threadId=1`, `allThreadsStopped=true`. A
+client that takes `allThreadsStopped` at its word will show the user dozens of stops for one pause.
 
 **Bounds on this, because a finding this size has to be bounded or it is a claim.**
 - **All of it was measured in edit mode.** The breakpoint run was in Play Mode with a battle, and
@@ -587,6 +609,10 @@ third — every one of them `reason=pause`, `threadId=1`, `allThreadsStopped=tru
 **None of this moves a row.** It is recorded because it is the first real-Editor evidence about
 mechanisms the matrix currently describes from unit tests and packaged artifacts, and because a
 release decision should not be taken on the assumption that a stack walk is fine.
+
+**The next run that would settle it, and it is one command.** The open question is whether the
+managed main thread appears once the Editor is in Play Mode with a battle — the path a user actually
+takes — and whether a stack then walks. Edit mode is where every observation above was taken.
 
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
