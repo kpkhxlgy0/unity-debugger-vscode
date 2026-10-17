@@ -1540,6 +1540,22 @@ Verified facts about this project, gathered before starting so they need not be 
 
 Pick a method in the project that is provably reached (an `Awake`/`Start` on an object in the active scene, or a bootstrap path), and record the evidence that it executes. Do not use an unproven candidate, and do not read a missed breakpoint as a debugger failure.
 
+**Two of the three `not yet verified` rows need a specific type, and I traced one to a concrete call site — including its reachability, which is what this step exists to demand.**
+
+`EVAL-07` and `EVAL-08` both concern `FightUnitAttrUtils.GetAttrCurrValue`. The acceptance project contains every identifier those rows name (`FightUnitAttrUtils`, `EFightUnitAttr`, `GetAttrCurrValue`) and the `SGBattleLogic` namespace. **The call site is:**
+
+```
+D:\workspace\sgproj1\sgproj_xiaolonghan_0003\Assets\Scripts\sgcode\Scripts\Common\CharacterDebug.cs:383
+    var value = FightUnitAttrUtils.GetAttrCurrValue(LogicEntity, attr);
+```
+
+inside `public void UpdateAttrInfo()` (declared at `:366`). **The reachability chain, traced rather than assumed:** `UpdateAttrInfo` is called only by `SafeUpdateAttrInfo` (`:1611-1613`), which has three callers — `CharacterDebug.cs:612` **guarded by `if (AttrInfoDebug)`**, `CharacterDebug.cs:1361`, and `CharacterDebugSnapshotReader.cs:575`/`:639` via **reflection** (`InvokeNoArgMethod(characterDebug, "SafeUpdateAttrInfo")`).
+
+- **So there are two practical triggers and the run needs one of them**: set `AttrInfoDebug` and let the debug panel refresh, or drive `SafeUpdateAttrInfo` through the snapshot reader. **If a breakpoint at `:383` never fires, check which trigger was used before concluding anything** — the guard at `:612` means the method can simply not be called, and `AGENTS.md` is explicit that an unreachable path proves nothing about the debugger. This is the same "is the candidate actually reached?" question the paragraph above asks, answered for one specific candidate so the run does not stall on it.
+- **One breakpoint and two Watch expressions cover both evaluation rows.** `EVAL-07`'s expression is `FightUnitAttrUtils.GetAttrCurrValue(LogicEntity, (EFightUnitAttr)1033)`; `EVAL-08` is about passing the **integer** `1033` to an enum parameter, so run the cast form **and** the form without it, since the difference between them is the whole subject of `EVAL-07`.
+- **`BP-06` needs no particular method** — it concerns a bound breakpoint's **filename** after a status change and a source saved **outside the attached workspace** — but it does need a saveable source file, so run it **last**, after the evaluation rows, in case the saved-file state perturbs the session.
+- **What these three rows still cannot settle, so do not over-record them:** every one compares our behaviour against a **user report** of the reference rather than an observation you can re-run. The 2026-09-22 screenshots are the only direct reference evidence for `EVAL-08` and `BP-06`, so a passing run makes them `aligned` on our side while the reference side stays as-reported — say so in the row rather than implying both were observed together.
+
 - [ ] **Step 5: Run the A/B acceptance and record it**
 
 **First add the configuration this step needs.** The project ships only a `vstuc` configuration, so there is currently no way to start our debugger from it. Add a second entry to that project's `.vscode/launch.json` pointing at Unity Debugger Pure — `{"name": "Attach to Unity (Pure)", "type": "unity-debugger-pure", "request": "attach"}` — keeping the existing `vstuc` entry so both sides of every A/B run use the same action sequence from the same file. That edit lives in the acceptance project, not this repo.
