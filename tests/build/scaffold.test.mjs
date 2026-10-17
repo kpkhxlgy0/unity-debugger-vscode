@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
+import { attachConfiguration } from "../../scripts/attach-configuration.mjs";
 
 /**
  * The source this repository ships, walked rather than listed: build output
@@ -127,12 +128,13 @@ test("manifest defines an independent attach-only debugger", () => {
       },
     },
   );
-  const expectedAttachConfiguration = {
-    name: "Attach to Unity Debugger Pure",
-    type: "unity-debugger-pure",
-    request: "attach",
-    projectPath: "${workspaceFolder}",
-  };
+  // The reviewed attach configuration, shared with `scripts/verify-vsix.mjs`
+  // rather than written out again: both gates assert the same fact about the
+  // same object, and the two copies had already drifted apart once — this one
+  // requiring three keys and the packager four. `projectPath` is part of the
+  // reviewed shape, so the object below is the snippet body and the initial
+  // configuration at once, on purpose.
+  const expectedAttachConfiguration = attachConfiguration;
   assert.deepEqual(
     debuggerContribution.configurationSnippets[0].body,
     expectedAttachConfiguration,
