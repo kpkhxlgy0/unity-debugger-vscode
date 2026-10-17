@@ -65,6 +65,8 @@ retired project keep their own attribution and their own line numbers.
 | CAP-18 | Read both filters' `default` | `false` | `false` | aligned | 2026-10-16 reference body; 2026-10-16 Pure body | Neither filter is active until the user selects it; EX-01 and RLD-01 both record that default state as the reference's |
 | CAP-19 | Read `pid` in the `initialize` body | present, the adapter's own process id (`49888` in the probe) | present, `Process.GetCurrentProcess().Id` (`UnityDebugSession.cs:57`) | aligned | 2026-10-16 reference body (spec `:89`); 2026-10-16 Pure body | Both report the adapter's own process id, so the value differs per process while the field's meaning and presence match — which is the whole of the claim |
 | CAP-20 | Read the four empty arrays the reference emits: `completionTriggerCharacters`, `additionalModuleColumns`, `supportedChecksumAlgorithms`, `breakpointModes` | `[]` for each | absent from the body | divergent | 2026-10-16 reference body (spec `:81-88`); 2026-10-16 Pure body; spec Verification 2 | Accepted representation difference in wire shape: they come from the VS protocol library's serializer defaults, our vendored `VSCodeDebug` layer does not emit them, and an empty array is equivalent to an absent property for a DAP client — enumerated by name here because "we did not notice" and "we decided it does not matter" look identical in a matrix that omits them. **Approved 2026-10-17 (batch)**: kept — an accepted wire-shape difference with no user-visible effect ; **2026-10-17 A/B reproduces this independently**: all four are `undefined` on our side against `[]` on the reference's, in the same run |
+| CAP-21 | Read `supportsDelayedStackTraceLoading` | `false` | absent from the body | divergent | 2026-10-17 A/B: both adapters' live `initialize` responses compared key by key against Editor `2022.3.23f1` | **Approved 2026-10-17 on the user's instruction to register it as its own row.** Same class as `CAP-20`: an absent property against an explicit default, where DAP's own default for the flag is `false` and the reference only emits it because its VS protocol library serialises defaults. No user-visible effect, and it is enumerated by name so that "we did not notice" and "we decided it does not matter" stay distinguishable |
+| CAP-22 | When the `initialized` event is emitted relative to `attach` | Emitted only **after** `attach` | Emitted **before** `attach` - observed 2.5 s after the `initialize` response with no attach sent | divergent | 2026-10-17 A/B: driving the reference required restructuring because it held `initialized` for 40 s until an attach arrived, where ours had already sent it | **Approved 2026-10-17 on the user's instruction to register it.** Both orderings are legal DAP and a client copes with either, so **no user-visible effect is claimed**; it is recorded because it is a real protocol-shape difference and because it cost a wasted run to discover |
 | CMD-01 | Run **Unity Debugger Pure: Attach Unity Debugger** | `vstuc.attachUnityDebugger` opens a QuickPick titled `Select Unity Instance` with placeholder `Detecting... press any key to filter` and `busy: true`, over Editors and Players | `unity-debugger-pure.attachUnityDebugger` opens the same QuickPick title over the candidates discovery collected and starts a synthesized attach configuration on acceptance (`extension.ts`, `attachTargetPicker.ts:8`, `package.json:56-59`) | not yet verified | 2026-10-16 reference `out/extension.js` and `out/nls.bundle.json` (strings 1-2, spec `:153-154`); 2026-10-16 Pure command registration and picker module | The command, its title and its items are implemented; nothing has executed it against a live Editor, which is the only observation that settles discovery, the picker and the started session together |
 | DISC-01 | Compare the target lists the two attach pickers offer | Editors **and** Players (local, Android via adb/`Mono.AndroidTools`, Apple via usbmuxd P/Invoke), background processes filtered by a setting, non-background first | Editors plus every advertisement that is not the open project's Editor, carries `debug === "1"` and a usable port (`editorDiscovery.ts:87-101`, `:303-319`) | not yet verified | 2026-10-16 reference bundle and `debuggerTargets` payload (spec `:176-203`); 2026-10-16 Pure `editorDiscovery.ts:87-101` and `editorDiscovery.test.ts` | Player candidates are produced by the same discovery the Editor path uses rather than being discarded, and the two coverage limits that remain are DISC-03 and DISC-04; no live run has listed both extensions' targets side by side |
 | DISC-02 | Read the label built for one picker item | `Unity <displayType>, <projectName>, <machine>, <displayConnection>`, observed live as `Unity Editor, sgproj, xiaolonghan, Port:56548 (VSTU)` | the same four components, filtered to non-blank and joined with `, ` (`attachTargetPicker.ts:50-59`) | aligned | 2026-10-16 reference live label (spec `:123`) and bundle; 2026-10-16 Pure `formatTargetLabel` and `attachTargetPicker.test.ts` | The format is a pure function of one candidate, so reading both implementations is a complete comparison; the engine token inside it differs and is DISC-05, and the machine component is DISC-06 |
@@ -776,6 +778,27 @@ to the user.**
   the same text arrives either way. The reference's other four settings are code-model and
   message-completion features, already recorded as `not applicable` under `CFG-11`, which is why this
   is not a divergence and needs no ruling.
+
+### 2026-10-17 - The user's rulings: STACK-01 to be fixed, and two differences registered as rows
+
+**All four open questions were answered, and two of the answers add rows rather than close them.**
+
+- **`STACK-01` is to be fixed**, not preserved. The aligned fix is the guard its four siblings already
+  have, and the work is in progress against `adapter/src/UnityDebugger.Adapter/Dap/UnityDebugSession.cs`.
+  This row is the only `divergent` entry in this matrix that cites a requested-but-ungiven approval;
+  once the fix lands and is verified against a real Editor, it carries an approval like the others.
+- **`CAP-21` is registered** for `supportsDelayedStackTraceLoading` — the reference emits `false`, we omit
+  the key. The user chose a row of its own rather than folding it into `CAP-20`, so the two accepted
+  absent-vs-default differences are now enumerated separately and neither is silently absorbed by the
+  other.
+- **`CAP-22` is registered** for the `initialized` event ordering — the reference emits it only after
+  `attach`, we emit it before. **No user-visible effect is claimed**, because both orderings are legal
+  DAP and a client copes with either; it is recorded because it is a real protocol-shape difference and
+  because discovering it cost a run.
+
+**Approvals are now 14**, and the matrix stands at **94 rows**: 49 `aligned`, 29 `divergent`, 12
+`not yet verified`, 3 `not applicable`, 1 `identical`. Every `divergent` row cites a ruling except
+`STACK-01`, whose fix is underway.
 
 
 ### 2026-09-25 - Visual Studio Marketplace publication verified
