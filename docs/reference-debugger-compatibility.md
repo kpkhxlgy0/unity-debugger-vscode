@@ -170,14 +170,40 @@ adapter `bin\UnityDebugAdapter.dll` (assembly 1.3.2.0, SHA-256
 `bin\UnityAttachProbe.dll` (SHA-256
 `bf9164e6920fb3186a76bb18112c9daa950e908dd758b5388fdd5960d917922f`), and
 `bin\SyntaxTree.Mono.Debugger.Soft.dll` (SHA-256
-`7be7fd7995e092e473dfe1dc78a4843cf11ada624b1deb2e9c5e28d5db348f7a`).
+`7be7fd7995e092e473dfe1dc78a4843cf11ada624b1deb2e9c5e28d5db348f7a`). A fourth
+assembly named by `…design.md:53-57`, `bin\UnityCodeModel.dll`, has SHA-256
+`afc6b1dff4f22f4c958cba21a94b2ba9d8272c5b0a2be168bd3557280f691ec2` — **it was
+named in the spec but no digest was ever pinned for it**, and no row cites it.
 
-**No `ev_…` REA evidence identifier is retained anywhere in this repository** —
-`git grep -nE 'ev_[0-9a-f]{64}'` returns nothing — so the rows cite the digests above and the
-recorded observations instead of ids that a reader cannot resolve. The REA work that produced
-the type, call-edge and literal evidence is described at `…design.md:47-64`; if that session is
-still available, its bundle should be exported and the digests replaced by ids, because
-`…design.md:52-53` requires the ids to be retained in these rows and they were not.
+**The `ev_…` REA evidence identifiers required by `…design.md:52-53` were added on
+2026-10-17, and all four assemblies were analysed afresh for them.** The earlier
+statement in this section — that no id was retained — was accurate when written and is
+now superseded. The ids below were produced by REA's **managed** provider against the
+1.3.2 binaries whose digests are pinned above, verified by re-hashing each file first,
+and exported to a bundle that is git-ignored beside this work item. Every id was then
+re-read back out of the exported file rather than copied from the analysis output.
+
+| Assembly | Id | What it supports |
+| --- | --- | --- |
+| `UnityDebugAdapter.dll` | `ev_ad14f2fb75cff5e05af638f664b7aa8e0ccf30dfec9d9cead520412f3486d466` | Type/method/field inventory (39/86/226), 1,082 call edges, field accesses, per-member signature SHA-256. Carries `Microsoft.VisualStudio.Unity.ProjectFileMapper` for `CFG-07`, and the `AD7DebugAdapter.Handle*Request` inventory for `CAP-02`/`03`/`05`–`10`/`12`/`13`, `BP-02`/`03`/`04`, `CTRL-02a`/`b`, `EVAL-01`/`03`/`04` — **as handler existence only, not as advertised capability values.** |
+| `UnityDebugAdapter.dll` | `ev_bb75b6dd972e6cacb2434d6a7d3bed43a1a8ea7dc66aefbecb796c6cd287eb54` | Assembly identity: `1.3.2.0`, MVID `68ed2bfc…`, .NETCoreApp v10.0, reference to `Microsoft.VisualStudio.Shared.VSCodeDebugProtocol` 18.0.0.0 (`…design.md:41`). |
+| `UnityDebugAdapter.dll` | `ev_afb2fc407b9d4833c6949bf9276bfade06e7f6bb66097fdff2fd8006a046a2b7` | Zero `ModuleRef`/P/Invoke — the adapter is IL-only. A **negative** observation; it supports no row's positive content. |
+| `UnityAttachProbe.dll` | `ev_aebae709f8a1a6c03d3a22787ad075edc1844d0fb473396b22fd3d8a73c958ae` | Probe inventory: `AndroidProbe.GetAdbExecutable`/`GetSdkRoot`, `AppleProbe.GetUnityProcesses`/`StartIosProxy`/`FindFreePort`, type `DebuggerTargets`, `SendDebuggerTargetsAsync`, and the IL anchor `ldc.i4 56000` in `AppleProbe.StartIosProxy` → `DISC-01` (both device families), `DISC-04`, `DISC-07`. |
+| `UnityAttachProbe.dll` | `ev_00d3c5f57833a2ce2699ba81d009ef00bb08e497515ce3ad9fa2c3ba085d1e3f` | Assembly identity: `1.3.2.0`, MVID `eb873933…`, 14 `AssemblyRef`s including `JsonRpcSharp` and `System.Text.Json` → `DISC-07`'s "spawned .NET probe over stdio JSON-RPC". |
+| `UnityAttachProbe.dll` | `ev_a8bd06d5a8233085fb142f3ecca566dd61dd1f7f448e85fcd98973dfcf4b9ed1` | The only declared P/Invoke are `libdl` and `kernel32.dll`; **usbmuxd is a runtime-resolved `delegate* unmanaged` field** reached through `NativeLibrary.LoadSymbol` → supports `DISC-01` and **corrects that row's "usbmuxd P/Invoke" wording.** |
+| `UnityCodeModel.dll` | `ev_ccf64c1576f09a1dffb2ac9a2d1322d11bc7a0cdd16870227e2d07aeceeb9ff6` | Inventory (29/85/145): `CodeModelParser`, `CodeModelProtocol.CodeModelUpdated`, `ScriptCodeModel`, `UnityTypeInfo`/`FieldInfo`/`MessageInfo` → `…design.md:55` and `CFG-11`'s language-service half. **No matrix row names this DLL.** |
+| `UnityCodeModel.dll` | `ev_7bdeed493a1e77eab75ff41e0ebb358af0d8fe57a491f63290ca00e93f81848b` | Zero P/Invoke. Negative observation. |
+| `SyntaxTree.Mono.Debugger.Soft.dll` | `ev_e3ddbf22b5daa007936f6919ed9205c458d7f59388779b8c0ab2c8f31367dea4` | 187 types / 819 fields / 1,232 methods / 3,985 call edges; `InvokeOptions.DisableBreakpoints` + `SingleThreaded`; `ExceptionEventRequest.caught`/`uncaught`; `VirtualMachineManager.BeginLaunch` → `EVAL-09`'s flag vocabulary, `EX-01`/`RLD-01`/`CAP-15`'s filter vocabulary, `CFG-05`'s `BeginLaunch` negative check. |
+| `SyntaxTree.Mono.Debugger.Soft.dll` | `ev_d26ea6bc58af79c1b78085d708613f4443ed1a0c8a320a860506b8d9d6706d30` | Zero P/Invoke; 28 runtime-provided delegate stubs. Negative observation. |
+
+**Four claims could NOT be re-observed, and the rows that make them keep their original citations rather than gaining an id.** Saying so is the point of the table above:
+
+- **`CFG-07`'s literal text.** The managed provider decodes `ldstr` as a `#US` token (`0x70000001`) and never returns the user string; `unable to map` and `logFile` appear nowhere in the adapter's decoded member record. The `ProjectFileMapper` **type** is re-observed in the first id above; **the literal run is not, and cannot be with this provider** — so that cell keeps its shipped-artifact-bytes citation.
+- **`DISC-08`'s `56000 + processId % 1000` formula.** No `rem` opcode exists in **any** of the four assemblies, and the only `ldc.i4 56000` is in the probe's `StartIosProxy`. **The row's "and adapter" attribution is unsupported by the adapter's decoded IL**, and that clause should be corrected rather than cited.
+- **`DISC-01`'s `Mono.AndroidTools`.** It is not among the probe's 14 `AssemblyRef`s and the string appears nowhere in its decoded metadata names. **This bounds rather than refutes** the prose, because the provider returns `TypeRef` row counts rather than names.
+- **The `CAP-*` advertised values and `EVAL-09`'s call site** are runtime and live in another assembly. **The adapter has no call edges into Mono engine types**, so no id from these four binaries can show which `InvokeOptions` flags the reference actually passes.
+
+**One correction to how this section previously described the remedy.** It said that if the earlier REA session were still available, its bundle should be exported — but **the REA server session is cumulative, and the sixteen records already in it target a different build**: `…\visualstudiotoolsforunity.vstuc-1.3.1\bin\*.dll`, whose own `package.json` says **1.3.1** (adapter `ceac2ba5…`, probe `8a067a5b…`). **Citing those would have attributed 1.3.1 inventories to 1.3.2 rows**, and that session never analysed `UnityCodeModel.dll` or the Mono engine at all — so `…design.md:53-57`'s "four assemblies" was true of the **intent** and not of the **retention**. The ten ids above are the first 1.3.2 managed evidence for all four.
 
 ## Approved divergences
 
