@@ -89,12 +89,16 @@ namespace UnityDebugger.Adapter.Backend
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels)
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             return RequireAttached().GetStackTrace(
                 threadId,
                 startFrame,
-                levels);
+                levels,
+                timeoutMilliseconds,
+                cancellationToken);
         }
 
         public IReadOnlyList<BackendScope> GetScopes(

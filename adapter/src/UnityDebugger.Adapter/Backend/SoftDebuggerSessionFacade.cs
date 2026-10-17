@@ -248,7 +248,9 @@ namespace UnityDebugger.Adapter.Backend
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels)
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             ThrowIfDisposed();
             var thread = session.GetProcesses()
@@ -259,7 +261,28 @@ namespace UnityDebugger.Adapter.Backend
                 throw new InvalidOperationException(
                     "The requested debugger thread is unavailable.");
             }
-            var backtrace = thread.Backtrace;
+
+            // `thread.Backtrace` is a Mono soft-debugger query with no bound of its own. On a
+            // real Unity 2022.3.23f1 Editor it has been observed never to return, which left
+            // the DAP `stackTrace` request unanswered forever and the Call Stack panel
+            // spinning with no diagnostic - the reference adapter walked the same Editor's
+            // threads and returned 13 frames in under a tenth of a second, so the query is
+            // answerable and the difference is that nothing here bounded it.
+            //
+            // Running it on a worker and waiting a bounded time turns an unbounded hang into
+            // an ordinary cancellation, which the handler already knows how to answer. The
+            // worker is deliberately NOT joined when the wait expires: the underlying query
+            // cannot be cancelled, so waiting for it would reintroduce exactly the hang this
+            // guards against. A timed-out walk therefore costs one parked thread rather than
+            // a frozen client, and that is the trade being made here on purpose.
+            var backtraceTask = Task.Run(() => thread.Backtrace);
+            if (!backtraceTask.Wait(timeoutMilliseconds, cancellationToken))
+            {
+                throw new OperationCanceledException(
+                    "The stack walk did not complete within the inspection timeout.");
+            }
+
+            var backtrace = backtraceTask.Result;
             if (backtrace == null || startFrame >= backtrace.FrameCount)
                 return Array.Empty<BackendStackFrame>();
             var first = Math.Max(0, startFrame);

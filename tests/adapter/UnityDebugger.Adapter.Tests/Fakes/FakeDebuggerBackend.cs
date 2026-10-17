@@ -69,11 +69,13 @@ namespace UnityDebugger.Adapter.Tests.Fakes
             new BackendEvaluationResult("", "", 0);
         public Exception? EvaluationException { get; set; }
         public Exception? ScopesException { get; set; }
+        public Exception? StackTraceException { get; set; }
         public BackendSetVariableResult? SetVariableResult { get; set; } =
             new BackendSetVariableResult("", "", 0);
         public Exception? VariablesException { get; set; }
         public string? LastExpression { get; private set; }
         public int? LastScopesTimeoutMilliseconds { get; private set; }
+        public int? LastStackTraceTimeoutMilliseconds { get; private set; }
         public int? LastVariablesTimeoutMilliseconds { get; private set; }
         public int? LastEvaluateTimeoutMilliseconds { get; private set; }
         public int? LastSetVariableTimeoutMilliseconds { get; private set; }
@@ -131,8 +133,13 @@ namespace UnityDebugger.Adapter.Tests.Fakes
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels)
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
+            LastStackTraceTimeoutMilliseconds = timeoutMilliseconds;
+            if (StackTraceException != null)
+                throw StackTraceException;
             StackTraceCount++;
             return Frames;
         }

@@ -36,7 +36,9 @@ namespace UnityDebugger.Adapter.Backend
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels) => throw NotAttached();
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) => throw NotAttached();
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,

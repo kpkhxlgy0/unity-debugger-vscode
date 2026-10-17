@@ -620,7 +620,9 @@ namespace UnityDebugger.Adapter.Dap
                 var frames = value.GetStackTrace(
                     backendThreadId,
                     startFrame,
-                    levels);
+                    levels,
+                    GetTimeoutMilliseconds(request),
+                    CancellationToken.None);
                 var dapFrames = new List<DapStackFrame>();
                 foreach (var frame in frames)
                 {
@@ -641,6 +643,10 @@ namespace UnityDebugger.Adapter.Dap
                     new DapStackTraceResponseBody(
                         dapFrames,
                         dapFrames.Count));
+            }
+            catch (OperationCanceledException)
+            {
+                SendEmptyStackTrace(response);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
@@ -1216,6 +1222,17 @@ namespace UnityDebugger.Adapter.Dap
             SendResponse(
                 response,
                 new VariablesResponseBody(new List<Variable>()));
+
+        // The shape `Scopes` and `Variables` use when their bounded wait expires. A stack walk
+        // that times out gets the same treatment for the same reason: the client asked a
+        // question it is entitled to an answer to, and an empty frame list answers it, where
+        // sending nothing left the Call Stack panel spinning with no diagnostic at all.
+        private void SendEmptyStackTrace(Response response) =>
+            SendResponse(
+                response,
+                new DapStackTraceResponseBody(
+                    new List<DapStackFrame>(),
+                    0));
 
         private void SendEmptyEvaluation(Response response) =>
             SendResponse(response);

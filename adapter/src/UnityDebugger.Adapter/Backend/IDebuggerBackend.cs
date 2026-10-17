@@ -21,7 +21,9 @@ namespace UnityDebugger.Adapter.Backend
         IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels);
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken);
         IReadOnlyList<BackendScope> GetScopes(
             long frameId,
             int timeoutMilliseconds,

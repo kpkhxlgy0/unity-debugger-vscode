@@ -135,7 +135,9 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels) => Frames;
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken) => Frames;
 
         public IReadOnlyList<BackendScope> GetScopes(
             long frameId,

@@ -186,7 +186,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
                     facade.ConnectAsync(IPAddress.Loopback, port, 20, 100, timeout.Token).GetAwaiter().GetResult();
                 Assert.True(stopped.Task.Wait(TimeSpan.FromSeconds(15)), "Standalone Mono did not hit the fixture breakpoint.");
-                var frame = facade.GetStackTrace(stopped.Task.Result.ThreadId, 0, 5).First(value => value.SourcePath == sourcePath);
+                var frame = facade.GetStackTrace(stopped.Task.Result.ThreadId, 0, 5, 20000, CancellationToken.None).First(value => value.SourcePath == sourcePath);
                 frameId = frame.Id;
                 CurrentLine = frame.Line;
             }
@@ -213,7 +213,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 facade.StepOver();
                 Assert.True(stopped.Task.Wait(TimeSpan.FromSeconds(15)), "Standalone Mono did not stop after Step Over.");
                 var result = stopped.Task.Result;
-                var frame = facade.GetStackTrace(result.ThreadId, 0, 5).First(value => value.SourcePath == sourcePath);
+                var frame = facade.GetStackTrace(result.ThreadId, 0, 5, 20000, CancellationToken.None).First(value => value.SourcePath == sourcePath);
                 frameId = frame.Id;
                 CurrentLine = frame.Line;
                 return result;

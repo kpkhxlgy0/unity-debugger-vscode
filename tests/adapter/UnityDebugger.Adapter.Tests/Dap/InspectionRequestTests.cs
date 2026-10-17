@@ -133,6 +133,73 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(1, fixture.Backend.VariablesCount);
         }
 
+        // `stackTrace` used to be the one inspection handler with no bounded wait. On a real
+        // Editor its backend call never returned, so the request was never answered at all -
+        // not a wrong answer, no answer - and the Call Stack panel spun with no diagnostic.
+        // These two tests pin the two halves of the fix: the handler must pass the inspection
+        // timeout down, and a walk that does not finish must still produce a response.
+        [Fact]
+        public void Stack_trace_passes_the_inspection_timeout_down()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+
+            Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+
+            Assert.Equal(
+                10000,
+                fixture.Backend.LastStackTraceTimeoutMilliseconds);
+        }
+
+        [Fact]
+        public void Stack_trace_honours_a_client_supplied_timeout()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+
+            Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new
+                    {
+                        threadId = 1,
+                        startFrame = 0,
+                        levels = 20,
+                        timeout = 2500,
+                    }));
+
+            Assert.Equal(
+                2500,
+                fixture.Backend.LastStackTraceTimeoutMilliseconds);
+        }
+
+        [Fact]
+        public void Stack_trace_answers_with_an_empty_stack_when_the_walk_expires()
+        {
+            var fixture = Fixture();
+            AttachAndStop(fixture);
+            fixture.Backend.StackTraceException =
+                new OperationCanceledException("the walk did not finish");
+
+            var messages = Run(
+                fixture.Session,
+                Request(
+                    "stackTrace",
+                    new { threadId = 1, startFrame = 0, levels = 20 }));
+
+            // The point is that a response exists at all. Before the fix this request had no
+            // path that answered, so a client waited forever; an empty frame list is the
+            // answer the sibling handlers already give in the same situation.
+            var response = Response(messages, "stackTrace");
+            Assert.True(Required<bool>(response["success"]));
+            Assert.Empty((JArray)response.SelectToken("body.stackFrames")!);
+        }
+
         [Fact]
         public async System.Threading.Tasks.Task In_flight_variables_are_not_discarded_by_dap_state()
         {

@@ -62,7 +62,9 @@ namespace UnityDebugger.TestAdapter
         public IReadOnlyList<BackendStackFrame> GetStackTrace(
             long threadId,
             int startFrame,
-            int levels)
+            int levels,
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
         {
             ThrowIfCrashScenario();
             var sourcePath = Path.Combine(
