@@ -592,6 +592,31 @@ the shape of the user-visible failure**: no call stack, and therefore no scopes 
 It is recorded as the leading hypothesis and not as a conclusion, because the reference side has not
 been run and cannot yet separate our thread selection from the Editor's thread set.
 
+> **Corrected again, and this time the correction is to a source-code fact.** The paragraph above
+> reads the missing name as evidence about thread *selection*, and **the names are not ours to
+> choose**: `threads` returns whatever the Mono soft debugger calls each thread, which is why the
+> list reads like a runtime's thread table. **`"Main Thread"` is the TestAdapter's invention** —
+> `tests/integration/UnityDebugger.TestAdapter/ScenarioDebuggerBackend.cs:59` returns literally
+> `new[] { new BackendThread(1, "Main Thread") }` — so the integration test's clean
+> `[{ id, name: "Main Thread" }]` is a property of the fake, and **the real Editor's absence of that
+> name is not by itself a defect.** What survives is narrower and still worth the space: the
+> **adapter does know how to identify the Unity main thread** — `SoftDebuggerSessionFacade.cs:920-924`
+> reflects `CurrentThreadIsMainThread` on `UnityEngine.Object` — so it can tell, and the `stopped`
+> event nonetheless names **thread 1, which its own list calls `Burst-CompilerThread-17`**, with
+> `allThreadsStopped=true`. **That** is the part a reader should weigh: a stop attributed to a Burst
+> worker, on a thread whose stack then walks to nothing.
+
+**Measured in Play Mode with a battle, the path a user actually takes, and it is worse there.** With
+the Editor in a battle — `scene=Battle`, `frame=2165`, one live `CharacterDebug` — the adapter
+reported **56 threads, none of them named for a main thread** (28 Burst, 13 `Thread #N`, 12 pool, 3
+other), `pause` reported `stopped reason=pause threadId=1 allThreadsStopped=true`, **one `stopped`
+event per thread (56–60 across runs)**, and **no `stackTrace` answered at all** — thread 1, thread 5
+(`Timer-Scheduler`), thread 6 (`<Thread Pool>`) and thread 7 all timed out. In edit mode the first
+request had answered with `0 frames` before later ones hung; **in Play Mode not even the first one
+answered.** Since a call stack is what feeds scopes, variables and evaluation, the user-visible
+effect is that there is nothing to inspect — and the scratch client cannot be blamed for the thread
+list or the `pause` attribution, because neither request takes a meaningful client-side argument.
+
 **And a single `pause` emits one `stopped` event per thread** — 42 in one run, 50 in another, 42 in a
 third, 43 in a fourth — every one of them `reason=pause`, `threadId=1`, `allThreadsStopped=true`. A
 client that takes `allThreadsStopped` at its word will show the user dozens of stops for one pause.
