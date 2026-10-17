@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased
+
+User-visible alignment with Microsoft's Visual Studio Tools for Unity for VS Code
+(`VisualStudioToolsForUnity.vstuc`) 1.3.2, on the reference-compatibility matrix
+in `docs/reference-debugger-compatibility.md`. **No version bump**: the release
+identity is a separate, coordinated decision, and the `0.3.2` entry below
+describes the artifact that was published and verified, so it is left as it was.
+
+- Add **Unity Debugger Pure: Attach Unity Debugger**, which lists the Unity
+  Editors and Players available for debugger attachment and starts a session
+  against the one selected.
+- Surface Player targets: a debug-enabled Player advertisement becomes a
+  selectable candidate instead of only a port source for the open project's
+  Editor.
+- Add the `endPoint` attach property, so a Player — or an Editor discovery cannot
+  see — can be reached by naming `host:port` explicitly, including a non-loopback
+  endpoint.
+- Add the `projectPath` attach property, defaulting to the workspace folder, and
+  honour `logFile` by writing the session's sanitized diagnostics to a chosen
+  path.
+- Relax `configurationAttributes.attach.required` to `[]`, matching the
+  reference; the adapter still validates what it needs at attach time.
+- Add **Unity Debugger Pure: Unity API Reference**, which opens the Unity
+  documentation for the selected code construct.
+- Add the `unity-debugger-pure.displayBackgroundProcesses` setting, and sort the
+  attach picker's items non-background-first.
+- Warn when function breakpoints are in use, in the reference debugger's words.
+- Replace the single discovery-failure message with the reference's three
+  distinct ones, and stop returning an empty target list silently when
+  `ProjectSettings/ProjectVersion.txt` is missing or
+  `Library/EditorInstance.json` records a process that is no longer alive.
+- Warn when the deprecated `unity.unity-debug` extension is active.
+- Add a `Unity Debugger Pure` output channel for extension-side diagnostics, and
+  keep its boundary path-free.
+- Align the adapter's advertised capabilities with the reference: drop the legacy
+  `supportsExceptionOptions`, add `supportsExceptionFilterOptions` and
+  `supportsExceptionConditions`, accept exception filter ids from
+  `filterOptions[]`, rename the user-unhandled filter id from `uncaught` to
+  `unhandled` while still accepting the old id, add both filters' descriptions,
+  and report the adapter's process id.
+- Delete the dead domain-reload and reconnect methods and events: rebinding is
+  owned by the mature debugger session.
+- State the remote-attach security posture plainly — an explicit non-loopback
+  `endPoint` is supported, and Unity's managed debug transport has no
+  authentication.
+
 ## 0.3.2 - 2026-09-24
 
 - Keep unrelated threads suspended while Watch methods, getters, and ToString

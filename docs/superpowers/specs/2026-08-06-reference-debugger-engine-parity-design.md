@@ -4,14 +4,19 @@
 
 This design supersedes the earlier direct-engine design that selected a
 project-owned control state machine and expression evaluator. Real-editor
-testing showed that choice diverges from the installed `zlorn.vstuc` debugger.
+testing showed that choice diverges from the installed `zlorn.vstuc` debugger
+(as observed at the time against `1.2.1`; the reference authority was re-targeted
+to `visualstudiotoolsforunity.vstuc` 1.3.2 on 2026-10-16).
 The direct control layer and the handwritten expression evaluator are both
 rejected as production architecture.
 
 UnityDebuggerPure will instead use the repository's pinned, MIT-licensed
 `Mono.Debugging.Soft`, `Mono.Debugging`, NRefactory, and
 `Mono.Debugger.Soft` session stack. The installed `zlorn.vstuc 1.2.1`
-debugger is the sole authority for observable debugger behavior.
+debugger was the sole authority for observable debugger behavior when this
+design was written; it was superseded on 2026-10-16 by
+`visualstudiotoolsforunity.vstuc` 1.3.2, and the observations recorded here keep
+their `1.2.1` attribution.
 
 ## Goal
 
@@ -47,13 +52,17 @@ Permanently out of scope:
 - Completion, diagnostics, Unity Messages, project-system features, and other
   language-service functionality.
 - Shader, UXML, USS, or non-debugger tooling.
-- Reusing, separating, decompiling, modifying, or redistributing proprietary
-  binaries from the reference extension.
+- Reusing, separating, modifying, or redistributing proprietary binaries from
+  the reference extension. **Analysis is no longer in this list**: observing the
+  shipped software as a black box, and static analysis of its IL as behavioural
+  evidence, were permitted by the 2026-10-16 decision recorded under "Legal and
+  Dependency Boundary" below.
 - A second fallback engine or a handwritten expression fallback.
 
 ## Reference Authority
 
-The installed `zlorn.vstuc 1.2.1` debugger defines the expected user-visible
+The installed `visualstudiotoolsforunity.vstuc` 1.3.2 debugger defines the
+expected user-visible
 and DAP-visible behavior. The implementation may use different lawful
 internals, but an internal limitation does not authorize a different user
 experience.
@@ -77,7 +86,33 @@ assumption, or reported as complete.
 
 The reference package contains proprietary Microsoft/SyntaxTree assemblies.
 Its license does not permit separating, reverse engineering, or redistributing
-those components. They are neither build inputs nor runtime dependencies.
+those components. That statement about the licence is unchanged, and nothing
+below is a claim that it permits more than it does.
+
+**The boundary this section draws was narrowed on 2026-10-16 by explicit user
+decision.** What remains prohibited: reusing, copying, separating, modifying,
+linking, packaging, or redistributing any reference binary or any part of one.
+What is permitted is **observation** — running the shipped software as a black
+box and reading the DAP and JSON-RPC it emits, and **static analysis of its IL
+for behavioural evidence**. That is how the capability table and the `endPoint`
+table in
+[`2026-10-16-vstuc-user-visible-alignment-design.md`](2026-10-16-vstuc-user-visible-alignment-design.md)
+were produced, and that document is the evidence trail: it records the observed
+`initialize` response body, the live `debuggerTargets` payload, the
+attach-failure response, and the one-process-per-case `endPoint` results, so a
+reader can see exactly what observing the reference produced.
+
+This brings the written policy in line with prior practice rather than changing
+practice: `docs/reference-debugger-compatibility.md` had already decompiled
+`SyntaxTree.VisualStudio.Unity.Common.dll` on 2026-09-24.
+
+Nothing here relaxes the packaging boundary. No reference code or binary reaches
+this repository's build or package: they are neither build inputs nor runtime
+dependencies, **no reference artifact is included in the VSIX**, and that is
+proved mechanically rather than by intent — `scripts/verify-vsix.mjs` rejects
+forbidden package paths and `scripts/generate-runtime-inventory.mjs` fails on any
+assembly absent from the pinned inventory, so an unaudited binary cannot ship
+quietly.
 
 The repository already retains pinned MIT sources for:
 

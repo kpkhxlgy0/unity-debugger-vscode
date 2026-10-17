@@ -10,5 +10,9 @@ extension's sanitized diagnostics command. Do not submit project source,
 expressions, raw variable values, credentials, Unity debug ports exposed to the
 public internet, or unsanitized logs.
 
-Version `0.3.2` supports loopback Editor attach only and does not provide
-remote-transport authentication.
+Version `0.3.2` attaches to a discovered local Editor by default, and also
+supports an explicit `endPoint` in `launch.json` naming any `ip:port`, including
+a non-loopback one. Unity's managed debug transport has **no authentication**:
+anyone who can reach the debugger port can attach, and an attached debugger can
+execute code in the target Editor or player. Expose a remote endpoint only on a
+network you trust and control. The extension adds no transport authentication.

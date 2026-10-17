@@ -34,22 +34,51 @@ configuration:
 {
   "name": "Attach to Unity Debugger Pure",
   "type": "unity-debugger-pure",
-  "request": "attach"
+  "request": "attach",
+  "projectPath": "${workspaceFolder}"
 }
 ```
 
 Start debugging with F5. If more than one supported local Editor is running,
 VS Code asks which instance to attach to.
 
+**Unity Debugger Pure: Attach Unity Debugger** lists the Unity Editors and
+Players available for debugger attachment; pick one to start a session.
+
+A Player, or an Editor that discovery cannot see, can be reached by naming its
+debugger endpoint explicitly:
+
+```json
+{
+  "name": "Attach to Unity Debugger Pure",
+  "type": "unity-debugger-pure",
+  "request": "attach",
+  "endPoint": "127.0.0.1:56321"
+}
+```
+
+`projectPath` defaults to the workspace folder and selects the project the
+debugger maps sources against. `logFile` redirects this session's sanitized
+diagnostics log to a path you choose.
+
 ## Features
 
-- local Windows x64 Editor discovery and attach;
-- source and conditional breakpoints;
+- local Windows x64 Editor discovery and attach, plus Player attach by
+  advertisement or by an explicit `endPoint`;
+- **Unity Debugger Pure: Attach Unity Debugger**, which lists the Unity Editors
+  and Players available for debugger attachment;
+- source and conditional breakpoints, with the reference debugger's warning
+  when function breakpoints are in use;
 - step in, step over, step out, pause, and continue;
 - threads, call stacks, locals, expandable variables, watch, and REPL
   evaluation;
-- all-exception and uncaught-exception break modes;
-- breakpoint recovery across Domain Reload;
+- all-exception and user-unhandled-exception break modes;
+- breakpoint rebinding across Domain Reload: the mature debugger session owns
+  rebinding, rather than a reload-specific mechanism in the adapter;
+- **Unity Debugger Pure: Unity API Reference**, which opens the Unity
+  documentation for the selected code construct;
+- a `Unity Debugger Pure` output channel, and the
+  `unity-debugger-pure.displayBackgroundProcesses` setting;
 - sanitized local diagnostics with no telemetry.
 
 Version 0.3.2 exposes a versioned local extension API for trusted local
@@ -71,28 +100,42 @@ Formally supported:
 
 - Windows 10/11 x64;
 - Tuanjie `2022.3.62t11`;
-- local Editor attach;
-- Mono managed C# debugging.
+- Mono managed C# debugging;
+- attaching to a discovered local Editor, to a Player whose advertisement offers
+  a usable debugger port, and to an explicit `host:port` endpoint.
 
 Unity `2022.3` LTS versions are accepted for compatibility testing. Unity 6
-is allowed to connect but is unverified and is not guaranteed. The Adapter
-shows one warning for versions outside the formal baseline.
+is allowed to connect but is unverified and is not guaranteed. The Adapter warns
+for versions outside the formal baseline, and separately — naming no baseline —
+when the Editor version cannot be determined at all.
 
-Currently excluded: remote Player attach, Android/iOS, IL2CPP, WebGL,
-Tuanjie Mini Game DebugProxy, native C++, multiple simultaneous Editors, and
-non-Windows platforms.
+Currently excluded: IL2CPP, WebGL, Tuanjie Mini Game DebugProxy, native C++,
+multiple simultaneous Editors, and non-Windows platforms.
+
+Android and iOS are a different case rather than the same one. The path exists —
+a debug-enabled Player advertisement, including an Android one, is discoverable —
+but attaching to one has never been verified end to end, so no Android or iOS
+attach is claimed.
 
 ## Security and privacy
 
-Version `0.3.2` automatically connects only to a discovered loopback address.
-It does not accept arbitrary executables or remote debug hosts from
-`launch.json`. Unity's managed debug transport has no strong authentication,
-so future remote support will require explicit opt-in.
+Attaching to an endpoint other than a discovered loopback one is supported: an
+explicit `endPoint` in `launch.json` may name any `ip:port`, including one on
+another machine.
 
-The extension has no telemetry. Diagnostics are written under
-`%LOCALAPPDATA%\unity-debugger-pure\logs`, retain five files, redact user
-profile/workspace paths, and never record source text, expressions, evaluation
-results, or variable values.
+**Unity's managed debug transport has no authentication.** Anyone who can reach
+the debugger port can attach to that Editor or player, and an attached debugger
+can execute code in the target. An endpoint exposed on a network interface is
+therefore reachable by anyone who can route to it. Prefer loopback, and expose a
+remote endpoint only on a network you trust and control. The extension adds no
+authentication, and this section is not a guarantee that a remote endpoint is
+safe to expose.
+
+The extension has no telemetry — the reference debugger reports usage, and this
+one does not, by design. Diagnostics are written under
+`%LOCALAPPDATA%\unity-debugger-pure\logs` (or to the configured `logFile` path),
+retain five files, redact user profile and workspace paths, and never record
+source text, expressions, evaluation results, or variable values.
 
 Use:
 

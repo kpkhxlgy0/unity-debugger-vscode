@@ -11,7 +11,8 @@ current release candidate.
 - Confirm the release files are exactly
   `unity-debugger-pure-0.3.2.vsix` and
   `unity-debugger-pure-0.3.2.vsix.sha256`.
-- Confirm the checksum matches the exact VSIX accepted in MyGame.
+- Confirm the checksum matches the exact VSIX accepted in
+  `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`.
 
 ## 2. Public repository
 
@@ -65,13 +66,30 @@ source, logs, shell history, release notes, issues, or chat.
 - If Open VSX is active but Cursor cannot discover the extension, request a
   Cursor marketplace sync/security review. Do not build another VSIX.
 
-## 8. Installed extension migration and MyGame acceptance
+## 8. Installed extension migration and acceptance-project run
 
 - Uninstall `unity-debugger-community.unity-debugger-vscode`.
 - Install `kpk.unity-debugger-pure` from the audited VSIX.
-- Migrate only the old debugger entry in MyGame's `.vscode/launch.json`.
-- Complete the reachable-breakpoint, stepping, pause, inspection, Domain
-  Reload, continue, and disconnect acceptance checklist.
+- Migrate only the old debugger entry in the acceptance project's
+  `.vscode/launch.json` — `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`.
+- Complete the acceptance checklist below on Unity `2022.3.23f1`, which is
+  **not** the Tuanjie `2022.3.62t11` baseline; record the Editor version actually
+  used rather than implying the baseline:
+  - the reachable-breakpoint, stepping, pause, inspection, Domain Reload,
+    continue, and disconnect scenarios tracked in
+    `docs/reference-debugger-compatibility.md`;
+  - **Unity Debugger Pure: Attach Unity Debugger** and its picker: the item list,
+    the label format, and starting a session from an accepted item;
+  - Player attach, and attach through an explicit `endPoint`, including the
+    rejection of a non-IP-literal host and of a non-canonical IP literal;
+  - **Unity Debugger Pure: Unity API Reference**, with a selection and with the
+    cursor on a plain identifier;
+  - the `unity-debugger-pure.displayBackgroundProcesses` setting and the
+    function-breakpoint warning;
+  - the `Unity Debugger Pure` output channel, and the deprecated-extension
+    warning with `unity.unity-debug` installed.
+- Record every `divergent` and `not yet verified` row the run leaves in place: a
+  `not yet verified` row blocks a claim of reference compatibility.
 
 ## 9. Rollback and versioning
 

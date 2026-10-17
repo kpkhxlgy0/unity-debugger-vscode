@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace UnityDebuggerPure's handwritten debugger control and expression engines with the pinned mature Mono.Debugging/NRefactory session stack, then install one traceable unpublished `0.3.0` VSIX whose debugger behavior is validated against installed `zlorn.vstuc 1.2.1` in MyGame.
+**Goal:** Replace UnityDebuggerPure's handwritten debugger control and expression engines with the pinned mature Mono.Debugging/NRefactory session stack, then install one traceable unpublished `0.3.0` VSIX whose debugger behavior is validated against installed `zlorn.vstuc 1.2.1` in MyGame. (Reference and project as they stood on 2026-08-06: the authority was re-targeted to `visualstudiotoolsforunity.vstuc` 1.3.2 and acceptance to `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` on 2026-10-16. This record keeps its own attribution.)
 
 **Architecture:** `UnityDebugSession` remains a DAP translator, `MonoDebuggingBackend` maps the DAP-neutral backend contract to one active `UnitySoftDebuggerSession`, and Mono.Debugging owns target lifecycle, stepping, breakpoints, stack frames, `ObjectValue` inspection, and NRefactory evaluation. The installed reference extension is a black-box behavioral authority only; its proprietary assemblies are never read as implementation inputs, copied, decompiled, linked, or packaged.
 
@@ -11,11 +11,11 @@
 ## Global Constraints
 
 - The approved design is `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`.
-- The installed `zlorn.vstuc 1.2.1` debugger is the sole authority for observable debugger behavior.
+- The installed `visualstudiotoolsforunity.vstuc` 1.3.2 debugger is the sole authority for observable debugger behavior. (`zlorn.vstuc 1.2.1` held this role when the plan was written; observations recorded against it keep that attribution.)
 - When a newly observed behavior differs from the reference, stop at that decision point and ask the user whether to replace the current implementation; do not design around or silently accept the difference.
 - Every affected scenario must remain marked `reference-verified`, `aligned`, `divergent`, or `not verified` with concrete evidence.
 - A `divergent` or `not verified` row blocks any claim of full reference compatibility or completion.
-- Do not reuse, separate, decompile, modify, link, or redistribute any proprietary binary from `C:\Users\Admin\.vscode\extensions\zlorn.vstuc-1.2.1`.
+- Do not reuse, separate, modify, link, or redistribute any proprietary binary from `C:\Users\Admin\.vscode\extensions\zlorn.vstuc-1.2.1`. **Observing it is permitted**, as amended on 2026-10-16: running the shipped software as a black box and reading the DAP/JSON-RPC it emits, and static analysis of its IL as behavioural evidence, are allowed; copying, linking, packaging and redistribution are not, and nothing here claims the licence permits more than it does.
 - Do not add telemetry; sanitized local diagnostics remain the only adapter diagnostics.
 - Lawful implementation inputs are the repository's pinned MIT sources and the project-owned history at commit `bfaeac62e22f17060287aecb3ea8366c50cdc852`; history is a source baseline, not behavioral authority.
 - Remove the complete `adapter/src/UnityDebugger.Adapter/Engine/**` runtime path and its custom evaluator/control tests; do not retain it as a fallback.
@@ -125,7 +125,7 @@ Use this exact schema and initial state:
 ```markdown
 # Reference Debugger Compatibility
 
-Reference: installed `zlorn.vstuc 1.2.1`.
+Reference: installed `zlorn.vstuc 1.2.1`. (Template as written on 2026-08-06; the live matrix header now names `visualstudiotoolsforunity.vstuc` 1.3.2 and target `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` — see `docs/reference-debugger-compatibility.md`.)
 Target: `D:\Unity\TuanjieHub\Projects\MyGame`, Tuanjie `2022.3.62t12`.
 
 | ID | Scenario/action | Reference result | Pure result | Status | Evidence | Decision |
@@ -932,7 +932,7 @@ git commit -m "refactor: remove handwritten debugger engines"
 
 **Interfaces:**
 
-- Consumes: reference evidence `CFG-01`, which proves that `zlorn.vstuc 1.2.1` contributes no implicit-evaluation setting.
+- Consumes: reference evidence `CFG-01`, which proves that `zlorn.vstuc 1.2.1` contributes no implicit-evaluation setting (attributed to `1.2.1`, the authority at the time; superseded by `visualstudiotoolsforunity.vstuc` 1.3.2 on 2026-10-16).
 - Produces: no public setting, no `__enableImplicitEvaluation` Attach argument, and no backend mode controlled by extension configuration.
 
 - [x] **Step 1: Add failing absence assertions**
