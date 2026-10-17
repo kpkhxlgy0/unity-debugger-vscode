@@ -19,6 +19,11 @@ import {
 } from "./vsix-artifact.mjs";
 
 const release = process.argv.includes("--release");
+// Spawned through the Node on PATH, which is what npm puts in front of a
+// script's PATH and what its own `node_modules/.bin` shims use.
+// `process.execPath` is deliberately not used: under an Electron-hosted npm it
+// is the host application, not a Node binary.
+const nodeExecutable = "node";
 const artifact = resolveBuildArtifact();
 assertNotPublishedArtifact(artifact.path);
 
@@ -43,7 +48,7 @@ function packageVsix(outputPath) {
     "vsce",
     "vsce",
   );
-  execFileSync(process.execPath, [cli, "package", "--out", outputPath], {
+  execFileSync(nodeExecutable, [cli, "package", "--out", outputPath], {
     cwd: repositoryRoot,
     stdio: "inherit",
   });
@@ -51,7 +56,7 @@ function packageVsix(outputPath) {
 
 function verifyVsix(vsixPath) {
   execFileSync(
-    process.execPath,
+    nodeExecutable,
     [path.join(repositoryRoot, "scripts", "verify-vsix.mjs"), vsixPath],
     { cwd: repositoryRoot, stdio: "inherit" },
   );
