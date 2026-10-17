@@ -131,6 +131,32 @@ test("manifest defines an independent attach-only debugger", () => {
     ),
     "the Unity API reference command must activate the extension",
   );
+  // The reference activates on this event, and the deprecated-extension warning
+  // runs at activation: without it, someone who installs both extensions and
+  // never starts a debug session never sees the warning at all. Copied from the
+  // reference's own `activationEvents` entry character-for-character rather
+  // than retyped, and deliberately NOT `onStartupFinished`, which would wake us
+  // in every workspace whether or not it is a Unity project. `workspaceContains`
+  // is the Unity-scoped form, so no non-Unity workspace pays for the warning.
+  assert.ok(
+    manifest.activationEvents.includes(
+      "workspaceContains:**/Packages/manifest.json",
+    ),
+    "opening a Unity project must activate the extension, so the " +
+      "deprecated-extension warning can fire before a debug session starts",
+  );
+  // Pinned as an array, not only membership: a widened activation surface is
+  // the cost this decision was weighed against, so an extra entry must fail
+  // here and be re-argued rather than slip in unnoticed.
+  assert.deepEqual(manifest.activationEvents, [
+    "onDebugResolve:unity-debugger-pure",
+    "onCommand:unity-debugger-pure.refreshTargets",
+    "onCommand:unity-debugger-pure.openLogs",
+    "onCommand:unity-debugger-pure.copyDiagnostics",
+    "onCommand:unity-debugger-pure.attachUnityDebugger",
+    "onCommand:unity-debugger-pure.showUnityApiReference",
+    "workspaceContains:**/Packages/manifest.json",
+  ]);
   // The reference declares `vstuc.displayBackgroundProcesses` as a boolean
   // defaulting to false, with this description verbatim. Our id follows our own
   // extension name for the same reason the reference's follows its own.

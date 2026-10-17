@@ -80,17 +80,31 @@ export interface DeprecatedExtensionWarningDependencies {
  * - **`{0}` is the deprecated extension's plain `displayName`, not a markdown
  *   link.** The reference builds
  *   `[<displayName>](command:extension.open?["<id>"])` and then passes
- *   `MarkdownString.value` — the markdown *source* — into a plain-text format,
- *   so what the user actually sees is the literal
+ *   `MarkdownString.value` — the markdown *source* — into the format, so what
+ *   the user actually sees is the literal
  *   `[Debugger for Unity](command:extension.open?["unity.unity-debug"])`. That
- *   is a defect, not behaviour to preserve. The link was **dropped rather than
- *   repaired**, because repairing it means handing `showWarningMessage` a
- *   `MarkdownString` with `isTrusted: true` for a `command:` link to work at
- *   all — and that document would interpolate an installed third-party
- *   extension's `displayName` into a trusted, command-capable context, buying a
- *   convenience shortcut at the price of a markup-injection surface. The
- *   sentence already says what to do ("Please uninstall or disable it."), so
- *   the affordance is the only thing lost.
+ *   is a defect, not behaviour to preserve.
+ *
+ *   The reason the link was **dropped rather than repaired** is not a risk
+ *   trade-off: it is that **there is nothing to repair it with**. Every
+ *   `showWarningMessage` overload this extension compiles against takes
+ *   `message: string` (`@types/vscode` 1.95.0, the four overloads at
+ *   `index.d.ts:10926`/`:10938`/`:10949`/`:10961`), and `MessageOptions`
+ *   offers only `modal` and `detail` (`:2116-2128`). A notification has no
+ *   markdown-rendering path at all, so a `MarkdownString` handed to this API is
+ *   treated as text and `vscode.MarkdownString`'s `isTrusted` never enters the
+ *   picture. The reference's markdown link could not have rendered as a link on
+ *   this surface under any implementation, and "repairing" it here is not
+ *   available to begin with — the string the spec records as item 11 is the
+ *   only thing this surface can show.
+ *
+ *   If a click-through is ever wanted, the markdown-free affordance is the
+ *   `...items` overload — `showWarningMessage(message, "Uninstall…")` — paired
+ *   with `commands.executeCommand("extension.open", id)`. That is a **new
+ *   divergence the brief did not authorize**, so it is recorded here as an
+ *   option and deliberately not implemented. Nothing actionable is lost in the
+ *   meantime: the sentence already says what to do ("Please uninstall or
+ *   disable it.").
  * - **`{1}` is our own display name, `Unity Debugger Pure`.** The reference's
  *   resolves to `Unity`. This descends from the coexistence decision — the two
  *   extensions can be installed together, so a message naming only `Unity`

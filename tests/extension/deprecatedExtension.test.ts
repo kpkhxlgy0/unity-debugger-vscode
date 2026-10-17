@@ -148,8 +148,10 @@ describe("warnAboutDeprecatedExtensions", () => {
 
     const [message] = showWarningMessage.mock.calls[0] as [unknown];
     expect(typeof message).toBe("string");
+    // The reference's markdown source contains `](command:`, so this is the
+    // half that catches it even when only the `{0}` argument is mutated.
     expect(message).not.toContain("command:extension.open");
-    expect((message as string).startsWith("[")).toBe(false);
+    expect(message).not.toContain("](");
   });
 });
 
