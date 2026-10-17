@@ -1,19 +1,21 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
 import { attachConfiguration } from "./attach-configuration.mjs";
+import {
+  displayPath,
+  existingBuildArtifacts,
+  repositoryRoot,
+  resolveBuildArtifact,
+} from "./vsix-artifact.mjs";
 
-const repositoryRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
-const requested = process.argv[2];
-if (!requested) {
-  throw new Error("Usage: verify-vsix.mjs <artifact.vsix>");
-}
-const vsixPath = path.resolve(repositoryRoot, requested);
+// With no argument this checks the artifact the current checkout builds, and
+// says which archive that is, so a reader can never mistake a stale artifact
+// for the one they just built.
+const vsixPath = resolveRequestedArtifact(process.argv[2]);
+console.log(`Checking ${displayPath(vsixPath)}`);
 const archive = new AdmZip(vsixPath);
 const files = new Map();
 for (const entry of archive.getEntries()) {
@@ -235,6 +237,25 @@ console.log(
   `VSIX verification passed: ${files.size} files, ` +
     `${packagedAssemblies.length} runtime assemblies.`,
 );
+
+function resolveRequestedArtifact(requested) {
+  if (requested) {
+    return path.resolve(repositoryRoot, requested);
+  }
+  const build = resolveBuildArtifact();
+  if (!existsSync(build.path)) {
+    const present = existingBuildArtifacts();
+    throw new Error(
+      `No artifact for this checkout: ${displayPath(build.path)} is ` +
+        "missing." +
+        (present.length > 0
+          ? ` dist/ holds ${present.join(", ")}.`
+          : "") +
+        " Run npm run package, or pass an artifact path explicitly.",
+    );
+  }
+  return build.path;
+}
 
 function verifyAmd64Pe(bytes) {
   if (bytes.length < 0x40 || bytes.readUInt16LE(0) !== 0x5a4d) {

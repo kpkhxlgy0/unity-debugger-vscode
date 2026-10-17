@@ -32,7 +32,10 @@ jobs:
           }
       - run: npm run verify:third-party
       - run: npm test
-      - run: npm run package
+      # Names the version-only release artifact explicitly. `npm run package`
+      # builds a commit-stamped file instead, so an ordinary build cannot
+      # overwrite a retained release artifact.
+      - run: npm run package:release
       - name: Create GitHub release
         shell: pwsh
         env:

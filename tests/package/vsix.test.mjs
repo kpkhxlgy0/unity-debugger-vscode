@@ -5,8 +5,20 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import AdmZip from "adm-zip";
+import { resolveBuildArtifact } from "../../scripts/vsix-artifact.mjs";
 
-const artifactPath = "dist/unity-debugger-pure-0.3.2.vsix";
+// The artifact `npm run package` produces for this checkout: build-stamped, so
+// this test can never read the retained release artifact by accident.
+const artifactPath = resolveBuildArtifact().path;
+
+function loadArtifact() {
+  assert.ok(
+    fs.existsSync(artifactPath),
+    `No packaged artifact at ${artifactPath}. ` +
+      "Run npm run package before npm run test:package.",
+  );
+  return new AdmZip(artifactPath);
+}
 
 function verifyVsix(vsixPath) {
   return spawnSync(process.execPath, ["scripts/verify-vsix.mjs", vsixPath], {
@@ -25,7 +37,7 @@ test("packaged VSIX satisfies the audited production contract", () => {
   );
   assert.match(result.stdout, /VSIX verification passed/);
 
-  const archive = new AdmZip(artifactPath);
+  const archive = loadArtifact();
   const manifestEntry = archive.getEntry("extension/package.json");
   const buildInfoEntry = archive.getEntry(
     "extension/adapter/win32-x64/build-info.json",
@@ -53,7 +65,7 @@ test("rejects a packaged manifest without the initial attach configuration", (t)
   t.after(() => fs.rmSync(fixtureDirectory, { recursive: true, force: true }));
 
   const fixturePath = path.join(fixtureDirectory, "missing-initial-config.vsix");
-  const archive = new AdmZip(artifactPath);
+  const archive = loadArtifact();
   const manifestEntry = archive.getEntry("extension/package.json");
   assert.ok(manifestEntry);
   const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
@@ -87,7 +99,7 @@ test("rejects a packaged implicit evaluation setting", (t) => {
     fixtureDirectory,
     "changed-implicit-evaluation.vsix",
   );
-  const archive = new AdmZip(artifactPath);
+  const archive = loadArtifact();
   const manifestEntry = archive.getEntry("extension/package.json");
   assert.ok(manifestEntry);
   const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
@@ -125,7 +137,7 @@ test("rejects a packaged private implicit evaluation Attach argument", (t) => {
     fixtureDirectory,
     "private-implicit-evaluation.vsix",
   );
-  const archive = new AdmZip(artifactPath);
+  const archive = loadArtifact();
   const manifestEntry = archive.getEntry("extension/package.json");
   const extensionEntry = archive.getEntry("extension/dist/extension.cjs");
   assert.ok(manifestEntry);
