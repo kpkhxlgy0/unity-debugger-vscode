@@ -1583,6 +1583,26 @@ Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberatel
 
 **Two of these are defects, not coverage nits, and are marked as such.** Do not downgrade them to "nice to have" because they are listed beside test-tidiness items — the list is grouped by area, not by severity.
 
+### Splitting this task into two, and they can run in parallel
+
+**The list holds 36 items numbered up to 47 — the numbers have gaps, and saying "47 items" would be wrong.** I checked by counting `^\d+\. \*\*` across this section: 36 matches, highest number 47, so eleven numbers were merged or dropped as the list evolved. **The distinction matters more than it looks**: a brief that says "47 items" invites a reviewer to verify that 47 were addressed, and a correct implementation would fail that check. Item numbers are stable identifiers; the total is not, and the two must not be confused.
+
+**They partition by file and by toolchain.** Grouped by the file each item names:
+
+| Items | Area | Toolchain to verify |
+| --- | --- | --- |
+| 1, 2, 10, 15, 22 | `adapter/src/**`, `tests/adapter/**` (C#) | `dotnet test` |
+| 20, 23–29, 32–42, 46, 47 | `extension/src/**`, `tests/extension/**`, `tests/build/**` (TypeScript) | `vitest`, `node --test`, `tsc` |
+| 43, 44, 45 | Records — matrix or plan text, no code | none |
+
+**So split it as:**
+
+- **Task 14a — the adapter side.** Items 1, 2, 10, 15, 22. Verifies with `dotnet test` (`Failed 0, Passed 207, Skipped 5, Total 212` is the baseline to hold).
+- **Task 14b — the extension side.** Items 20, 23–29, 32–42, 46, and **47 last**. Verifies with `npx vitest run tests/extension`, `node --test tests/build/*.test.mjs`, `npx tsc --noEmit`.
+- **Items 43–45 are records, not fixes**, and belong to whichever of the two reaches them first — or to Task 12 if it has already written the rows they refer to. Check before duplicating them.
+- **Run the two in parallel if both are dispatched**, which is safe because they share no file: the C# side touches `adapter/src` and `tests/adapter`, the TypeScript side touches `extension/src`, `tests/extension` and `tests/build`. **They also use different toolchains**, so neither blocks the other's verification — which is exactly the condition the one-writer-at-a-time rule exists to protect against, and it is not met here.
+- **Item 47 must be last within 14b**, because it re-derives line citations in `extension.ts` and that file is edited by items 28–32 and 35. Every other item in the list can be done in any order.
+
 **Files:**
 - Modify: `tests/adapter/UnityDebugger.Adapter.Tests/Dap/ReferenceCapabilityTests.cs`, `tests/adapter/UnityDebugger.Adapter.Tests/Dap/AttachArgumentsTests.cs`, `adapter/src/UnityDebugger.Adapter/Diagnostics/DiagnosticLog.cs`, `tests/adapter/UnityDebugger.Adapter.Tests/Diagnostics/DiagnosticLogTests.cs`, `tests/integration/adapter.integration.test.ts`, `tests/integration/dapClient.ts`
 
