@@ -46,6 +46,22 @@ export const CHANNEL_REFUSED_LINE = "event=diagnostics.channel.refused";
  */
 export const UNITY_NOT_RUNNING_MESSAGE =
   "Unity is not running for the current project";
+/**
+ * Exported, and read by nothing in `extension/src`. Kept anyway, deliberately.
+ *
+ * It is one of the reference's five authoritative strings, so removing it would
+ * remove a verbatim quote this alignment exists to keep.
+ *
+ * And there is nowhere correct to show it, which is why the dead export stays
+ * dead rather than being wired up: the state it names — a resolved target whose
+ * endpoint cannot be formed — cannot reach this extension. `editorDiscovery.ts`
+ * refuses a Player advertisement with no debugger port (`isValidPort`, pinned by
+ * two tests) and an Editor's port is always advertised-or-derived, so a guard in
+ * the provider would be reachable only from a stub that production cannot feed —
+ * coverage in appearance only. The reference's own use of this sentence is its
+ * no-workspace-folder case, and this extension answers that state with
+ * `NO_WORKSPACE_FOLDER_MESSAGE` instead.
+ */
 export const NO_UNITY_ENDPOINT_MESSAGE = "No Unity endPoint to connect to";
 export const NO_PROCESSES_MESSAGE = "No Process to attach to";
 
