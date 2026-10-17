@@ -5,11 +5,14 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import AdmZip from "adm-zip";
-import { resolveBuildArtifact } from "../../scripts/vsix-artifact.mjs";
+import { resolveArtifactPath } from "../../scripts/vsix-artifact.mjs";
 
-// The artifact `npm run package` produces for this checkout: build-stamped, so
-// this test can never read the retained release artifact by accident.
-const artifactPath = resolveBuildArtifact().path;
+// The artifact `npm run package` produced: build-stamped, so this test can never
+// read the retained release artifact by accident. `npm run package` names it
+// through the environment instead of letting this file resolve it again, because
+// the stamp comes from the commit and a commit landing mid-run would otherwise
+// point the suite at a file that does not exist.
+const artifactPath = resolveArtifactPath();
 
 function loadArtifact() {
   assert.ok(

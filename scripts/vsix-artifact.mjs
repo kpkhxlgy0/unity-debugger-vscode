@@ -63,6 +63,20 @@ export function resolveBuildArtifact(commit = currentCommit()) {
   };
 }
 
+// Set by `scripts/package-vsix.mjs` for the archive suite it runs itself, and
+// usable by hand: `UDP_VSIX_ARTIFACT=<path> npm run verify:vsix` checks one
+// named archive. The name is resolved once, where the artifact is written, so a
+// commit landing mid-run cannot make the next step look for another commit's
+// file.
+export const artifactEnvironmentVariable = "UDP_VSIX_ARTIFACT";
+
+export function resolveArtifactPath() {
+  const override = process.env[artifactEnvironmentVariable];
+  return override
+    ? path.resolve(override)
+    : resolveBuildArtifact().path;
+}
+
 // The property this module exists for: the ordinary build path must not be
 // able to reach the retained release artifact.
 export function assertNotPublishedArtifact(artifactPath) {

@@ -5,15 +5,17 @@ import path from "node:path";
 import AdmZip from "adm-zip";
 import { attachConfiguration } from "./attach-configuration.mjs";
 import {
+  artifactEnvironmentVariable,
   displayPath,
   existingBuildArtifacts,
   repositoryRoot,
-  resolveBuildArtifact,
+  resolveArtifactPath,
 } from "./vsix-artifact.mjs";
 
 // With no argument this checks the artifact the current checkout builds, and
 // says which archive that is, so a reader can never mistake a stale artifact
-// for the one they just built.
+// for the one they just built. `UDP_VSIX_ARTIFACT` names one explicitly, which
+// is how `npm run package` points it at the archive it just wrote.
 const vsixPath = resolveRequestedArtifact(process.argv[2]);
 console.log(`Checking ${displayPath(vsixPath)}`);
 const archive = new AdmZip(vsixPath);
@@ -242,19 +244,20 @@ function resolveRequestedArtifact(requested) {
   if (requested) {
     return path.resolve(repositoryRoot, requested);
   }
-  const build = resolveBuildArtifact();
-  if (!existsSync(build.path)) {
+  const artifactPath = resolveArtifactPath();
+  if (!existsSync(artifactPath)) {
     const present = existingBuildArtifacts();
     throw new Error(
-      `No artifact for this checkout: ${displayPath(build.path)} is ` +
+      `No artifact for this checkout: ${displayPath(artifactPath)} is ` +
         "missing." +
         (present.length > 0
           ? ` dist/ holds ${present.join(", ")}.`
           : "") +
-        " Run npm run package, or pass an artifact path explicitly.",
+        " Run npm run package, or pass an artifact path explicitly " +
+        `(or set ${artifactEnvironmentVariable}).`,
     );
   }
-  return build.path;
+  return artifactPath;
 }
 
 function verifyAmd64Pe(bytes) {
