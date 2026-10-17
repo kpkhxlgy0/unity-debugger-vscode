@@ -1168,7 +1168,12 @@ So: look up `unity.unity-debug`; **return if it is absent or not active**; other
 ### Task 12: Documentation — matrix, reference identity, security, amended scope
 
 **Files:**
-- Modify: `docs/reference-debugger-compatibility.md`, `AGENTS.md`, `README.md`, `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`, `docs/release-checklist.md`
+- Modify: `docs/reference-debugger-compatibility.md`, `AGENTS.md`, `README.md`, `docs/superpowers/specs/2026-08-06-reference-debugger-engine-parity-design.md`, `docs/superpowers/plans/2026-08-06-reference-compatible-mature-debugger-backend.md`, `docs/release-checklist.md`
+
+**Two of these six were added to this list after the fact, and both were being edited while absent from it — which is the failure mode, not a near miss.** `docs/release-checklist.md` was the first (round 126) and the 2026-08-06 backend plan is the second (round 134): the brief's body names it **four times** as a site whose prohibited-acts and authority clauses need amending, the task began editing it, and the Files list still named five paths. **The commit protocol is keyed to this list**, so an edited file that is not in it is a file that gets left unstaged for a later commit to sweep up.
+
+- **The mechanism is worth stating plainly, because this is the third time**: a Files list is written when a task is authored, then the task's *prose* grows to cover more files as reviews append to it, and **only the prose is reread**. `AGENTS.md` makes the consequence explicit — an unapproved or unrecorded difference blocks the completion claim — and an unstaged edit is exactly an unrecorded one.
+- **The check that catches it is one question, asked per file: is this file named in the Modify line?** Rounds 126 and 134 both found the answer to be no, and both were found by comparing the list against what the tree showed as modified — **not** by reading either the list or the prose alone.
 
 **`docs/release-checklist.md` was missing from this list until it was checked, and the omission mattered more than it looks.** The body of this brief describes that file's three stale `MyGame` sites, its acceptance list, and two lines to leave alone — so the *work* was specified. **What was missing was the staging instruction**, and the commit protocol for this work item is keyed to this list: an implementer following it stages four files, the fifth edit sits unstaged, and the very next commit sweeps it up under an unrelated message. **A file can be described in a brief's prose and still be absent from its checklist**, and only the checklist is read at commit time.
 
