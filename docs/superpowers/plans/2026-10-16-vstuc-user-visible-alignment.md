@@ -1068,7 +1068,7 @@ The third test pins the two things the reference's own activation proves: the `{
 
 | Was | Actually |
 | --- | --- |
-| Step 2 expected `FAIL — the module does not exist` | The module **does** exist (`extension/src/outputChannel.ts`, 26 lines). RED comes from `writeSanitized` not existing on it, so the failures are `channel.writeSanitized is not a function` — **not** a missing module. If you see a module-resolution error, something is wrong with your working tree, not with your test. |
+| Step 2 expected `FAIL — the module does not exist` | The module **does** exist (`extension/src/outputChannel.ts`, **26 lines when Task 9 delivered it**). RED comes from `writeSanitized` not existing on it, so the failures are `channel.writeSanitized is not a function` — **not** a missing module. If you see a module-resolution error, something is wrong with your working tree, not with your test. |
 | Step 3 said "Create the module and register the channel in `context.subscriptions`" | **Do not create it.** Add `writeSanitized` to the existing module, and note that Task 9 **already** registers the channel in `context.subscriptions` from `extension.ts` — so verify that wiring rather than writing it a second time. |
 | Staging was `extension/src/outputChannel.ts extension/src/extension.ts tests/extension/outputChannel.test.ts` | Still correct as a *list*, but only because Task 11 modifies `outputChannel.ts` — which the Files block above does not mention. See the next bullet. |
 
