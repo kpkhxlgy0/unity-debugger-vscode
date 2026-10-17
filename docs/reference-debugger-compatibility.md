@@ -509,6 +509,50 @@ revision suffix, and `app_path D:/Unity/Unity2022/Editor/Unity.exe`; pid 91740 i
 56740. The Editor version **actually exercised** by this entry is none: no attach, breakpoint,
 stepping or evaluation was performed, and Steps 3 and 5 remain outstanding.
 
+### 2026-10-17 - Task 13 real-Editor attach over DAP (Step 3, and what Step 4 reached)
+
+**The Editor version actually exercised is `2022.3.23f1`** — pid 91740, the acceptance project, in a
+running battle. The entry above recorded that no attach had been performed; one now has, driven
+directly over DAP against the shipped adapter rather than through a VS Code session, because that is
+the same process the extension spawns (`UnityDebuggerPure.exe`, no arguments, JSON over stdio).
+
+**Established, all from the live Editor:**
+
+- **Attach succeeds.** `initialize` → `attach` → `disconnect`, adapter exit code 0. The attach carried
+  `__host 127.0.0.1`, `__port 56740`, `__processId 91740`, `__projectVersion 2022.3.23f1`.
+- **The version policy classifies this project as `compatible-unverified`, not `unsupported`**, and
+  says so in the user's own words: *"Editor 2022.3.23f1 is unverified; the supported baseline is
+  2022.3.62t11. Support policy: …"*. **This is the end-to-end evidence the design spec says cannot be
+  reproduced against a synthetic `EditorInstance.json`** — the value Unity actually writes is the
+  input that matters, and `2022.3.23f1` has no revision suffix, so it exercises the guard's
+  accepting branch rather than the suffixed case the guard exists for.
+- **Because `ProjectVersion.txt` exists, this run exercises the primary path and not Task 6's
+  fallback.** The fallback remains unobserved in a real Editor, and saying so is more useful than
+  implying both were covered.
+- **The Mono VM is 6.13.0 at DAP protocol 2.58** (`VM Version:` on attach).
+- **`setBreakpoints` before `attach` is rejected**: `"Attach to an Editor before setting breakpoints."`
+  Pinned behaviour, observed rather than read.
+- **A breakpoint resolves but no stop arrives.** `Resolved pending breakpoint at
+  '…\CharacterDebug.cs:139,1' to void CharacterDebug.Update () [0x00001].` — and then no `stopped`
+  event within 75 s, with **40–600 `thread started` events for thread #1** and `configurationDone`
+  answered `success: false`. **Recorded as an observation, not a defect**: a soft debugger cannot
+  always re-JIT a method that is already executing, and one client is not enough to separate that from
+  our behaviour. **No row moves on this evidence.**
+
+**Step 4's traced target, `CharacterDebug.cs:383`, is not reachable in this project, and the tracing
+did not reach two reasons.** The `:612` guard `if (AttrInfoDebug) SafeUpdateAttrInfo();` sits inside
+`private void DrawScenePanelGUI()` at `:600` — an **IMGUI** method — so it runs only when that panel
+draws. And the only live `CharacterDebug` (on `'playerView_buid:0 unitId:106 entLogicId:2'`) has
+**`LogicEntity == NULL`**, with the field declared `[HideInInspector]public WorldEntity LogicEntity;`
+at `:18` and **no assignment anywhere under `Assets`** — a recursive search for `LogicEntity\s*=`
+returns only null-checks. So `:383`'s `FightUnitAttrUtils.GetAttrCurrValue(LogicEntity, attr)` cannot
+run with a live entity even if the guard fires.
+
+**`EVAL-07` and `EVAL-08` therefore stay `not yet verified`, and the reason is reachability rather
+than the debugger.** `AGENTS.md` requires exactly this reading. **Step 5 has not been run**, the
+reference side of every A/B is still a user report rather than an observation, and the three
+acceptance-movable rows are unmoved.
+
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
 - The user completed the manual Visual Studio Marketplace upload. The public gallery API reports version 0.3.2
