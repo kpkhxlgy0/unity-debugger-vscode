@@ -1592,23 +1592,33 @@ Findings accumulated from the reviews of Tasks 1, 2 and 3. They were deliberatel
 
 ### Splitting this task into two, and they can run in parallel
 
-**The list holds 36 items numbered up to 47 — the numbers have gaps, and saying "47 items" would be wrong.** I checked by counting `^\d+\. \*\*` across this section: 36 matches, highest number 47, so eleven numbers were merged or dropped as the list evolved. **The distinction matters more than it looks**: a brief that says "47 items" invites a reviewer to verify that 47 were addressed, and a correct implementation would fail that check. Item numbers are stable identifiers; the total is not, and the two must not be confused.
+**The list holds 48 items — numbered 1 through 47 plus `11b` — and an earlier revision of this section said 36. That was wrong, and the way it was wrong is worth keeping.** I counted with `^\d+\. \*\*`, which matches only items whose text opens with a bold marker. Items **3–9, 11, 11b, 12, 13 and 14** are written `3. Pin that …` **without** the marker, so a bold-anchored count skipped twelve real items and I then wrote the conclusion into this plan and into two agents' dispatches.
 
-**They partition by file and by toolchain.** Grouped by the file each item names:
+| Regex | Matches | Meaning |
+| --- | --- | --- |
+| `^\d+[a-z]?\.\s` | **48** | **the real count** |
+| `^\d+[a-z]?\.\s\*\*` | 36 | what this section, and the two dispatches, quoted |
+
+**Twelve items were never assigned, and the completion claim would have rested on "nothing is unassigned".** The twelve are 3–9 (DiagnosticLog and AttachArguments coverage gaps), 11 (the `AttachArgumentsTests.cs` move), 11b (the `ReferenceCapabilityTests.cs:54-126` body key-set pin), 12 (the `ExceptionFilterIds` input-shape matrix), 13 (the integration-test `DapClient.child.pid`), and 14 (a fixture hoist). **Item 6 is the one to prioritise**: the untested `logFile.redirectFailed` fallback is what carries the claim that a bad `logFile` cannot cost the user their session.
+
+**They partition by file and by toolchain.** Grouped by the file each item **targets** — not the files it mentions, a distinction that misfiled one item and left two more unclaimed:
 
 | Items | Area | Toolchain to verify |
 | --- | --- | --- |
-| 1, 2, 10, 15, 22 | `adapter/src/**`, `tests/adapter/**` (C#) | `dotnet test` |
-| 20, 23–29, 32–42, 46, 47 | `extension/src/**`, `tests/extension/**`, `tests/build/**` (TypeScript) | `vitest`, `node --test`, `tsc` |
-| 43, 44, 45 | Records — matrix or plan text, no code | none |
+| 1, 2, 10, 15, 16, 17, 22, 27 | `adapter/src/**`, `tests/adapter/**` (C#) | `dotnet test` |
+| 13 | `tests/integration/**` (TypeScript) | `vitest run tests/integration` |
+| 3–9, 11, 11b, 12, 14 | `adapter/**`, `tests/adapter/**` (C#) — **deferred until 14a frees the tree** | `dotnet test` |
+| 18, 19, 20, 21, 23–26, 28–42, 46, 47 | `extension/src/**`, `tests/extension/**`, `tests/build/**` (TS) | `vitest`, `node --test`, `tsc` |
+| 43, 44, 45 | Records — no code | none |
 
 **So split it as:**
 
-- **Task 14a — the adapter side.** Items 1, 2, 10, 15, 22. Verifies with `dotnet test` (`Failed 0, Passed 207, Skipped 5, Total 212` is the baseline to hold).
-- **Task 14b — the extension side.** Items 20, 23–29, 32–42, 46, and **47 last**. Verifies with `npx vitest run tests/extension`, `node --test tests/build/*.test.mjs`, `npx tsc --noEmit`.
-- **Items 43–45 are records, not fixes**, and belong to whichever of the two reaches them first — or to Task 12 if it has already written the rows they refer to. Check before duplicating them.
-- **Run the two in parallel if both are dispatched**, which is safe because they share no file: the C# side touches `adapter/src` and `tests/adapter`, the TypeScript side touches `extension/src`, `tests/extension` and `tests/build`. **They also use different toolchains**, so neither blocks the other's verification — which is exactly the condition the one-writer-at-a-time rule exists to protect against, and it is not met here.
+- **Task 14a — the adapter side.** Items **1, 2, 10, 15, 16, 17, 22, 27**. Verifies with `dotnet test` (`Failed 0, Passed 207, Skipped 5, Total 212` is the baseline to hold).
+- **Task 14b — the extension side.** Items **18, 19, 20, 21, 23–26, 28–42, 43–47**, with **47 last**. Verifies with `npx vitest run tests/extension`, `node --test tests/build/*.test.mjs`, `npx tsc --noEmit`.
+- **Task 14c — the twelve deferred items**, items **3–9, 11, 11b, 12, 13, 14**. **They must wait for Task 14a**, because every one of them targets `adapter/**` or `tests/adapter/**` — the tree 14a is editing. **Dispatching them in parallel is the one collision this partition cannot absorb.**
+- **Items 43–45 are records, not fixes.** 43 and 44 are Task 14b's; **45 is recorded as awaiting acceptance** rather than claimed, because "no real VS Code host has exercised the in-place decoration" can only stop being true when someone runs the extension in a host.
 - **Item 47 must be last within 14b**, because it re-derives line citations in `extension.ts` and that file is edited by items 28–32 and 35. Every other item in the list can be done in any order.
+- **Items 3–9 and 11b are in a file whose hardcoded assertions must be read before it is changed**, and item 27's target — `tests/adapter/…/Dap/UnityDebugSessionLifecycleTests.cs` — was originally filed under the extension half because its row *mentions* `extension.ts`. **The file an item targets decides its half; the files it mentions do not.**
 
 **Files:**
 - Modify (**adapter, Task 14a**): `adapter/src/UnityDebugger.Adapter/Diagnostics/DiagnosticLog.cs`, `adapter/src/UnityDebugger.Adapter/Program.cs`, `adapter/src/UnityDebugger.Adapter/Breakpoints/BreakpointManager.cs`, `adapter/src/UnityDebugger.Adapter/Backend/UnavailableDebuggerBackend.cs`, and under `tests/adapter/UnityDebugger.Adapter.Tests/`: `Dap/ReferenceCapabilityTests.cs`, `Dap/AttachArgumentsTests.cs`, `Dap/UnityDebugSessionLifecycleTests.cs`, `Diagnostics/DiagnosticLogTests.cs`, `Diagnostics/BuildIdentityTests.cs`, `Backend/MonoDebuggingBackendLifecycleTests.cs`
