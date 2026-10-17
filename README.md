@@ -63,8 +63,8 @@ diagnostics log to a path you choose.
 
 ## Features
 
-- local Windows x64 Editor discovery and attach, plus Player attach by
-  advertisement or by an explicit `endPoint`;
+- local Windows x64 Editor discovery and attach, plus Player attach by an
+  explicit `endPoint`;
 - **Unity Debugger Pure: Attach Unity Debugger**, which lists the Unity Editors
   and Players available for debugger attachment;
 - source and conditional breakpoints, with the reference debugger's warning
@@ -101,8 +101,9 @@ Formally supported:
 - Windows 10/11 x64;
 - Tuanjie `2022.3.62t11`;
 - Mono managed C# debugging;
-- attaching to a discovered local Editor, to a Player whose advertisement offers
-  a usable debugger port, and to an explicit `host:port` endpoint.
+- attaching to a discovered local Editor, and to an explicit `host:port` endpoint —
+  including a Player's, since the reference reaches a Player by probing the
+  device for its debugger port and no advertisement observed so far carries one.
 
 Unity `2022.3` LTS versions are accepted for compatibility testing. Unity 6
 is allowed to connect but is unverified and is not guaranteed. The Adapter warns

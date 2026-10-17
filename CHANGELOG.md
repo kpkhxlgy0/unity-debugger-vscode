@@ -24,8 +24,10 @@ describes the artifact that was published and verified, so it is left as it was.
   reference; the adapter still validates what it needs at attach time.
 - Add **Unity Debugger Pure: Unity API Reference**, which opens the Unity
   documentation for the selected code construct.
-- Add the `unity-debugger-pure.displayBackgroundProcesses` setting, and sort the
-  attach picker's items non-background-first.
+- Add the `unity-debugger-pure.displayBackgroundProcesses` setting — contributed
+  for manifest compatibility, and inert until the adapter emits the background
+  classification it filters on — and sort the attach picker's items
+  non-background-first.
 - Warn when function breakpoints are in use, in the reference debugger's words.
 - Replace the single discovery-failure message with the reference's three
   distinct ones, and stop returning an empty target list silently when

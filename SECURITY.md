@@ -14,5 +14,7 @@ Version `0.3.2` attaches to a discovered local Editor by default, and also
 supports an explicit `endPoint` in `launch.json` naming any `ip:port`, including
 a non-loopback one. Unity's managed debug transport has **no authentication**:
 anyone who can reach the debugger port can attach, and an attached debugger can
-execute code in the target Editor or player. Expose a remote endpoint only on a
-network you trust and control. The extension adds no transport authentication.
+execute code in the target Editor or player. The port is derived deterministically
+from the Editor's process id (`56000 + pid % 1000`), so it is guessable rather than
+secret. Expose a remote endpoint only on a network you trust and control. The
+extension adds no transport authentication.

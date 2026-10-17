@@ -30,7 +30,7 @@
   pre-verified breakpoint location to prefer there: choose a candidate path in
   that project and prove the reachability of the specific method and line
   before using it. This replaces the earlier preference for verified reachable
-  code under `MyGame`'s `DevTools`, which no longer exists on disk.
+  code under `MyGame`'s `DevTools`; that fixture never existed in this project.
 
 ## Reference debugger compatibility
 
@@ -50,9 +50,9 @@
 - Maintain an explicit reference-compatibility matrix for affected debugger
   behavior in `docs/reference-debugger-compatibility.md`. Mark each item as
   reference-verified, aligned, divergent, identical, not applicable, or not yet
-  verified — the last two because the 2026-10-16 comparison produced one row of
-  each that no other term describes honestly — and retain the concrete
-  comparison evidence.
+  verified. `identical` and `not applicable` are named because the 2026-10-16
+  comparison produced one row of each that no other term describes honestly.
+  Retain the concrete comparison evidence.
 - Call out every known or unverified difference in design reviews, test
   reports, and release handoffs. An unapproved difference blocks claiming
   reference compatibility or completion.
