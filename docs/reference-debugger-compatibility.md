@@ -553,6 +553,41 @@ than the debugger.** `AGENTS.md` requires exactly this reading. **Step 5 has not
 reference side of every A/B is still a user report rather than an observation, and the three
 acceptance-movable rows are unmoved.
 
+### 2026-10-17 - Task 13 pause, stack walk, and thread reporting against the live Editor
+
+**Four runs against the same Editor, and everything below is what an adapter over stdio actually
+answered — not what a document says it should.** The Editor version exercised is `2022.3.23f1`.
+
+**What works.** `attach` succeeds in every run. `threads` returns the real thread set — 42 to 50
+entries named `Burst-CompilerThread-N`, `Thread #N`, `<Thread Pool>`, `Thread Pool I/O Selector`,
+`Timer-Scheduler`, `StreamingScene`. **`pause` suspends the runtime and the adapter reports it**:
+`stopped reason=pause threadId=1 allThreadsStopped=true`.
+
+**What does not, and it is reproducible.** **`stackTrace` never answers.** Seven threads were tried
+in one run with a 12-second timeout each — the reported thread 1 and six managed-looking ones — and
+**all seven timed out**; earlier runs timed out on thread 1 and on thread 2 as well. The stop is
+reported, `allThreadsStopped` is `true`, and the walk behind it produces nothing. **If this holds in
+a VS Code session then that session has no call stack, no scopes and no evaluation**, which is why it
+is recorded here rather than left in a scratch log.
+
+**And a single `pause` emits one `stopped` event per thread** — 42 in one run, 50 in another, 42 in a
+third — every one of them `reason=pause`, `threadId=1`, `allThreadsStopped=true`. A client that takes
+`allThreadsStopped` at its word will show the user dozens of stops for one pause.
+
+**Bounds on this, because a finding this size has to be bounded or it is a claim.**
+- **All of it was measured in edit mode.** The breakpoint run was in Play Mode with a battle, and
+  there the breakpoint resolved and no stop arrived — so **`stackTrace` after a breakpoint stop in
+  Play Mode is untested**, and that is the path a user actually takes.
+- **The reference side was not run.** Its adapter needs its own launcher handshake
+  (`BackendProcess` over `dotnet.acquire`), so whether the reference walks these threads or reports
+  stops the same way is **unknown**, and until it is known this cannot be attributed to us.
+- **The client is minimal.** A real session also sends `setExceptionBreakpoints` and a fuller
+  configuration phase; the differences are not covered here.
+
+**None of this moves a row.** It is recorded because it is the first real-Editor evidence about
+mechanisms the matrix currently describes from unit tests and packaged artifacts, and because a
+release decision should not be taken on the assumption that a stack walk is fine.
+
 ### 2026-09-25 - Visual Studio Marketplace publication verified
 
 - The user completed the manual Visual Studio Marketplace upload. The public gallery API reports version 0.3.2
