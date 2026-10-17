@@ -111,12 +111,16 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Single(warnings);
             var warning = Required<string>(
                 warnings[0].SelectToken("body.output"));
-            Assert.Contains(
-                "Editor 6000.0.50f1 is unverified",
-                warning);
-            Assert.Contains(
+            // One full-string comparison rather than fragments: the defect this
+            // warning was fixed for was a double space, and a fragment-based
+            // guard cannot see anything that changes between its fragments.
+            Assert.Equal(
+                "Editor 6000.0.50f1 is unverified; " +
+                "the supported baseline is 2022.3.62t11. " +
+                "Support policy: " +
                 "https://marketplace.visualstudio.com/items?itemName=" +
-                "kpk.unity-debugger-pure#support-policy",
+                "kpk.unity-debugger-pure#support-policy" +
+                Environment.NewLine,
                 warning);
         }
 

@@ -7,6 +7,12 @@ namespace UnityDebugger.Adapter.Diagnostics
     {
         public static Action<string>? Sink { get; set; }
 
+        // A permissive gate, not a mirror of the writers, and the difference is
+        // deliberate rather than drift: several entries below already have no
+        // producer under adapter/src and are retained as the permitted
+        // vocabulary for their producer family. A name that is emitted without
+        // an entry here is silently dropped instead of logged, so a new writer
+        // must add its name.
         private static readonly HashSet<string> AllowedEventNames =
             new HashSet<string>(StringComparer.Ordinal)
             {
@@ -24,7 +30,6 @@ namespace UnityDebugger.Adapter.Diagnostics
                 "unity-debugger.breakpoint.manager.status.pending.accepted",
                 "unity-debugger.breakpoint.manager.status.pending.buffered",
                 "unity-debugger.breakpoint.manager.status.pending.mapped",
-                "unity-debugger.breakpoint.manager.status.pending.suppressed",
                 "unity-debugger.breakpoint.manager.status.pending.unmapped",
                 "unity-debugger.breakpoint.dap.status.bound",
                 "unity-debugger.breakpoint.dap.status.pending",

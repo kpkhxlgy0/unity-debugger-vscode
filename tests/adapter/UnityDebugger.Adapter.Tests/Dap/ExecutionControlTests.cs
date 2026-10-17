@@ -110,6 +110,25 @@ namespace UnityDebugger.Adapter.Tests.Dap
             Assert.Equal(2, backend.StepOverCount);
         }
 
+        // Recorded verdict on `Continued`, because this test's name reads as
+        // coverage it does not provide. IDebuggerBackend does not declare the
+        // event; UnavailableDebuggerBackend declares it with no raiser; no code
+        // in adapter/src subscribes to it, and nothing anywhere in adapter/src
+        // can emit a DAP `continued` event. So the Assert.Empty below is
+        // satisfied by the absence of any forwarding path rather than by this
+        // backend event being filtered, and it would pass identically if the
+        // event never fired. It guards the intent that a backend continued
+        // event must never be forwarded, not current behaviour.
+        //
+        // Removing the event, the RaiseContinuedSynchronously scaffolding and
+        // this test together was the honest alternative and was declined:
+        // the spec's cleanup sentence was amended to exclude Continued (it is
+        // an execution-control concept, not a reload event), and
+        // FakeDebuggerBackend.RaiseContinued is also called by
+        // Late_continued_event_does_not_overwrite_new_step_stop below and by
+        // InspectionRequestTests.Dap_does_not_own_backend_handle_lifetime, so
+        // an all-or-nothing removal would reach two other suites to delete one
+        // test — which this pass must not lose.
         [Fact]
         public void Synchronous_backend_continued_event_is_not_forwarded()
         {

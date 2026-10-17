@@ -153,6 +153,38 @@ namespace UnityDebugger.Adapter.Tests.Breakpoints
             }
         }
 
+        // A rejected bind leaves the entry pending with no backend id, so the
+        // rebind has nothing to remove. That is the null branch of
+        // RemoveBackendBreakpoint, which the surrounding tests never take: they
+        // all start from a bound entry.
+        [Fact]
+        public void Second_bind_on_a_pending_entry_rebinds_without_backend_removal()
+        {
+            var backend = new FakeDebuggerBackend
+            {
+                RejectBreakpoint = true,
+            };
+            using (var manager = new BreakpointManager(backend))
+            {
+                var pending = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, "ready") });
+                Assert.False(pending[0].Verified);
+
+                backend.RejectBreakpoint = false;
+                var bound = manager.ReplaceForSource(
+                    @"H:\fixture\Assets\Player.cs",
+                    new[] { new RequestedBreakpoint(12, "!ready") });
+
+                Assert.Equal(pending[0].Id, bound[0].Id);
+                Assert.True(bound[0].Verified);
+                Assert.Null(bound[0].Message);
+                Assert.Equal(2, backend.Bound.Count);
+                Assert.Equal("!ready", backend.Bound[1].Condition);
+                Assert.Empty(backend.RemovedBreakpointIds);
+            }
+        }
+
         [Fact]
         public async Task Removed_entry_discards_late_rebind_result()
         {

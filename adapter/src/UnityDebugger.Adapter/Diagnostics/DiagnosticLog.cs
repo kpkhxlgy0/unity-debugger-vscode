@@ -190,12 +190,16 @@ namespace UnityDebugger.Adapter.Diagnostics
                 }
             }
 
-            var line = FormatLine(eventName, fields);
             lock (writeLock)
             {
                 if (disposed)
                     throw new ObjectDisposedException(
                         nameof(DiagnosticLog));
+                // Formatting carries the timestamp, so it belongs inside the
+                // critical section: sampling outside it lets a writer that
+                // acquires the lock first emit the later timestamp, and the
+                // lines in both files then run backwards in time.
+                var line = FormatLine(eventName, fields);
                 writer.WriteLine(line);
                 writer.Flush();
                 if (secondaryWriter != null)
@@ -227,7 +231,19 @@ namespace UnityDebugger.Adapter.Diagnostics
             var previous = secondaryWriter;
             secondaryWriter = null;
             secondaryPath = null;
-            previous.Dispose();
+            try
+            {
+                previous.Dispose();
+            }
+            catch
+            {
+                // A user-supplied path can go away mid-session — a dropped
+                // network share, a full disk — and disposing the sink is the
+                // last thing its owner does. The writer is already detached
+                // above, so nothing can retry it, and the caller treats a
+                // diagnostics failure as non-fatal everywhere else: the open
+                // path reports logFile.redirectFailed and attaches anyway.
+            }
         }
 
         private string FormatLine(

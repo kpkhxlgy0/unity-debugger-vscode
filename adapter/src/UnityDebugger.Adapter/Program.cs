@@ -84,7 +84,7 @@ namespace UnityDebugger.Adapter
                         {
                             ["exitCode"] = exitCode,
                         });
-                    log.Dispose();
+                    SafeDispose(log);
                 }
             }
             return exitCode;
@@ -102,6 +102,25 @@ namespace UnityDebugger.Adapter
             catch
             {
                 // Diagnostics must never corrupt stdout DAP transport.
+            }
+        }
+
+        // Disposal is the one diagnostics call that cannot be tolerated to
+        // throw: it runs from this method's finally, after the session has
+        // already ended, so an exception here replaces a finished debug
+        // session with an unhandled shutdown exception — the same rule the
+        // open path follows when a logFile cannot be redirected. Internal
+        // rather than private so the guard itself carries a test, since Main
+        // is not reachable from the suite.
+        internal static void SafeDispose(IDiagnosticLog log)
+        {
+            try
+            {
+                log.Dispose();
+            }
+            catch
+            {
+                // A diagnostics failure must not cost the user their session.
             }
         }
     }
