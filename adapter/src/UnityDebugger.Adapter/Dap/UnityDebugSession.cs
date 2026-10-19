@@ -605,6 +605,16 @@ namespace UnityDebugger.Adapter.Dap
                 dapThreadId,
                 out var backendThreadId))
             {
+                // This path answers without a stack at all, which would leave the Call Stack
+                // panel empty and is therefore logged as its own outcome rather than inferred
+                // from a missing entry later.
+                SafeWriteDiagnostic(
+                    "stackTrace.unavailable",
+                    new Dictionary<string, object>
+                    {
+                        ["threadId"] = dapThreadId,
+                        ["eventCount"] = 0,
+                    });
                 SendUnavailable(response, "Thread");
                 return;
             }
@@ -638,6 +648,18 @@ namespace UnityDebugger.Adapter.Dap
                             Math.Max(1, frame.Column),
                             source == null ? "subtle" : "normal"));
                 }
+                // A real VS Code session showed an empty Call Stack while the same adapter
+                // answered 14 frames to an equivalent request from a script, so the remaining
+                // unknown is the request itself: which thread it asked about, and how many
+                // frames came back. Both fit the existing allowlist - threadId and eventCount
+                // are already permitted integers - so this needs no widening of that boundary.
+                SafeWriteDiagnostic(
+                    "stackTrace.result",
+                    new Dictionary<string, object>
+                    {
+                        ["threadId"] = dapThreadId,
+                        ["eventCount"] = dapFrames.Count,
+                    });
                 SendResponse(
                     response,
                     new DapStackTraceResponseBody(
@@ -646,11 +668,25 @@ namespace UnityDebugger.Adapter.Dap
             }
             catch (OperationCanceledException)
             {
+                SafeWriteDiagnostic(
+                    "stackTrace.timeout",
+                    new Dictionary<string, object>
+                    {
+                        ["threadId"] = dapThreadId,
+                        ["eventCount"] = 0,
+                    });
                 SendEmptyStackTrace(response);
             }
             catch (Exception exception)
                 when (IsInspectionFailure(exception))
             {
+                SafeWriteDiagnostic(
+                    "stackTrace.failure",
+                    new Dictionary<string, object>
+                    {
+                        ["threadId"] = dapThreadId,
+                        ["eventCount"] = 0,
+                    });
                 SendInspectionFailure(response);
             }
         }
