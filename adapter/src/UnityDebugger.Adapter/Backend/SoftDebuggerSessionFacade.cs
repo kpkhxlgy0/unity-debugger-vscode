@@ -275,6 +275,16 @@ namespace UnityDebugger.Adapter.Backend
             // cannot be cancelled, so waiting for it would reintroduce exactly the hang this
             // guards against. A timed-out walk therefore costs one parked thread rather than
             // a frozen client, and that is the trade being made here on purpose.
+            //
+            // Measured after this change, on that same Editor: the walk returns in about a
+            // tenth of a second with 14 frames whose chain is the reference's own. So moving
+            // it off the request thread did not merely bound the wait, it let the query
+            // finish, and the bound is now a guard for the case where it does not rather than
+            // the thing that fixed it. The likely reason - recorded as a hypothesis and not
+            // as a finding - is that a walk issued on the DAP request thread deadlocked
+            // against the debugger's own dispatch. Do not "simplify" this back to a direct
+            // call on the strength of the paragraphs above: the walk is fast now because it
+            // is on a worker, not despite it.
             var backtraceTask = Task.Run(() => thread.Backtrace);
             if (!backtraceTask.Wait(timeoutMilliseconds, cancellationToken))
             {
