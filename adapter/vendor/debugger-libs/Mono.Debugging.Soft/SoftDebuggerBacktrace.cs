@@ -165,7 +165,20 @@ namespace Mono.Debugging.Soft
 						methodName = mn;
 				}
 				
-				methodName = typeDisplayName + "." + methodName;
+				// UnityDebuggerPure: the reference debugger's Call Stack shows the full method
+				// signature - `Int32 System.Threading.WaitHandle:WaitMultiple (WaitHandle[],
+				// Int32, Boolean, Boolean)` - which is what MethodMirror.FullName builds, and
+				// this concatenation is the only place that decides the text. The three cases
+				// below keep the original rendering on purpose, because FullName cannot carry
+				// what they add: a generic method's type arguments, a generated state machine's
+				// user-friendly name, and an anonymous method's rewritten name. Aligning the
+				// ordinary case is the point; flattening those three to `DeclaringType.Name`
+				// would trade one difference for three regressions.
+				methodName = special_method
+					|| method.IsGenericMethod
+					|| SoftDebuggerAdaptor.IsGeneratedType (type)
+					? typeDisplayName + "." + methodName
+					: method.FullName;
 				
 				typeFQN = type.Module.FullyQualifiedName;
 				typeFullName = type.FullName;
