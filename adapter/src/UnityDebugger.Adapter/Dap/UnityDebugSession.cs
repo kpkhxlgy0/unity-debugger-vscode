@@ -1102,10 +1102,23 @@ namespace UnityDebugger.Adapter.Dap
             object sender,
             BackendOutputEventArgs arguments)
         {
+            // A DAP client appends an output event's text verbatim, and Mono's log writer
+            // hands over a line without its terminator. Forwarding that unchanged ran our own
+            // version warning into the VM banner - a real VS Code session showed
+            // "Protocol Version: 2.58Editor 2022.3.23f1 is unverified" as a single line.
+            // Terminate here, once, so both sinks are covered and a message that already ends
+            // with a break is not doubled. Approved by the user on 2026-10-19 as a deliberate
+            // difference from the reference, whose behaviour on this path was not verified.
+            var output = arguments.Output;
+            if (output.Length > 0 &&
+                !output.EndsWith("\n", StringComparison.Ordinal))
+            {
+                output += Environment.NewLine;
+            }
             SendEvent(
                 new OutputEvent(
                     arguments.Category,
-                    arguments.Output));
+                    output));
         }
 
         private void OnManagedBreakpointChanged(

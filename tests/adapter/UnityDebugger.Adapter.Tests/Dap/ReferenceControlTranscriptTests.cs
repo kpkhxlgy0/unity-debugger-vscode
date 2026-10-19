@@ -155,8 +155,12 @@ namespace UnityDebugger.Adapter.Tests.Dap
 
                 var output = Assert.Single(
                     DapTestProtocol.Events(messages, "output"));
+                // Terminated on the way out, because a DAP client appends this text verbatim:
+                // a backend line that arrives without its break would otherwise run into
+                // whatever is emitted next. Approved 2026-10-19 as a deliberate difference
+                // from the reference, whose behaviour on this path was not verified.
                 Assert.Equal(
-                    "message",
+                    "message" + System.Environment.NewLine,
                     output["body"]!["output"]!.Value<string>());
                 var module = Assert.Single(
                     DapTestProtocol.Events(messages, "module"));
