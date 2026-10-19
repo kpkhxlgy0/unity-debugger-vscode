@@ -32,6 +32,15 @@ current release candidate.
   working as designed, not a broken build: rebuild the adapter, then regenerate the
   inventory explicitly with `node scripts/generate-runtime-inventory.mjs --write`
   and review the diff, because the changed hash is a changed shipped binary.
+- **Run the adapter suite with `UNITY_DEBUGGER_TEST_MONO` set, or read the skipped
+  count as a warning rather than a number.** The Mono-backed tests skip themselves when
+  that variable does not point at a standalone Mono executable, and the skip is applied
+  per attribute rather than per case, so a handful of `[MonoFact]`/`[MonoTheory]` methods
+  expand into far more cases that quietly do not run. Without it the suite reports
+  **227 passed, 6 skipped**; with it, **249 passed, 0 skipped**. Unity's own runtime is
+  enough - `Data\MonoBleedingEdge\bin\mono.exe` beside the Editor, which on 2022.3.23f1 is
+  Mono 6.13.0, the same version that Editor reports over DAP. A release verified on the
+  smaller number has verified less than it says.
 
 ## 2. Public repository
 

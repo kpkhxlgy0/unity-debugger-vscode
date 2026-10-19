@@ -48,6 +48,26 @@ namespace UnityDebugger.Adapter.Tests.Backend
         }
 
         [MonoFact]
+        public void Stack_frame_text_matches_the_reference_debugger_format()
+        {
+            using (var probe = new MonoEvaluationProbe())
+            {
+                var name = probe.FrameName;
+                output.WriteLine("Frame text: " + name);
+
+                // The reference debugger renders `Int32 System.Threading.WaitHandle:WaitMultiple
+                // (WaitHandle[], Int32, Boolean, Boolean)` - return type, a space, the
+                // namespace-qualified declaring type, a colon, the method, then the parameter
+                // list. The vendored SoftDebuggerBacktrace was changed to MethodMirror.FullName
+                // to produce exactly that; before the change this read
+                // `Namespace.Type.Method` with no return type and no parameter list, so a
+                // revert fails here rather than passing quietly.
+                Assert.Matches(@"^\S+ \S+:\S+ \(.*\)$", name);
+                Assert.DoesNotContain("..", name);
+            }
+        }
+
+        [MonoFact]
         public void MethodEvaluationKeepsUnrelatedWorkerStoppedBeforeTheNextStep()
         {
             using (var probe = new MonoEvaluationProbe(startWorker: true))
@@ -138,6 +158,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
         private readonly string sourcePath;
         private Process? process;
         private long frameId;
+        private long threadId;
 
         public int BreakpointLine { get; private set; }
         public int CurrentLine { get; private set; }
@@ -186,6 +207,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
                     facade.ConnectAsync(IPAddress.Loopback, port, 20, 100, timeout.Token).GetAwaiter().GetResult();
                 Assert.True(stopped.Task.Wait(TimeSpan.FromSeconds(15)), "Standalone Mono did not hit the fixture breakpoint.");
+                threadId = stopped.Task.Result.ThreadId;
                 var frame = facade.GetStackTrace(stopped.Task.Result.ThreadId, 0, 5, 20000, CancellationToken.None).First(value => value.SourcePath == sourcePath);
                 frameId = frame.Id;
                 CurrentLine = frame.Line;
@@ -200,6 +222,19 @@ namespace UnityDebugger.Adapter.Tests.Backend
         public string Evaluate(string expression) =>
             facade.Evaluate(frameId, expression, 3000, CancellationToken.None)!.DisplayValue;
 
+        /// <summary>
+        /// The Call Stack text our adapter reports for the fixture's own frame.
+        /// </summary>
+        /// <remarks>
+        /// Exposed so the reference format can be pinned by a test. The alignment lives in
+        /// vendored code, which is exactly the kind of change that silently drifts back, and
+        /// the format is what a user reads in the Call Stack panel.
+        /// </remarks>
+        public string FrameName =>
+            facade.GetStackTrace(threadId, 0, 5, 20000, CancellationToken.None)
+                .First(value => value.SourcePath == sourcePath)
+                .Name;
+
         public void InspectScopes() =>
             Assert.Single(facade.GetScopes(frameId, 3000, CancellationToken.None));
 
@@ -213,6 +248,7 @@ namespace UnityDebugger.Adapter.Tests.Backend
                 facade.StepOver();
                 Assert.True(stopped.Task.Wait(TimeSpan.FromSeconds(15)), "Standalone Mono did not stop after Step Over.");
                 var result = stopped.Task.Result;
+                threadId = result.ThreadId;
                 var frame = facade.GetStackTrace(result.ThreadId, 0, 5, 20000, CancellationToken.None).First(value => value.SourcePath == sourcePath);
                 frameId = frame.Id;
                 CurrentLine = frame.Line;
