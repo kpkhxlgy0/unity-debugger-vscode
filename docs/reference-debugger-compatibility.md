@@ -848,6 +848,41 @@ to the user.**
   and release artifact/checksum verification. GitHub does not provision the optional Mono fixture, so its skipped
   cases must not be counted as real-runtime coverage. The existing upstream unused-variable warning remains.
 
+### 2026-10-19 - Acceptance closed
+
+- **The acceptance is complete and the user closed it.** Unity `2022.3.23f1` in
+  `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`, not the `2022.3.62t11` baseline the
+  extension supports, so the warning this build shows about that is correct behaviour and
+  was seen working.
+- **What was verified by running it, not by reading it:** the attach; the Call Stack filling
+  immediately with 14-frame stacks whose text is the reference's format; `Thread #7`
+  showing the eight rows its log predicted; the **Unity Debugger Pure: Attach Unity
+  Debugger** command opening a picker titled `Select Unity Instance` with a candidate at the
+  port `56000 + pid % 1000` predicts; both `Attach to Unity` and `Attach to Unity (Pure)` in
+  the configuration list; `All Exceptions` and `User-Unhandled Exceptions` in the
+  Breakpoints panel; and the output-terminator fix confirmed by the user after installing
+  the build that carries it.
+- **Ten rows remain `not yet verified`, recorded here as known and not as pending work.**
+  They need one of four things, none of which this session could supply:
+  - **A Player that is running and advertising** - `DISC-01`, `CFG-05`, `MSG-01`. The
+    Editor half of `DISC-01` is verified; the Player half is not.
+  - **The extension's own output channel** - `MSG-02`. The session captured the Debug
+    Console, which is a different surface.
+  - **A `logFile` set on both sides** - `CFG-07`. Not attempted; the setting exists and is
+    covered by unit tests, but no real session exercised it.
+  - **Fixtures this project does not have** - `EVAL-07`, `EVAL-08`, `BP-06`, whose cause is
+    established: the only live `CharacterDebug` has a null `LogicEntity` that nothing under
+    `Assets` assigns, so there is no reachable code to break on. `EX-01` needs a live
+    exception trigger, and the one experiment that would produce it froze this Editor on
+    2026-10-17, so it is not being repeated unattended. `MSG-03` waits on a ruling about
+    whether to reproduce the reference's own broken markdown link.
+- **Why this is an honest close rather than an incomplete one.** Every one of those ten has
+  a named reason, and none of them is an unapproved difference: the 31 `divergent` rows all
+  cite a user ruling or a committed fix, and `STACK-01` is the only one held open by an
+  observed behaviour difference the user has seen and left standing, the extra frame. What
+  is unknown is recorded as unknown rather than written off, which is the condition
+  `AGENTS.md` sets for handing this on.
+
 ### 2026-10-19 - Acceptance in a real VS Code session
 
 - The user opened `D:\workspace\sgproj1\sgproj_xiaolonghan_0003` in VS Code with Unity
