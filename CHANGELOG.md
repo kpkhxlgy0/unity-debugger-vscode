@@ -4,9 +4,9 @@
 
 User-visible alignment with Microsoft's Visual Studio Tools for Unity for VS Code
 (`VisualStudioToolsForUnity.vstuc`) 1.3.2, on the reference-compatibility matrix
-in `docs/reference-debugger-compatibility.md`. **No version bump**: the release
-identity is a separate, coordinated decision, and the `0.3.2` entry below
-describes the artifact that was published and verified, so it is left as it was.
+in `docs/reference-debugger-compatibility.md`. Published to the VS Code
+Marketplace, Open VSX and GitHub Releases as the same 5,862,017-byte artifact with
+sha256 `77a2fdc42596a2fc`.
 
 - Add **Unity Debugger Pure: Attach Unity Debugger**, which lists the Unity
   Editors and Players available for debugger attachment and starts a session
@@ -55,6 +55,12 @@ describes the artifact that was published and verified, so it is left as it was.
   a tenth of a second, with a stack matching the reference debugger's; the bound
   stays as a guard, and a request that does run out of time returns an empty
   frame list rather than hanging.
+- Terminate `output` event text so consecutive messages stay on separate lines. A
+  DAP client appends that text verbatim, and Mono's log writer hands over a line
+  without its terminator, so the VM banner and the version warning arrived as one
+  message: `Protocol Version: 2.58Editor 2022.3.23f1 is unverified`. This is a
+  deliberate difference from the reference, whose behaviour on that path was not
+  verified; it was approved as such rather than assumed to be aligned.
 - Render Call Stack frames the way the reference debugger does — return type,
   the namespace-qualified declaring type, a colon, the method, then the
   parameter list, as in `Int32 System.Threading.WaitHandle:WaitMultiple
