@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.3 - 2026-10-19
 
 User-visible alignment with Microsoft's Visual Studio Tools for Unity for VS Code
 (`VisualStudioToolsForUnity.vstuc`) 1.3.2, on the reference-compatibility matrix

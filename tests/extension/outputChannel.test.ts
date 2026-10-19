@@ -463,7 +463,7 @@ function temporaryDirectory(): string {
 
 function extensionContext(): vscode.ExtensionContext {
   return {
-    extension: { packageJSON: { version: "0.3.2" } },
+    extension: { packageJSON: { version: "0.3.3" } },
     extensionPath: temporaryDirectory(),
     subscriptions: [],
   } as unknown as vscode.ExtensionContext;

@@ -2,7 +2,7 @@
 // gate the release flow uses, and run `tests/package/vsix.test.mjs` against the
 // artifact that was just written.
 //
-// Default output is build-stamped (`unity-debugger-pure-0.3.2+g<commit>.vsix`),
+// Default output is build-stamped (`unity-debugger-pure-0.3.3+g<commit>.vsix`),
 // so this command cannot destroy a retained release artifact. `--release` also
 // writes the version-only release name, byte-identical, and is meant for the
 // tagged release workflow: .github/workflows/release.yml names that path

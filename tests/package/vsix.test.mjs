@@ -51,13 +51,13 @@ test("packaged VSIX satisfies the audited production contract", () => {
   const buildInfo = JSON.parse(
     buildInfoEntry.getData().toString("utf8"),
   );
-  assert.equal(manifest.version, "0.3.2");
-  assert.equal(buildInfo.version, "0.3.2");
+  assert.equal(manifest.version, "0.3.3");
+  assert.equal(buildInfo.version, "0.3.3");
   assert.match(buildInfo.commit, /^[0-9a-f]{40}$/);
-  assert.match(buildInfo.buildId, /^0\.3\.2\+g[0-9a-f]{12}$/);
+  assert.match(buildInfo.buildId, /^0\.3\.3\+g[0-9a-f]{12}$/);
   assert.equal(
     buildInfo.buildId,
-    `0.3.2+g${buildInfo.commit.slice(0, 12)}`,
+    `0.3.3+g${buildInfo.commit.slice(0, 12)}`,
   );
 });
 

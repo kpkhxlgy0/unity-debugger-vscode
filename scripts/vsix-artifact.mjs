@@ -2,7 +2,7 @@
 //
 // A released artifact and a working-tree build must never share a path. The
 // default name identifies the build —
-// `unity-debugger-pure-0.3.2+g<commit>.vsix`, the same stamp
+// `unity-debugger-pure-0.3.3+g<commit>.vsix`, the same stamp
 // `adapter/win32-x64/build-info.json` carries — so an ordinary
 // `npm run package` cannot overwrite a retained release. The version-only
 // release name is reached only when it is named explicitly, by
@@ -18,7 +18,7 @@ export const repositoryRoot = path.resolve(
 );
 // Pinned the way `scripts/stage-adapter.mjs` and
 // `scripts/verify-release-artifact.mjs` pin it.
-export const version = "0.3.2";
+export const version = "0.3.3";
 export const distributionDirectory = path.join(repositoryRoot, "dist");
 export const publishedArtifactName = `unity-debugger-pure-${version}.vsix`;
 export const publishedArtifactPath = path.join(

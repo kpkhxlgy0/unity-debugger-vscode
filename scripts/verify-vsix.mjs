@@ -94,7 +94,7 @@ const manifest = JSON.parse(
 if (
   manifest.publisher !== "kpk" ||
   manifest.name !== "unity-debugger-pure" ||
-  manifest.version !== "0.3.2" ||
+  manifest.version !== "0.3.3" ||
   manifest.displayName !== "Unity Debugger Pure" ||
   manifest.icon !== "images/icon.png"
 ) {
@@ -106,10 +106,10 @@ const buildInfo = JSON.parse(
     .bytes.toString("utf8"),
 );
 if (
-  buildInfo.version !== "0.3.2" ||
+  buildInfo.version !== "0.3.3" ||
   !/^[0-9a-f]{40}$/.test(buildInfo.commit) ||
-  !/^0\.3\.2\+g[0-9a-f]{12}$/.test(buildInfo.buildId) ||
-  buildInfo.buildId !== `0.3.2+g${buildInfo.commit.slice(0, 12)}`
+  !/^0\.3\.3\+g[0-9a-f]{12}$/.test(buildInfo.buildId) ||
+  buildInfo.buildId !== `0.3.3+g${buildInfo.commit.slice(0, 12)}`
 ) {
   throw new Error("Packaged build identity is invalid.");
 }

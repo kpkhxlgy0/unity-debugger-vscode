@@ -58,7 +58,7 @@ export function classifyVersion(projectVersion: string): VersionDecision {
       level: "unsupported",
       version: projectVersion,
       warning:
-        `Editor ${projectVersion} is outside the version 0.3.2 ` +
+        `Editor ${projectVersion} is outside the version 0.3.3 ` +
         "compatibility policy.",
     };
   }

@@ -225,7 +225,7 @@ function packagedAdapterDirectory(): string {
 
 function extensionContext(extensionPath: string): vscode.ExtensionContext {
   return {
-    extension: { packageJSON: { version: "0.3.2" } },
+    extension: { packageJSON: { version: "0.3.3" } },
     extensionPath,
     subscriptions: [],
   } as unknown as vscode.ExtensionContext;

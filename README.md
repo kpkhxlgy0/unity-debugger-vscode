@@ -20,7 +20,7 @@ Install **Unity Debugger Pure** from one of these sources:
   Open VSX-compatible editors;
 - Cursor's Extensions view, which obtains this extension from Open VSX.
 
-For sideloading, download `unity-debugger-pure-0.3.2.vsix` from the
+For sideloading, download `unity-debugger-pure-0.3.3.vsix` from the
 [GitHub Releases page](https://github.com/kpkhxlgy0/unity-debugger-vscode/releases),
 run **Extensions: Install from VSIX...**, and select that exact file.
 
@@ -83,7 +83,7 @@ diagnostics log to a path you choose.
   classification it filters on;
 - sanitized local diagnostics with no telemetry.
 
-Version 0.3.2 exposes a versioned local extension API for trusted local
+Version 0.3.3 exposes a versioned local extension API for trusted local
 clients. API targets are opaque, restricted to the current workspace, and do
 not change normal interactive debugging.
 

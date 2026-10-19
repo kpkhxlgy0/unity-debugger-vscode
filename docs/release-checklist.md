@@ -1,6 +1,6 @@
 # Unity Debugger Pure Release Checklist
 
-Use these gates in order for every public release. Version `0.3.2` is the
+Use these gates in order for every public release. Version `0.3.3` is the
 current release candidate.
 
 ## 1. Local release candidate
@@ -13,8 +13,8 @@ current release candidate.
   while the latter deliberately writes a commit-stamped name so that an ordinary
   build cannot overwrite a retained release.
 - Confirm the release files are exactly
-  `unity-debugger-pure-0.3.2.vsix` and
-  `unity-debugger-pure-0.3.2.vsix.sha256`.
+  `unity-debugger-pure-0.3.3.vsix` and
+  `unity-debugger-pure-0.3.3.vsix.sha256`.
 - Confirm the checksum matches the exact VSIX accepted in
   `D:\workspace\sgproj1\sgproj_xiaolonghan_0003`.
 - **Compare that checksum against the downloaded artifact, never against a
@@ -90,7 +90,7 @@ source, logs, shell history, release notes, issues, or chat.
 ## 7. Cursor
 
 - Search Cursor Extensions for `@id:kpk.unity-debugger-pure`.
-- Confirm Cursor resolves version `0.3.2` through Open VSX.
+- Confirm Cursor resolves version `0.3.3` through Open VSX.
 - If Open VSX is active but Cursor cannot discover the extension, request a
   Cursor marketplace sync/security review. Do not build another VSIX.
 
