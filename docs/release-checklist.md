@@ -3,6 +3,32 @@
 Use these gates in order for every public release. Version `0.3.3` is the
 current release candidate.
 
+## 0.3.3 release verification (2026-10-19)
+
+Recorded because the same bytes reaching all three channels is the property worth
+proving, and it is not implied by one upload succeeding.
+
+- **One artifact, three channels.** The reference artifact is the one CI built and
+  attached to the GitHub Release: `unity-debugger-pure-0.3.3.vsix`, 5,862,017 bytes,
+  sha256 `77a2fdc42596a2fc76ffb5bb09326e935d8e870b2270964c6a265528fd82dc54`.
+- **Open VSX** was published by `publish-open-vsx.yml` (run 39215708998, 50s, log line
+  `Published kpk.unity-debugger-pure v0.3.3`). The registry's own `.sha256` for 0.3.3
+  matches the reference artifact, and a VSIX downloaded from the registry hashes to it, so
+  the registry copy is the same file rather than a re-pack.
+- **VS Code Marketplace** was uploaded by hand, because no workflow publishes there and a
+  test asserts that `publish-marketplace.yml` does not exist. The VSIX served from
+  `kpk.gallerycdn.vsassets.io` is 5,862,017 bytes and hashes to the same value, and its
+  `package.json` reports `unity-debugger-pure 0.3.3` with 5 commands and adapter buildId
+  `0.3.3+gf797391e7e2b`.
+- **The local build is not the reference and must not be substituted for it.** The same
+  tree produced `bf7ee783a848097d...` at 5,861,914 bytes - 103 bytes different, which is
+  the ZIP-metadata non-reproducibility this file already warns about. Uploading that one
+  would have shipped bytes that no channel had verified.
+- **A note on reading the registry too early.** Immediately after the publish, Open VSX
+  served `latest=0.3.2` and 404'd `0.3.3` for about ninety seconds while the CI log
+  already said `Published`. That is index propagation, not failure: the 0.3.3 record now
+  carries the publish timestamp `07:24:41` from that same log line.
+
 ## 1. Local release candidate
 
 - Confirm `master` is clean.
