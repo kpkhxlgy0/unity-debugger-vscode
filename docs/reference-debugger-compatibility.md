@@ -847,6 +847,31 @@ to the user.**
   and release artifact/checksum verification. GitHub does not provision the optional Mono fixture, so its skipped
   cases must not be counted as real-runtime coverage. The existing upstream unused-variable warning remains.
 
+### 2026-10-17 - Final verification of the aligned tree
+
+- Local verification on `master` at `e87a26f`, with `UNITY_DEBUGGER_TEST_MONO` set to
+  Unity's own bundled runtime (`Data\MonoBleedingEdge\bin\mono.exe`, Mono 6.13.0 - the
+  version the attached Editor reports over DAP): type checking clean, **24 build tests**,
+  **213 extension tests across 18 files**, **249 adapter tests, zero failed and zero
+  skipped**, **10 integration tests**, **4 package tests**, the 33-entry/17-assembly VSIX
+  audit, and release artifact verification. `npm test` and `npm run package` both exit 0.
+  The retained release artifact is untouched at
+  `4449c1f22385302fe4149fb1454749e9c1dfa0a800aa9914227bee299a1e2c5e`.
+- **244 of the 249 adapter tests is what a Mono-less run reports as 227 passed and 6
+  skipped**, which is the trap the 2026-09-24 entry below already warned about and which
+  I fell into anyway while reporting this work. The release checklist now carries the step.
+- The two changes on top of the reference alignment are the bounded stack walk, which made
+  `stackTrace` answer in 0.1 s with 14 frames where it previously never answered at all,
+  and the Call Stack frame text, which now reads character-for-character what the reference
+  reads. Both were confirmed against the acceptance Editor over DAP rather than only in
+  unit tests, and both have guards that were proved to discriminate by mutation.
+- **Still unverified, and carried deliberately rather than closed:** the frame COUNT
+  (ours 14, the reference 13, ours carrying an extra `Wait_internal` the reference omits);
+  `GetLocationSignature`, which `SourceLocation.MethodName` also feeds and which no test
+  exercises, so the exception-location-matching path is unverified after the frame-text
+  change; and the twelve matrix rows above that need a VS Code session, a non-loopback
+  Player, or a reachability fixture this project does not have.
+
 ### 2026-09-24 - Step disappears after a Watch/Scopes refresh
 
 - Current user session runs the installed 0.3.1 candidate. Its log
