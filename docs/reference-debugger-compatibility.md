@@ -872,6 +872,14 @@ to the user.**
   names, also returns 0 frames, which is counter-intuitive for the thread that just stopped
   and wants its own look. And the frame COUNT difference stands - ours 14, the reference 13 -
   which is the sole reason `STACK-01` remains `divergent`.
+- **What the session does NOT verify, stated here so it is not inferred later: the attach was
+  started from the workspace `launch.json` entry, not from the Command Palette.** The user
+  confirmed which. So this session verifies the attach path the configuration drives, and it
+  does **not** exercise `CMD-01` (the **Unity Debugger Pure: Attach Unity Debugger** command)
+  or `DISC-01` (the target list its picker shows). Both stay `not yet verified`, and the
+  distinction matters because a working attach makes it very easy to assume the command that
+  starts one was also exercised - they are different code paths, and only one of them ran.
+
 - **Credit where the evidence came from:** the Editor restarts, the VSIX installs, the reloads
   and the repeated thread expansions were all done by the user. Two of my own hypotheses in
   this stretch - a missing `resume` on disconnect, and a vendored route for the frame text -
