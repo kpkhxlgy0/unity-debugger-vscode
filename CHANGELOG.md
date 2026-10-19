@@ -51,9 +51,17 @@ describes the artifact that was published and verified, so it is left as it was.
   walk that could not complete previously left the client waiting forever — a
   Call Stack panel that never finished loading, with no diagnostic at all — and
   the scopes, variables and evaluation that are addressed against stack frames
-  went with it. The walk underneath is still as slow as the runtime makes it, so
-  a request that runs out of time now returns an empty frame list rather than
-  frames; that is a visible answer instead of a hang, not a faster walk.
+  went with it. On a real Unity 2022.3.23f1 Editor the walk now returns in about
+  a tenth of a second, with a stack matching the reference debugger's; the bound
+  stays as a guard, and a request that does run out of time returns an empty
+  frame list rather than hanging.
+- Render Call Stack frames the way the reference debugger does — return type,
+  the namespace-qualified declaring type, a colon, the method, then the
+  parameter list, as in `Int32 System.Threading.WaitHandle:WaitMultiple
+  (WaitHandle[], Int32, Boolean, Boolean)` — instead of the bare type and method
+  name. Generic methods, compiler-generated state machines and anonymous methods
+  keep the previous rendering, which carries type arguments and user-friendly
+  names that the fuller form does not.
 
 ## 0.3.2 - 2026-09-24
 
